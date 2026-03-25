@@ -1,5 +1,7 @@
 import { CaseResult, TimelineEvent, Section, InsightsData } from "@/types";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:4000";
+
 /**
  * Data Service Layer
  * 
@@ -13,6 +15,16 @@ import { CaseResult, TimelineEvent, Section, InsightsData } from "@/types";
 
 export const dataService = {
   _caseCache: null as CaseResult[] | null,
+
+  async _fetchJson<T>(url: string): Promise<T | null> {
+    try {
+      const response = await fetch(`${API_BASE}${url}`);
+      if (!response.ok) return null;
+      return (await response.json()) as T;
+    } catch {
+      return null;
+    }
+  },
 
   async _loadCaseData(): Promise<CaseResult[]> {
     if (this._caseCache) return this._caseCache;
@@ -86,6 +98,11 @@ export const dataService = {
    * TODO: Integrate with backend API
    */
   async getCases(): Promise<CaseResult[]> {
+    const fromApi = (await this._fetchJson("/api/cases")) as CaseResult[] | null;
+    if (fromApi && Array.isArray(fromApi)) {
+      return fromApi;
+    }
+
     const allCases = await this._loadCaseData();
     return allCases
       .slice()
@@ -97,6 +114,11 @@ export const dataService = {
    * TODO: Integrate with backend AI search API
    */
   async searchCases(query: string): Promise<CaseResult[]> {
+    const fromApi = (await this._fetchJson(`/api/cases/search?q=${encodeURIComponent(query)}`)) as CaseResult[] | null;
+    if (fromApi && Array.isArray(fromApi)) {
+      return fromApi;
+    }
+
     const allCases = await this._loadCaseData();
     const q = query.toLowerCase().trim();
     if (!q) return allCases.slice(0, 20);
@@ -124,6 +146,14 @@ export const dataService = {
     court?: string,
     type?: string
   ): Promise<CaseResult[]> {
+    const params = new URLSearchParams();
+    if (court && court !== "All Courts") params.set("court", court);
+    if (type && type !== "All Types") params.set("type", type);
+    const fromApi = (await this._fetchJson(`/api/cases?${params.toString()}`)) as CaseResult[] | null;
+    if (fromApi && Array.isArray(fromApi)) {
+      return fromApi;
+    }
+
     const allCases = await this._loadCaseData();
     return allCases.filter((item) => {
       if (court && court !== "All Courts" && item.court !== court) return false;
@@ -137,6 +167,9 @@ export const dataService = {
    * TODO: Integrate with backend API
    */
   async getCaseById(id: string): Promise<CaseResult | null> {
+    const fromApi = (await this._fetchJson(`/api/cases/${encodeURIComponent(id)}`)) as CaseResult | null;
+    if (fromApi) return fromApi;
+
     const allCases = await this._loadCaseData();
     return allCases.find((item) => item.id === id) || null;
   },
@@ -161,6 +194,11 @@ export const dataService = {
    * TODO: Integrate with backend history API
    */
   async getActivityHistory(): Promise<TimelineEvent[]> {
+    const fromApi = (await this._fetchJson("/api/history")) as TimelineEvent[] | null;
+    if (fromApi && Array.isArray(fromApi)) {
+      return fromApi;
+    }
+
     const allCases = await this._loadCaseData();
     const now = new Date();
 
@@ -178,6 +216,11 @@ export const dataService = {
    * TODO: Integrate with backend analytics API
    */
   async getInsights(): Promise<InsightsData> {
+    const fromApi = (await this._fetchJson("/api/insights")) as InsightsData | null;
+    if (fromApi) {
+      return fromApi;
+    }
+
     const allCases = await this._loadCaseData();
 
     const similarityDistribution = [
