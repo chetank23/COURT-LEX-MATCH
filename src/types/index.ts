@@ -6,6 +6,8 @@ export interface CaseResult {
   court: string;
   year: number;
   similarity: number;
+  priorityScore?: number;
+  priorityBand?: "P0" | "P1" | "P2" | "P3";
   summary: string;
   whyMatch: string;
   type: string;

@@ -4,9 +4,6 @@ import { Grid3X3, GitBranch, Filter, X, ChevronRight, Scale, Calendar, Tag } fro
 import { CaseResult } from "@/types";
 import { dataService } from "@/services/dataService";
 
-const courts = ["All Courts", "Supreme Court", "Federal Circuit", "High Court", "Court of Appeals", "District Court"];
-const types = ["All Types", "Insurance Law", "Employment Law", "Privacy Law", "Product Liability", "Medical Law", "Financial Regulation"];
-
 function CaseCard({ c, onClick }: { c: CaseResult; onClick: () => void }) {
   return (
     <motion.div
@@ -19,7 +16,12 @@ function CaseCard({ c, onClick }: { c: CaseResult; onClick: () => void }) {
       className="glass-panel rounded-2xl p-5 cursor-pointer group hover:glow-primary transition-all"
     >
       <div className="flex items-start justify-between mb-3">
-        <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">{c.type}</span>
+        <div className="flex items-center gap-2">
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">{c.type}</span>
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-destructive/10 text-destructive">
+            {c.priorityBand || "P3"} · {c.priorityScore || 0}
+          </span>
+        </div>
         <span className="text-2xl font-display font-bold gradient-text">{c.similarity}%</span>
       </div>
       <h3 className="font-display font-semibold text-foreground text-sm leading-tight mb-2 group-hover:text-primary transition-colors">
@@ -114,7 +116,12 @@ function DetailPanel({ c, onClose }: { c: CaseResult; onClose: () => void }) {
       className="fixed right-0 top-0 bottom-0 w-full max-w-md z-40 bg-card border-l border-border shadow-2xl p-6 overflow-y-auto"
     >
       <div className="flex items-center justify-between mb-6">
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">{c.type}</span>
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">{c.type}</span>
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-destructive/10 text-destructive">
+            Priority {c.priorityBand || "P3"} ({c.priorityScore || 0})
+          </span>
+        </div>
         <button onClick={onClose} className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80">
           <X className="w-4 h-4" />
         </button>
@@ -170,6 +177,15 @@ export default function CaseExplorer() {
   const [showFilters, setShowFilters] = useState(false);
   const [cases, setCases] = useState<CaseResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const courts = useMemo(
+    () => ["All Courts", ...Array.from(new Set(cases.map((c) => c.court))).sort()],
+    [cases]
+  );
+  const types = useMemo(
+    () => ["All Types", ...Array.from(new Set(cases.map((c) => c.type))).sort()],
+    [cases]
+  );
 
   useEffect(() => {
     const loadCases = async () => {

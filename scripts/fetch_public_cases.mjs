@@ -149,9 +149,11 @@ async function main() {
   const root = process.cwd();
   const rawDir = path.join(root, "data", "raw");
   const processedDir = path.join(root, "data", "processed");
+  const publicDataDir = path.join(root, "public", "data");
 
   await mkdir(rawDir, { recursive: true });
   await mkdir(processedDir, { recursive: true });
+  await mkdir(publicDataDir, { recursive: true });
 
   console.log("Downloading public legal dataset...");
   const response = await fetch(SOURCE_URL);
@@ -182,13 +184,16 @@ async function main() {
 
   const jsonPath = path.join(processedDir, "cases_import.json");
   const csvPath = path.join(processedDir, "cases_import.csv");
+  const publicJsonPath = path.join(publicDataDir, "cases_import.json");
 
   await writeFile(jsonPath, `${JSON.stringify(cases, null, 2)}\n`, "utf8");
   await writeFile(csvPath, `${toCsv(cases)}\n`, "utf8");
+  await writeFile(publicJsonPath, `${JSON.stringify(cases)}\n`, "utf8");
 
   console.log(`Fetched and normalized ${cases.length} cases.`);
   console.log(`JSON: ${jsonPath}`);
   console.log(`CSV:  ${csvPath}`);
+  console.log(`Public JSON: ${publicJsonPath}`);
 }
 
 main().catch((error) => {

@@ -7,6 +7,7 @@ This folder stores fetched and normalized legal case data.
 - `data/raw/indian_sc_source.csv`: raw source file downloaded from a public dataset.
 - `data/processed/cases_import.json`: normalized JSON for ingestion.
 - `data/processed/cases_import.csv`: normalized CSV for ingestion.
+- `public/data/cases_import.json`: runtime JSON used directly by the frontend.
 
 ## Fetch Command
 
