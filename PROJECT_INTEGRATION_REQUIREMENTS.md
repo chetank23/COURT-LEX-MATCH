@@ -58,6 +58,27 @@ Complete the project into a production-ready legal intelligence platform with:
 - Ranking and filtering logic
 - Explainability output (why this case matched)
 
+### Phase E2: AI Priority and Triage Engine
+- Compute a priority score so the system shows which case should be solved first
+- Combine legal urgency, business impact, timeline risk, and complexity signals
+- Use explainable scoring so users can see why a case is marked high priority
+- Add manual override workflow for legal teams to adjust final priority
+
+Proposed priority score model:
+
+PriorityScore =
+0.30 * Urgency
++ 0.25 * Impact
++ 0.20 * DeadlineRisk
++ 0.15 * SimilarityConfidence
++ 0.10 * ComplianceRisk
+
+Priority bands:
+- P0 Critical: score >= 85 (immediate attention)
+- P1 High: score >= 70 and < 85
+- P2 Medium: score >= 50 and < 70
+- P3 Low: score < 50
+
 ### Phase F: Frontend Integration with Real APIs
 - Replace service placeholders with live API calls
 - Loading/error/retry UX polish
@@ -122,6 +143,16 @@ You need to define:
 3. Performance expectations (for example, search response target)
 4. Uptime target and support expectations
 
+## 4.6 Inputs Required for AI Priority Ranking
+You need to provide:
+1. Priority policy (what matters most: legal risk, financial risk, or deadline)
+2. Weight preferences for each scoring factor (or approve default weights)
+3. SLA deadlines by case type (for example, criminal, civil, tax, labor)
+4. Business impact rules (how to map potential loss/reputation impact)
+5. Escalation rules (when a case must auto-escalate to P0)
+6. Override authority (which user roles can change AI-assigned priority)
+7. Historical outcomes data (optional but improves model calibration)
+
 ## 5) Deliverables at Completion
 
 At final completion, you will get:
@@ -130,6 +161,7 @@ At final completion, you will get:
 - Database-backed persistent records
 - Working PDF analysis pipeline
 - AI similarity search with explainable matches
+- AI case triage that recommends highest-priority cases first with reasons
 - Production deployment with monitoring and CI/CD
 - Technical documentation and runbook
 
@@ -159,6 +191,11 @@ Please complete the following before integration starts:
 - Compliance constraints documented (Yes/No): ____________________
 - Launch timeline target: ____________________
 - Budget range: ____________________
+- Priority policy chosen (risk/deadline/business): ____________________
+- Priority weights approved (Yes/No): ____________________
+- SLA deadlines provided by case type (Yes/No): ____________________
+- Escalation rules defined (Yes/No): ____________________
+- Override roles finalized (Yes/No): ____________________
 
 ## 8) Immediate Next Step
 

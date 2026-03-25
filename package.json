@@ -12,7 +12,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "data:fetch": "node scripts/fetch_public_cases.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
