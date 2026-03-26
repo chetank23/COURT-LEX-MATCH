@@ -198,9 +198,9 @@ export const dataService = {
    * In production, proxy this through your backend.
    */
   async explainCaseMatch(query: string, item: CaseResult): Promise<string> {
-    const fromApi = await this._fetchJson<{ explanation?: string }>(
+    const fromApi = (await this._fetchJson(
       `/api/cases/${encodeURIComponent(item.id)}/explain?q=${encodeURIComponent(query)}`
-    );
+    )) as { explanation?: string } | null;
     if (fromApi?.explanation) return fromApi.explanation;
 
     if (OPENAI_API_KEY) {
@@ -283,9 +283,9 @@ export const dataService = {
   },
 
   async assessFIRPriority(file: File, sections: Section[]): Promise<FIRPriorityAssessment> {
-    const fromApi = await this._fetchJson<FIRPriorityAssessment>(
+    const fromApi = (await this._fetchJson(
       `/api/fir/assess-priority?filename=${encodeURIComponent(file.name)}`
-    );
+    )) as FIRPriorityAssessment | null;
     if (fromApi) return fromApi;
 
     const combinedText = [
@@ -324,9 +324,9 @@ export const dataService = {
     assessment: FIRPriorityAssessment,
     sections: Section[]
   ): Promise<FIRJudgeAssignment> {
-    const fromApi = await this._fetchJson<FIRJudgeAssignment>(
+    const fromApi = (await this._fetchJson(
       `/api/fir/assign-judge?filename=${encodeURIComponent(file.name)}`
-    );
+    )) as FIRJudgeAssignment | null;
     if (fromApi) return fromApi;
 
     const category: FIRJudgeAssignment["category"] =
@@ -475,21 +475,20 @@ export const dataService = {
    * Judge Management
    * TODO: Integrate with backend API
    */
-  async getJudges() {
+  async getJudges(): Promise<JudgeProfile[]> {
     // Placeholder - replace with actual API call
     // return fetch('/api/judges').then(r => r.json());
     return [];
   },
 
-  async getJudgeById(judgeId: string) {
+  async getJudgeById(judgeId: string): Promise<JudgeProfile | null> {
     void judgeId;
     // Placeholder - replace with actual API call
     // return fetch(`/api/judges/${judgeId}`).then(r => r.json());
     return null;
   },
 
-  async addJudge(judge: any) {
-    void judge;
+  async addJudge(judge: JudgeProfile): Promise<JudgeProfile> {
     // Placeholder - replace with actual API call
     // return fetch('/api/judges', {
     //   method: 'POST',
@@ -499,7 +498,7 @@ export const dataService = {
     return judge;
   },
 
-  async editJudge(judgeId: string, updates: any) {
+  async editJudge(judgeId: string, updates: Partial<JudgeProfile>): Promise<Partial<JudgeProfile>> {
     void judgeId;
     void updates;
     // Placeholder - replace with actual API call
@@ -511,7 +510,7 @@ export const dataService = {
     return updates;
   },
 
-  async removeJudge(judgeId: string) {
+  async removeJudge(judgeId: string): Promise<void> {
     void judgeId;
     // Placeholder - replace with actual API call
     // return fetch(`/api/judges/${judgeId}`, { method: 'DELETE' });
@@ -521,21 +520,20 @@ export const dataService = {
    * Hearing Schedule Management
    * TODO: Integrate with backend API
    */
-  async getHearings() {
+  async getHearings(): Promise<HearingSchedule[]> {
     // Placeholder - replace with actual API call
     // return fetch('/api/hearings').then(r => r.json());
     return [];
   },
 
-  async getHearingById(hearingId: string) {
+  async getHearingById(hearingId: string): Promise<HearingSchedule | null> {
     void hearingId;
     // Placeholder - replace with actual API call
     // return fetch(`/api/hearings/${hearingId}`).then(r => r.json());
     return null;
   },
 
-  async addHearing(hearing: any) {
-    void hearing;
+  async addHearing(hearing: HearingSchedule): Promise<HearingSchedule> {
     // Placeholder - replace with actual API call
     // return fetch('/api/hearings', {
     //   method: 'POST',
@@ -545,7 +543,7 @@ export const dataService = {
     return hearing;
   },
 
-  async editHearing(hearingId: string, updates: any) {
+  async editHearing(hearingId: string, updates: Partial<HearingSchedule>): Promise<Partial<HearingSchedule>> {
     void hearingId;
     void updates;
     // Placeholder - replace with actual API call
@@ -557,20 +555,20 @@ export const dataService = {
     return updates;
   },
 
-  async removeHearing(hearingId: string) {
+  async removeHearing(hearingId: string): Promise<void> {
     void hearingId;
     // Placeholder - replace with actual API call
     // return fetch(`/api/hearings/${hearingId}`, { method: 'DELETE' });
   },
 
-  async getHearingsByCaseId(caseId: string) {
+  async getHearingsByCaseId(caseId: string): Promise<HearingSchedule[]> {
     void caseId;
     // Placeholder - replace with actual API call
     // return fetch(`/api/hearings?caseId=${caseId}`).then(r => r.json());
     return [];
   },
 
-  async getHearingsByJudgeId(judgeId: string) {
+  async getHearingsByJudgeId(judgeId: string): Promise<HearingSchedule[]> {
     void judgeId;
     // Placeholder - replace with actual API call
     // return fetch(`/api/hearings?judgeId=${judgeId}`).then(r => r.json());
