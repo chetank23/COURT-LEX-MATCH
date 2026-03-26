@@ -1,10 +1,158 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Grid3X3, GitBranch, Filter, X, ChevronRight, Scale, Calendar, Tag } from "lucide-react";
+import { Grid3X3, GitBranch, Filter, X, Scale, Calendar, Users, ShieldCheck, UserRoundCheck, Search, MapPin, Sparkles } from "lucide-react";
 import { CaseResult } from "@/types";
 import { dataService } from "@/services/dataService";
 
-function CaseCard({ c, onClick }: { c: CaseResult; onClick: () => void }) {
+type JudgeCategory = "Criminal" | "Civil" | "Other";
+
+interface CaseAssignment {
+  category: JudgeCategory;
+  assignedJudge: string;
+  availableJudges: string[];
+  partyLabel: "Accused" | "Defendant";
+  requiresPublicProsecutor: boolean;
+}
+
+type CourtLevel = "Supreme Court" | "High Court" | "District Court" | "Other Court";
+type GroupByMode = "none" | "category" | "location" | "court-level";
+type CaseTypeBucket = "Criminal" | "Civil" | "Specialized Cases";
+const INITIAL_BATCH_SIZE = 24;
+const LOAD_MORE_BATCH_SIZE = 24;
+const MAX_GRAPH_NODES = 180;
+
+const JUDGE_ROSTER: Record<JudgeCategory, string[]> = {
+  Criminal: ["Justice N. Rao", "Justice P. Mehta", "Justice S. Khan"],
+  Civil: ["Justice R. Iyer", "Justice K. Banerjee", "Justice V. Sen"],
+  Other: ["Justice A. Menon", "Justice D. Kapoor", "Justice T. Joseph"],
+};
+
+function classifyJudgeCategory(caseType: string): JudgeCategory {
+  const normalizedType = caseType.toLowerCase();
+
+  if (
+    normalizedType.includes("criminal") ||
+    normalizedType.includes("ipc") ||
+    normalizedType.includes("crime") ||
+    normalizedType.includes("offence")
+  ) {
+    return "Criminal";
+  }
+
+  if (
+    normalizedType.includes("civil") ||
+    normalizedType.includes("property") ||
+    normalizedType.includes("contract") ||
+    normalizedType.includes("family")
+  ) {
+    return "Civil";
+  }
+
+  return "Other";
+}
+
+function hashText(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function getCaseAssignment(c: CaseResult): CaseAssignment {
+  const category = classifyJudgeCategory(c.type);
+  const availableJudges = JUDGE_ROSTER[category];
+  const assignedJudge = availableJudges[hashText(`${c.id}:${c.title}`) % availableJudges.length];
+  const requiresPublicProsecutor = category === "Criminal";
+
+  return {
+    category,
+    assignedJudge,
+    availableJudges,
+    partyLabel: requiresPublicProsecutor ? "Accused" : "Defendant",
+    requiresPublicProsecutor,
+  };
+}
+
+function getCourtLevel(court: string): CourtLevel {
+  const normalizedCourt = court.toLowerCase();
+  if (normalizedCourt.includes("supreme")) return "Supreme Court";
+  if (normalizedCourt.includes("high")) return "High Court";
+  if (normalizedCourt.includes("district")) return "District Court";
+  return "Other Court";
+}
+
+function getCaseTypeBucket(caseType: string): CaseTypeBucket {
+  const normalizedType = caseType.toLowerCase();
+  if (
+    normalizedType.includes("criminal") ||
+    normalizedType.includes("ipc") ||
+    normalizedType.includes("crime") ||
+    normalizedType.includes("offence")
+  ) {
+    return "Criminal";
+  }
+
+  if (
+    normalizedType.includes("civil") ||
+    normalizedType.includes("property") ||
+    normalizedType.includes("contract") ||
+    normalizedType.includes("family")
+  ) {
+    return "Civil";
+  }
+
+  return "Specialized Cases";
+}
+
+function getCourtLocation(court: string): string {
+  const normalizedCourt = court.toLowerCase();
+  const knownLocations = [
+    "delhi",
+    "mumbai",
+    "bombay",
+    "kolkata",
+    "calcutta",
+    "chennai",
+    "madras",
+    "bengaluru",
+    "karnataka",
+    "kerala",
+    "gujarat",
+    "allahabad",
+    "punjab",
+    "haryana",
+    "patna",
+    "orissa",
+    "odisha",
+    "rajasthan",
+    "madhya pradesh",
+    "uttarakhand",
+    "telangana",
+    "andhra pradesh",
+    "jharkhand",
+    "chhattisgarh",
+    "himachal pradesh",
+    "jammu",
+  ];
+
+  const matched = knownLocations.find((location) => normalizedCourt.includes(location));
+  if (matched) return toTitleCase(matched);
+  if (normalizedCourt.includes("supreme")) return "National";
+  return "Unspecified";
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .split(" ")
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .join(" ");
+}
+
+function CaseCard({ c, aiReason, onClick }: { c: CaseResult; aiReason?: string; onClick: () => void }) {
+  const courtLevel = getCourtLevel(c.court);
+  const location = getCourtLocation(c.court);
+
   return (
     <motion.div
       layout
@@ -28,6 +176,12 @@ function CaseCard({ c, onClick }: { c: CaseResult; onClick: () => void }) {
         {c.title}
       </h3>
       <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{c.summary}</p>
+      <div className="rounded-lg border border-primary/10 bg-primary/5 p-2 mb-3">
+        <p className="text-[11px] text-foreground/85 leading-relaxed line-clamp-3">
+          <span className="font-semibold text-primary">AI Match Reason: </span>
+          {aiReason || c.whyMatch}
+        </p>
+      </div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Scale className="w-3 h-3" /> {c.court}
@@ -40,6 +194,8 @@ function CaseCard({ c, onClick }: { c: CaseResult; onClick: () => void }) {
         {c.tags.map((t) => (
           <span key={t} className="px-2 py-0.5 rounded text-[9px] font-medium bg-accent/10 text-accent">{t}</span>
         ))}
+        <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground">{courtLevel}</span>
+        <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground">{location}</span>
       </div>
     </motion.div>
   );
@@ -106,7 +262,11 @@ function GraphView({ cases, onSelect }: { cases: CaseResult[]; onSelect: (c: Cas
   );
 }
 
-function DetailPanel({ c, onClose }: { c: CaseResult; onClose: () => void }) {
+function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: string; onClose: () => void }) {
+  const assignment = useMemo(() => getCaseAssignment(c), [c]);
+  const courtLevel = useMemo(() => getCourtLevel(c.court), [c.court]);
+  const location = useMemo(() => getCourtLocation(c.court), [c.court]);
+
   return (
     <motion.div
       initial={{ x: 400, opacity: 0 }}
@@ -132,6 +292,10 @@ function DetailPanel({ c, onClose }: { c: CaseResult; onClose: () => void }) {
         <span>·</span>
         <span>{c.year}</span>
       </div>
+      <div className="mb-6 flex items-center gap-2 flex-wrap">
+        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">{courtLevel}</span>
+        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">{location}</span>
+      </div>
       <div className="mb-6">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Similarity Score</p>
         <div className="flex items-center gap-3">
@@ -152,9 +316,9 @@ function DetailPanel({ c, onClose }: { c: CaseResult; onClose: () => void }) {
         <p className="text-sm text-foreground/80 leading-relaxed">{c.summary}</p>
       </div>
       <div className="mb-6">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Why This Matches</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">AI Exact Match Reason</p>
         <div className="p-4 rounded-xl gradient-surface border border-primary/10">
-          <p className="text-sm text-foreground/80 leading-relaxed">{c.whyMatch}</p>
+          <p className="text-sm text-foreground/80 leading-relaxed">{aiReason || c.whyMatch}</p>
         </div>
       </div>
       <div>
@@ -165,44 +329,198 @@ function DetailPanel({ c, onClose }: { c: CaseResult; onClose: () => void }) {
           ))}
         </div>
       </div>
+
+      <div className="mt-6">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Judge Assignment</p>
+        <div className="p-4 rounded-xl gradient-surface border border-primary/10 space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-semibold">
+              {assignment.category} Bench
+            </span>
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5" /> {assignment.availableJudges.length} judges available
+            </span>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Assigned Judge</p>
+            <p className="text-sm text-foreground flex items-center gap-2">
+              <UserRoundCheck className="w-4 h-4 text-primary" />
+              {assignment.assignedJudge}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Available Panel</p>
+            <div className="flex flex-wrap gap-1.5">
+              {assignment.availableJudges.map((judge) => (
+                <span key={judge} className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-foreground/80">
+                  {judge}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-border p-2.5">
+            <span className="text-xs text-foreground/90">{assignment.partyLabel} needs public prosecutor</span>
+            <span
+              className={`text-xs font-semibold px-2 py-1 rounded-md flex items-center gap-1 ${
+                assignment.requiresPublicProsecutor ? "bg-green-500/15 text-green-700" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              {assignment.requiresPublicProsecutor ? "Required" : "Not Required"}
+            </span>
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 }
 
 export default function CaseExplorer() {
   const [view, setView] = useState<"grid" | "graph">("grid");
+  const [groupBy, setGroupBy] = useState<GroupByMode>("none");
   const [courtFilter, setCourtFilter] = useState("All Courts");
   const [typeFilter, setTypeFilter] = useState("All Types");
+  const [locationFilter, setLocationFilter] = useState("All Locations");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<CaseResult | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [matchReasons, setMatchReasons] = useState<Record<string, string>>({});
+  const [isReasoning, setIsReasoning] = useState(false);
   const [cases, setCases] = useState<CaseResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const courts = useMemo(
-    () => ["All Courts", ...Array.from(new Set(cases.map((c) => c.court))).sort()],
-    [cases]
-  );
+  const courts = useMemo(() => {
+    const directCourts = Array.from(new Set(cases.map((c) => c.court)))
+      .filter((court) => court.toLowerCase() !== "supreme court of india")
+      .sort();
+    return ["All Courts", "Supreme Court", "High Court", "District Court", ...directCourts];
+  }, [cases]);
   const types = useMemo(
-    () => ["All Types", ...Array.from(new Set(cases.map((c) => c.type))).sort()],
+    () => ["All Types", "Criminal", "Civil", "Specialized Cases"],
+    []
+  );
+  const locations = useMemo(
+    () => ["All Locations", ...Array.from(new Set(cases.map((c) => getCourtLocation(c.court)))).sort()],
     [cases]
   );
 
   useEffect(() => {
-    const loadCases = async () => {
-      const loadedCases = await dataService.getCases();
+    let active = true;
+    setIsLoading(true);
+
+    const timeout = setTimeout(async () => {
+      const q = searchQuery.trim();
+      const loadedCases = q ? await dataService.searchCases(q) : await dataService.getCases();
+      if (!active) return;
       setCases(loadedCases);
       setIsLoading(false);
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
     };
-    loadCases();
-  }, []);
+  }, [searchQuery]);
 
   const filtered = useMemo(() => {
     return cases.filter((c) => {
-      if (courtFilter !== "All Courts" && c.court !== courtFilter) return false;
-      if (typeFilter !== "All Types" && c.type !== typeFilter) return false;
+      if (courtFilter !== "All Courts") {
+        if (
+          (courtFilter === "Supreme Court" || courtFilter === "High Court" || courtFilter === "District Court") &&
+          getCourtLevel(c.court) !== courtFilter
+        ) {
+          return false;
+        }
+
+        if (
+          courtFilter !== "Supreme Court" &&
+          courtFilter !== "High Court" &&
+          courtFilter !== "District Court" &&
+          c.court !== courtFilter
+        ) {
+          return false;
+        }
+      }
+      if (typeFilter !== "All Types" && getCaseTypeBucket(c.type) !== typeFilter) return false;
+      if (locationFilter !== "All Locations" && getCourtLocation(c.court) !== locationFilter) return false;
       return true;
     });
-  }, [cases, courtFilter, typeFilter]);
+  }, [cases, courtFilter, typeFilter, locationFilter]);
+
+  const visibleCases = useMemo(
+    () => filtered.slice(0, visibleCount),
+    [filtered, visibleCount]
+  );
+
+  const hasMoreCases = visibleCount < filtered.length;
+
+  const grouped = useMemo(() => {
+    if (groupBy === "none") {
+      return [{ title: "Matched Cases", key: "matched-cases", items: visibleCases }];
+    }
+
+    const bucket = new Map<string, CaseResult[]>();
+    visibleCases.forEach((item) => {
+      let key = "Other";
+      if (groupBy === "category") key = getCaseTypeBucket(item.type);
+      if (groupBy === "location") key = getCourtLocation(item.court);
+      if (groupBy === "court-level") key = getCourtLevel(item.court);
+      if (!bucket.has(key)) bucket.set(key, []);
+      bucket.get(key)?.push(item);
+    });
+
+    return Array.from(bucket.entries())
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([title, items]) => ({ title, key: title, items }));
+  }, [visibleCases, groupBy]);
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_BATCH_SIZE);
+  }, [searchQuery, courtFilter, typeFilter, locationFilter, groupBy]);
+
+  useEffect(() => {
+    if (view !== "grid") return;
+    if (!hasMoreCases) return;
+
+    const target = loadMoreRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisibleCount((previous) => Math.min(previous + LOAD_MORE_BATCH_SIZE, filtered.length));
+          }
+        });
+      },
+      { rootMargin: "300px" }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [filtered.length, hasMoreCases, view]);
+
+  useEffect(() => {
+    let active = true;
+    const generateReasons = async () => {
+      if (visibleCases.length === 0) return;
+      setIsReasoning(true);
+      const reasons = await dataService.explainMatches(searchQuery || "legal case match", visibleCases);
+      if (!active) return;
+      setMatchReasons((previous) => ({ ...previous, ...reasons }));
+      setIsReasoning(false);
+    };
+    generateReasons();
+
+    return () => {
+      active = false;
+    };
+  }, [visibleCases, searchQuery]);
 
   return (
     <div className="min-h-screen relative">
@@ -212,9 +530,18 @@ export default function CaseExplorer() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-display font-bold gradient-text">Case Explorer</h1>
-            <p className="text-sm text-muted-foreground mt-1">Browse and visualize the legal dataset</p>
+            <p className="text-sm text-muted-foreground mt-1">Browse by category, location, and court level with AI match explanations</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <div className="glass-panel rounded-xl px-3 py-2.5 flex items-center gap-2 min-w-[260px]">
+              <Search className="w-4 h-4 text-muted-foreground" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search matched cases..."
+                className="bg-transparent outline-none w-full text-sm text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
@@ -282,10 +609,61 @@ export default function CaseExplorer() {
                     ))}
                   </div>
                 </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5" /> Location
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {locations.map((location) => (
+                      <button
+                        key={location}
+                        onClick={() => setLocationFilter(location)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                          locationFilter === location ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {location}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">View By</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: "Default", value: "none" },
+                      { label: "Category", value: "category" },
+                      { label: "Location", value: "location" },
+                      { label: "Court Level", value: "court-level" },
+                    ].map((mode) => (
+                      <button
+                        key={mode.value}
+                        onClick={() => setGroupBy(mode.value as GroupByMode)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                          groupBy === mode.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {isReasoning && (
+          <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
+            <Sparkles className="w-3.5 h-3.5" /> AI is generating exact match reasons for visible cases...
+          </div>
+        )}
+
+        {!isLoading && filtered.length > 0 && (
+          <div className="mb-4 text-xs text-muted-foreground">
+            Showing {visibleCases.length} of {filtered.length} matched cases
+          </div>
+        )}
 
         {/* Content */}
         {isLoading ? (
@@ -297,15 +675,37 @@ export default function CaseExplorer() {
             <p className="text-muted-foreground">No cases found matching your filters.</p>
           </div>
         ) : view === "grid" ? (
-          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <AnimatePresence>
-              {filtered.map((c) => (
-                <CaseCard key={c.id} c={c} onClick={() => setSelected(c)} />
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <div className="space-y-7">
+            {grouped.map((group) => (
+              <section key={group.key} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-display font-semibold text-foreground">{group.title}</h2>
+                  <span className="text-xs text-muted-foreground">{group.items.length} cases</span>
+                </div>
+                <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <AnimatePresence>
+                    {group.items.map((c) => (
+                      <CaseCard key={c.id} c={c} aiReason={matchReasons[c.id]} onClick={() => setSelected(c)} />
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              </section>
+            ))}
+
+            {hasMoreCases && (
+              <div className="flex flex-col items-center gap-3 pt-2">
+                <div ref={loadMoreRef} className="h-2 w-full" aria-hidden="true" />
+                <button
+                  onClick={() => setVisibleCount((previous) => Math.min(previous + LOAD_MORE_BATCH_SIZE, filtered.length))}
+                  className="px-4 py-2 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                >
+                  Load more cases
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
-          <GraphView cases={filtered} onSelect={setSelected} />
+          <GraphView cases={filtered.slice(0, MAX_GRAPH_NODES)} onSelect={setSelected} />
         )}
 
         {filtered.length === 0 && (
@@ -316,7 +716,7 @@ export default function CaseExplorer() {
       </div>
 
       <AnimatePresence>
-        {selected && <DetailPanel c={selected} onClose={() => setSelected(null)} />}
+        {selected && <DetailPanel c={selected} aiReason={matchReasons[selected.id]} onClose={() => setSelected(null)} />}
       </AnimatePresence>
     </div>
   );

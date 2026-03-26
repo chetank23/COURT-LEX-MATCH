@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Sparkles, Zap, Brain, Network, ArrowRight, Scale } from "lucide-react";
+import { Search, Sparkles, Zap, Brain, Network, ArrowRight, Scale, Gavel, GitCompare } from "lucide-react";
 import { CaseResult } from "@/types";
 import { dataService } from "@/services/dataService";
 
@@ -9,6 +9,9 @@ const aiSteps = [
   { icon: Network, label: "Generating embeddings", duration: 1000 },
   { icon: Scale, label: "Matching precedents", duration: 1200 },
 ];
+
+type WorkflowMode = "find-cases" | "assign-judge";
+type Phase = "idle" | "choice" | "transition" | "analyzing" | "results";
 
 function TypingText({ text, speed = 20 }: { text: string; speed?: number }) {
   const [displayed, setDisplayed] = useState("");
@@ -95,17 +98,21 @@ function ResultCard({ result, index }: { result: CaseResult; index: number }) {
   );
 }
 
-type Phase = "idle" | "transition" | "analyzing" | "results";
-
 export default function AISearchLab() {
   const [query, setQuery] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
+  const [workflowMode, setWorkflowMode] = useState<WorkflowMode>("find-cases");
   const [currentStep, setCurrentStep] = useState(0);
   const [results, setResults] = useState<CaseResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSearch = async () => {
+  const handleSearch = () => {
+    if (!query.trim()) return;
+    setPhase("choice");
+  };
+
+  const startAnalysis = async (mode: WorkflowMode) => {
     if (!query.trim()) return;
     setPhase("transition");
     setIsLoading(true);
@@ -134,6 +141,7 @@ export default function AISearchLab() {
     setPhase("idle");
     setQuery("");
     setCurrentStep(0);
+    setWorkflowMode("find-cases");
   };
 
   return (
@@ -220,6 +228,53 @@ export default function AISearchLab() {
                 </button>
               ))}
             </motion.div>
+          </motion.div>
+        )}
+
+        {/* CHOICE STATE */}
+        {phase === "choice" && (
+          <motion.div
+            key="choice"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="min-h-screen flex items-center justify-center relative z-10 px-6"
+          >
+            <div className="max-w-lg w-full text-center">
+              <h2 className="text-2xl font-display font-bold text-foreground mb-2">What would you like to do?</h2>
+              <p className="text-sm text-muted-foreground mb-8">Choose how to proceed with your case search</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={() => startAnalysis("find-cases")}
+                  className="glass-panel rounded-2xl p-6 hover:glow-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20">
+                    <GitCompare className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-2">Find Matching Cases</h3>
+                  <p className="text-xs text-muted-foreground">Search for matching precedents and similar legal cases</p>
+                </button>
+
+                <button
+                  onClick={() => startAnalysis("assign-judge")}
+                  className="glass-panel rounded-2xl p-6 hover:glow-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20">
+                    <Gavel className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-2">Assign to Judge</h3>
+                  <p className="text-xs text-muted-foreground">Analyze case and assign appropriate judge based on priority</p>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setPhase("idle")}
+                className="mt-6 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                Back to search
+              </button>
+            </div>
           </motion.div>
         )}
 

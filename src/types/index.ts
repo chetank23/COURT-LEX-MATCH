@@ -57,3 +57,46 @@ export interface InsightsData {
     searches: number;
   }>;
 }
+
+export interface FIRPriorityAssessment {
+  caseType: "Criminal" | "Civil" | "Specialized Cases";
+  severity: "Low" | "Medium" | "High" | "Critical";
+  priorityScore: number;
+  priorityBand: "P0" | "P1" | "P2" | "P3";
+  rationale: string;
+}
+
+export interface FIRJudgeAssignment {
+  category: "Criminal" | "Civil" | "Other";
+  assignedJudge: string;
+  availableJudges: string[];
+  partyLabel: "Accused" | "Defendant";
+  requiresPublicProsecutor: boolean;
+}
+
+export interface JudgeProfile {
+  id: string;
+  name: string;
+  courtLevel: "Supreme Court" | "High Court" | "District Court";
+  category: "Criminal" | "Civil" | "Other";
+  yearsOfExperience: number;
+  caseLoadCapacity: number;
+  currentCaseLoad: number;
+  availability: "Available" | "Busy" | "On Leave";
+}
+
+export interface HearingSchedule {
+  id: string;
+  caseId: string;
+  caseTitle: string;
+  assignedJudgeId: string;
+  assignedJudgeName: string;
+  hearingDate: string;
+  hearingTime: string;
+  courtRoom: string;
+  state: string;
+  district: string;
+  localCourtName: string;
+  status: "Scheduled" | "Ongoing" | "Completed" | "Postponed";
+  notes: string;
+}

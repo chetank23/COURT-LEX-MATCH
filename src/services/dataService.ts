@@ -1,6 +1,23 @@
-import { CaseResult, TimelineEvent, Section, InsightsData } from "@/types";
+import {
+  CaseResult,
+  TimelineEvent,
+  Section,
+  InsightsData,
+  FIRPriorityAssessment,
+  FIRJudgeAssignment,
+  JudgeProfile,
+  HearingSchedule,
+} from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:4000";
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
+const OPENAI_MODEL = (import.meta.env.VITE_OPENAI_MODEL as string | undefined) || "gpt-4o-mini";
+
+const FIR_JUDGE_ROSTER: Record<"Criminal" | "Civil" | "Other", string[]> = {
+  Criminal: ["Justice N. Rao", "Justice P. Mehta", "Justice S. Khan"],
+  Civil: ["Justice R. Iyer", "Justice K. Banerjee", "Justice V. Sen"],
+  Other: ["Justice A. Menon", "Justice D. Kapoor", "Justice T. Joseph"],
+};
 
 /**
  * Data Service Layer
@@ -175,6 +192,82 @@ export const dataService = {
   },
 
   /**
+   * Get AI explanation for why a case matches the user query.
+   *
+   * NOTE: Browser-side API keys are only suitable for local demos.
+   * In production, proxy this through your backend.
+   */
+  async explainCaseMatch(query: string, item: CaseResult): Promise<string> {
+    const fromApi = await this._fetchJson<{ explanation?: string }>(
+      `/api/cases/${encodeURIComponent(item.id)}/explain?q=${encodeURIComponent(query)}`
+    );
+    if (fromApi?.explanation) return fromApi.explanation;
+
+    if (OPENAI_API_KEY) {
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: OPENAI_MODEL,
+            temperature: 0.2,
+            max_tokens: 140,
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a legal match explainer. Give exactly 1 concise reason (max 40 words) grounded in case metadata and query. Do not invent facts.",
+              },
+              {
+                role: "user",
+                content: JSON.stringify({
+                  query,
+                  title: item.title,
+                  type: item.type,
+                  court: item.court,
+                  summary: item.summary,
+                  tags: item.tags,
+                  baselineReason: item.whyMatch,
+                }),
+              },
+            ],
+          }),
+        });
+
+        if (response.ok) {
+          const data = (await response.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
+          const content = data.choices?.[0]?.message?.content?.trim();
+          if (content) return content;
+        }
+      } catch {
+        // Fall through to deterministic local explanation.
+      }
+    }
+
+    return buildLocalAiReason(query, item);
+  },
+
+  async explainMatches(query: string, items: CaseResult[]): Promise<Record<string, string>> {
+    const topItems = items.slice(0, 30);
+    const reasons = await Promise.all(
+      topItems.map(async (item) => ({
+        id: item.id,
+        reason: await this.explainCaseMatch(query, item),
+      }))
+    );
+
+    return reasons.reduce<Record<string, string>>((acc, current) => {
+      acc[current.id] = current.reason;
+      return acc;
+    }, {});
+  },
+
+  /**
    * Analyze PDF and extract sections
    * TODO: Integrate with backend PDF analysis API
    */
@@ -187,6 +280,74 @@ export const dataService = {
     //   body: formData 
     // }).then(res => res.json());
     return [];
+  },
+
+  async assessFIRPriority(file: File, sections: Section[]): Promise<FIRPriorityAssessment> {
+    const fromApi = await this._fetchJson<FIRPriorityAssessment>(
+      `/api/fir/assess-priority?filename=${encodeURIComponent(file.name)}`
+    );
+    if (fromApi) return fromApi;
+
+    const combinedText = [
+      file.name,
+      ...sections.map((section) => `${section.title} ${section.summary} ${section.content}`),
+    ].join(" ");
+
+    const caseType = classifyFIRCaseType(combinedText);
+    const severity = detectFIRSeverity(combinedText);
+
+    const typeWeight: Record<FIRPriorityAssessment["caseType"], number> = {
+      Criminal: 35,
+      Civil: 22,
+      "Specialized Cases": 28,
+    };
+    const severityWeight: Record<FIRPriorityAssessment["severity"], number> = {
+      Low: 12,
+      Medium: 24,
+      High: 36,
+      Critical: 48,
+    };
+
+    const score = Math.max(20, Math.min(99, typeWeight[caseType] + severityWeight[severity]));
+
+    return {
+      caseType,
+      severity,
+      priorityScore: score,
+      priorityBand: toPriorityBand(score),
+      rationale: buildFIRPriorityRationale(caseType, severity),
+    };
+  },
+
+  async assignJudgeForFIR(
+    file: File,
+    assessment: FIRPriorityAssessment,
+    sections: Section[]
+  ): Promise<FIRJudgeAssignment> {
+    const fromApi = await this._fetchJson<FIRJudgeAssignment>(
+      `/api/fir/assign-judge?filename=${encodeURIComponent(file.name)}`
+    );
+    if (fromApi) return fromApi;
+
+    const category: FIRJudgeAssignment["category"] =
+      assessment.caseType === "Criminal"
+        ? "Criminal"
+        : assessment.caseType === "Civil"
+          ? "Civil"
+          : "Other";
+
+    const availableJudges = FIR_JUDGE_ROSTER[category];
+    const seed = `${file.name}:${assessment.caseType}:${assessment.severity}:${sections.length}`;
+    const assignedJudge = availableJudges[hashText(seed) % availableJudges.length];
+    const requiresPublicProsecutor = category === "Criminal";
+
+    return {
+      category,
+      assignedJudge,
+      availableJudges,
+      partyLabel: requiresPublicProsecutor ? "Accused" : "Defendant",
+      requiresPublicProsecutor,
+    };
   },
 
   /**
@@ -309,6 +470,112 @@ export const dataService = {
     //   body: JSON.stringify({ filename, matchesFound })
     // });
   },
+
+  /**
+   * Judge Management
+   * TODO: Integrate with backend API
+   */
+  async getJudges() {
+    // Placeholder - replace with actual API call
+    // return fetch('/api/judges').then(r => r.json());
+    return [];
+  },
+
+  async getJudgeById(judgeId: string) {
+    void judgeId;
+    // Placeholder - replace with actual API call
+    // return fetch(`/api/judges/${judgeId}`).then(r => r.json());
+    return null;
+  },
+
+  async addJudge(judge: any) {
+    void judge;
+    // Placeholder - replace with actual API call
+    // return fetch('/api/judges', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(judge)
+    // }).then(r => r.json());
+    return judge;
+  },
+
+  async editJudge(judgeId: string, updates: any) {
+    void judgeId;
+    void updates;
+    // Placeholder - replace with actual API call
+    // return fetch(`/api/judges/${judgeId}`, {
+    //   method: 'PUT',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(updates)
+    // }).then(r => r.json());
+    return updates;
+  },
+
+  async removeJudge(judgeId: string) {
+    void judgeId;
+    // Placeholder - replace with actual API call
+    // return fetch(`/api/judges/${judgeId}`, { method: 'DELETE' });
+  },
+
+  /**
+   * Hearing Schedule Management
+   * TODO: Integrate with backend API
+   */
+  async getHearings() {
+    // Placeholder - replace with actual API call
+    // return fetch('/api/hearings').then(r => r.json());
+    return [];
+  },
+
+  async getHearingById(hearingId: string) {
+    void hearingId;
+    // Placeholder - replace with actual API call
+    // return fetch(`/api/hearings/${hearingId}`).then(r => r.json());
+    return null;
+  },
+
+  async addHearing(hearing: any) {
+    void hearing;
+    // Placeholder - replace with actual API call
+    // return fetch('/api/hearings', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(hearing)
+    // }).then(r => r.json());
+    return hearing;
+  },
+
+  async editHearing(hearingId: string, updates: any) {
+    void hearingId;
+    void updates;
+    // Placeholder - replace with actual API call
+    // return fetch(`/api/hearings/${hearingId}`, {
+    //   method: 'PUT',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(updates)
+    // }).then(r => r.json());
+    return updates;
+  },
+
+  async removeHearing(hearingId: string) {
+    void hearingId;
+    // Placeholder - replace with actual API call
+    // return fetch(`/api/hearings/${hearingId}`, { method: 'DELETE' });
+  },
+
+  async getHearingsByCaseId(caseId: string) {
+    void caseId;
+    // Placeholder - replace with actual API call
+    // return fetch(`/api/hearings?caseId=${caseId}`).then(r => r.json());
+    return [];
+  },
+
+  async getHearingsByJudgeId(judgeId: string) {
+    void judgeId;
+    // Placeholder - replace with actual API call
+    // return fetch(`/api/hearings?judgeId=${judgeId}`).then(r => r.json());
+    return [];
+  },
 };
 
 function buildTags(raw: {
@@ -426,4 +693,80 @@ function extractSegment(text: string, label: string) {
   const after = source.slice(start + label.length);
   const endIndex = after.indexOf("\n");
   return (endIndex >= 0 ? after.slice(0, endIndex) : after).trim();
+}
+
+function classifyFIRCaseType(text: string): FIRPriorityAssessment["caseType"] {
+  const normalized = text.toLowerCase();
+  if (
+    normalized.includes("fir") ||
+    normalized.includes("ipc") ||
+    normalized.includes("criminal") ||
+    normalized.includes("theft") ||
+    normalized.includes("murder") ||
+    normalized.includes("assault")
+  ) {
+    return "Criminal";
+  }
+  if (
+    normalized.includes("civil") ||
+    normalized.includes("property") ||
+    normalized.includes("contract") ||
+    normalized.includes("injunction")
+  ) {
+    return "Civil";
+  }
+  return "Specialized Cases";
+}
+
+function detectFIRSeverity(text: string): FIRPriorityAssessment["severity"] {
+  const normalized = text.toLowerCase();
+
+  if (
+    includesAny(normalized, ["murder", "rape", "terror", "kidnap", "attempt to murder", "acid attack"])
+  ) {
+    return "Critical";
+  }
+
+  if (
+    includesAny(normalized, ["grievous", "armed", "extortion", "rioting", "fraud", "serious injury"])
+  ) {
+    return "High";
+  }
+
+  if (
+    includesAny(normalized, ["threat", "cheating", "breach", "damage", "dispute"])
+  ) {
+    return "Medium";
+  }
+
+  return "Low";
+}
+
+function includesAny(source: string, terms: string[]) {
+  return terms.some((term) => source.includes(term));
+}
+
+function buildFIRPriorityRationale(
+  caseType: FIRPriorityAssessment["caseType"],
+  severity: FIRPriorityAssessment["severity"]
+) {
+  return `Priority derived from ${caseType.toLowerCase()} classification and ${severity.toLowerCase()} severity indicators in the FIR content.`;
+}
+
+function hashText(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function buildLocalAiReason(query: string, item: CaseResult) {
+  const q = query.toLowerCase();
+  const tokens = q.split(/\s+/).filter((token) => token.length > 2);
+  const haystack = `${item.title} ${item.summary} ${item.tags.join(" ")} ${item.type} ${item.court}`.toLowerCase();
+  const overlaps = tokens.filter((token) => haystack.includes(token)).slice(0, 3);
+  const overlapText = overlaps.length > 0 ? `query terms (${overlaps.join(", ")})` : "legal context overlap";
+
+  return `Matched because ${overlapText} aligns with ${item.type.toLowerCase()} issues in ${item.court}, supported by summary semantics and tag similarity.`;
 }

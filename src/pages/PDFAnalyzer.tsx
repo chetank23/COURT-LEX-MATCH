@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, Brain, Layers, Scale, ChevronDown, ChevronRight, Sparkles, BookOpen, Tag, Eye } from "lucide-react";
-import { Section } from "@/types";
+import { Upload, FileText, Brain, Layers, Scale, ChevronDown, ChevronRight, Tag, Eye, AlertTriangle, Gavel, ShieldCheck, GitCompare } from "lucide-react";
+import { Section, FIRPriorityAssessment, FIRJudgeAssignment } from "@/types";
 import { dataService } from "@/services/dataService";
 
 const analysisSteps = [
@@ -11,7 +11,8 @@ const analysisSteps = [
   { icon: Scale, label: "Matching cases", duration: 1000 },
 ];
 
-type Phase = "upload" | "analyzing" | "results";
+type WorkflowMode = "find-cases" | "assign-judge";
+type Phase = "upload" | "choice" | "analyzing" | "results";
 
 function SectionCard({ section, lawyerMode }: { section: Section; lawyerMode: boolean }) {
   const [expanded, setExpanded] = useState(false);
@@ -127,15 +128,46 @@ function SectionCard({ section, lawyerMode }: { section: Section; lawyerMode: bo
 
 export default function PDFAnalyzer() {
   const [phase, setPhase] = useState<Phase>("upload");
+  const [workflowMode, setWorkflowMode] = useState<WorkflowMode>("assign-judge");
   const [currentStep, setCurrentStep] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [lawyerMode, setLawyerMode] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
+  const [firPriority, setFirPriority] = useState<FIRPriorityAssessment | null>(null);
+  const [firJudgeAssignment, setFirJudgeAssignment] = useState<FIRJudgeAssignment | null>(null);
+  const [overrideCaseType, setOverrideCaseType] = useState<FIRPriorityAssessment["caseType"] | "">("");
+  const [overrideSeverity, setOverrideSeverity] = useState<FIRPriorityAssessment["severity"] | "">("");
+  const [isApplyingOverride, setIsApplyingOverride] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const applyManualOverride = async () => {
+    if (!selectedFile || !firPriority || !overrideCaseType || !overrideSeverity) return;
+
+    setIsApplyingOverride(true);
+    const score = computeManualPriorityScore(overrideCaseType, overrideSeverity);
+    const nextPriority: FIRPriorityAssessment = {
+      caseType: overrideCaseType,
+      severity: overrideSeverity,
+      priorityScore: score,
+      priorityBand: toPriorityBand(score),
+      rationale: `Priority manually overridden to ${overrideCaseType} with ${overrideSeverity.toLowerCase()} severity based on reviewer assessment.`,
+    };
+
+    const nextJudge = await dataService.assignJudgeForFIR(selectedFile, nextPriority, sections);
+    setFirPriority(nextPriority);
+    setFirJudgeAssignment(nextJudge);
+    setIsApplyingOverride(false);
+  };
+
   const startAnalysis = async (file: File) => {
     setSelectedFile(file);
+    setPhase("choice");
+  };
+
+  const proceedWithAnalysis = async (mode: WorkflowMode) => {
+    if (!selectedFile) return;
+    setWorkflowMode(mode);
     setPhase("analyzing");
     setCurrentStep(0);
     let step = 0;
@@ -146,10 +178,16 @@ export default function PDFAnalyzer() {
         setTimeout(advance, analysisSteps[step].duration);
       } else {
         // Analyze PDF using data service
-        const analyzedSections = await dataService.analyzePDF(file);
+        const analyzedSections = await dataService.analyzePDF(selectedFile);
+        const assessedPriority = await dataService.assessFIRPriority(selectedFile, analyzedSections);
+        const assignedJudge = await dataService.assignJudgeForFIR(selectedFile, assessedPriority, analyzedSections);
         setSections(analyzedSections);
+        setFirPriority(assessedPriority);
+        setFirJudgeAssignment(assignedJudge);
+        setOverrideCaseType(assessedPriority.caseType);
+        setOverrideSeverity(assessedPriority.severity);
         if (analyzedSections.length > 0) {
-          await dataService.savePDFUpload(file.name, analyzedSections.length);
+          await dataService.savePDFUpload(selectedFile.name, analyzedSections.length);
         }
         setTimeout(() => setPhase("results"), 500);
       }
@@ -212,6 +250,52 @@ export default function PDFAnalyzer() {
                   className="hidden"
                 />
               </motion.div>
+            </div>
+          </motion.div>
+        )}
+
+        {phase === "choice" && (
+          <motion.div
+            key="choice"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="min-h-screen flex items-center justify-center relative z-10 px-6"
+          >
+            <div className="max-w-lg w-full text-center">
+              <h2 className="text-2xl font-display font-bold text-foreground mb-2">What would you like to do?</h2>
+              <p className="text-sm text-muted-foreground mb-8">Choose how to process your FIR document</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={() => proceedWithAnalysis("find-cases")}
+                  className="glass-panel rounded-2xl p-6 hover:glow-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20">
+                    <GitCompare className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-2">Find Matching Cases</h3>
+                  <p className="text-xs text-muted-foreground">Search for matching precedents related to this FIR</p>
+                </button>
+
+                <button
+                  onClick={() => proceedWithAnalysis("assign-judge")}
+                  className="glass-panel rounded-2xl p-6 hover:glow-primary hover:bg-primary/5 transition-all cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20">
+                    <Gavel className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-2">Assess & Assign Judge</h3>
+                  <p className="text-xs text-muted-foreground">Analyze FIR and assign appropriate judge based on priority</p>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setPhase("upload")}
+                className="mt-6 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                Back to upload
+              </button>
             </div>
           </motion.div>
         )}
@@ -298,13 +382,105 @@ export default function PDFAnalyzer() {
                     </button>
                   </label>
                   <button
-                    onClick={() => setPhase("upload")}
+                    onClick={() => {
+                      setPhase("upload");
+                      setSections([]);
+                      setFirPriority(null);
+                      setFirJudgeAssignment(null);
+                      setOverrideCaseType("");
+                      setOverrideSeverity("");
+                      setSelectedFile(null);
+                      setWorkflowMode("assign-judge");
+                    }}
                     className="px-4 py-2 rounded-xl bg-muted text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   >
                     New Upload
                   </button>
                 </div>
               </div>
+
+              {firPriority && firJudgeAssignment && (
+                <div className="glass-panel rounded-2xl p-5 mb-5 border border-primary/20">
+                  <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">FIR Priority Assessment</p>
+                      <h2 className="text-lg font-display font-bold text-foreground mt-1">{selectedFile?.name || "Uploaded FIR"}</h2>
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-destructive/10 text-destructive">
+                      {firPriority.priorityBand} · {firPriority.priorityScore}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <div className="rounded-xl border border-border p-3 bg-muted/30">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Case Type</p>
+                      <p className="text-sm font-semibold text-foreground">{firPriority.caseType}</p>
+                    </div>
+                    <div className="rounded-xl border border-border p-3 bg-muted/30">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" /> Severity
+                      </p>
+                      <p className="text-sm font-semibold text-foreground">{firPriority.severity}</p>
+                    </div>
+                    <div className="rounded-xl border border-border p-3 bg-muted/30">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Assigned Judge</p>
+                      <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <Gavel className="w-4 h-4 text-primary" />
+                        {firJudgeAssignment.assignedJudge}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3 mb-4 bg-muted/20">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Manual Override</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <select
+                        value={overrideCaseType}
+                        onChange={(event) => setOverrideCaseType(event.target.value as FIRPriorityAssessment["caseType"])}
+                        className="rounded-lg border border-border bg-card px-2.5 py-2 text-xs text-foreground"
+                      >
+                        <option value="Criminal">Criminal</option>
+                        <option value="Civil">Civil</option>
+                        <option value="Specialized Cases">Specialized Cases</option>
+                      </select>
+                      <select
+                        value={overrideSeverity}
+                        onChange={(event) => setOverrideSeverity(event.target.value as FIRPriorityAssessment["severity"])}
+                        className="rounded-lg border border-border bg-card px-2.5 py-2 text-xs text-foreground"
+                      >
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
+                      </select>
+                      <button
+                        onClick={applyManualOverride}
+                        disabled={isApplyingOverride || !overrideCaseType || !overrideSeverity}
+                        className="rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        {isApplyingOverride ? "Applying..." : "Apply Override"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-primary/10 bg-primary/5 p-3 mb-3">
+                    <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">Rationale</p>
+                    <p className="text-sm text-foreground/80">{firPriority.rationale}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-border p-2.5">
+                    <span className="text-xs text-foreground/90">{firJudgeAssignment.partyLabel} needs public prosecutor</span>
+                    <span
+                      className={`text-xs font-semibold px-2 py-1 rounded-md flex items-center gap-1 ${
+                        firJudgeAssignment.requiresPublicProsecutor ? "bg-green-500/15 text-green-700" : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      {firJudgeAssignment.requiresPublicProsecutor ? "Required" : "Not Required"}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3">
                 {sections.length === 0 ? (
@@ -323,4 +499,30 @@ export default function PDFAnalyzer() {
       </AnimatePresence>
     </div>
   );
+}
+
+function computeManualPriorityScore(
+  caseType: FIRPriorityAssessment["caseType"],
+  severity: FIRPriorityAssessment["severity"]
+) {
+  const typeWeight: Record<FIRPriorityAssessment["caseType"], number> = {
+    Criminal: 35,
+    Civil: 22,
+    "Specialized Cases": 28,
+  };
+  const severityWeight: Record<FIRPriorityAssessment["severity"], number> = {
+    Low: 12,
+    Medium: 24,
+    High: 36,
+    Critical: 48,
+  };
+
+  return Math.max(20, Math.min(99, typeWeight[caseType] + severityWeight[severity]));
+}
+
+function toPriorityBand(score: number): FIRPriorityAssessment["priorityBand"] {
+  if (score >= 85) return "P0";
+  if (score >= 70) return "P1";
+  if (score >= 50) return "P2";
+  return "P3";
 }

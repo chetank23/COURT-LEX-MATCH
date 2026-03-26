@@ -9,6 +9,8 @@ import CaseExplorer from "./pages/CaseExplorer";
 import PDFAnalyzer from "./pages/PDFAnalyzer";
 import InsightsDashboard from "./pages/InsightsDashboard";
 import HistoryTimeline from "./pages/HistoryTimeline";
+import JudgesManagement from "./pages/JudgesManagement";
+import HearingCalendar from "./pages/HearingCalendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +26,8 @@ const App = () => (
           <Route path="/" element={<AISearchLab />} />
           <Route path="/explorer" element={<CaseExplorer />} />
           <Route path="/analyzer" element={<PDFAnalyzer />} />
+          <Route path="/judges" element={<JudgesManagement />} />
+          <Route path="/calendar" element={<HearingCalendar />} />
           <Route path="/insights" element={<InsightsDashboard />} />
           <Route path="/history" element={<HistoryTimeline />} />
           <Route path="*" element={<NotFound />} />

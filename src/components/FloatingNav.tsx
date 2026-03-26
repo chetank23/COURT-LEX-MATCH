@@ -1,11 +1,13 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Layers, FileText, BarChart3, Clock } from "lucide-react";
+import { Search, Layers, FileText, BarChart3, Clock, Users, Calendar } from "lucide-react";
 
 const navItems = [
   { path: "/", label: "AI Search Lab", icon: Search },
   { path: "/explorer", label: "Case Explorer", icon: Layers },
   { path: "/analyzer", label: "PDF Analyzer", icon: FileText },
+  { path: "/judges", label: "Judges", icon: Users },
+  { path: "/calendar", label: "Calendar", icon: Calendar },
   { path: "/insights", label: "Insights", icon: BarChart3 },
   { path: "/history", label: "History", icon: Clock },
 ];
