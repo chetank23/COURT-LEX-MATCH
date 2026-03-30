@@ -59,6 +59,12 @@ function hashText(value: string): number {
   return hash;
 }
 
+function hashToRange(value: string, min: number, max: number): number {
+  const hash = hashText(value);
+  const fraction = (hash % 10_000) / 10_000;
+  return min + fraction * (max - min);
+}
+
 function getCaseAssignment(c: CaseResult): CaseAssignment {
   const category = classifyJudgeCategory(c.type);
   const availableJudges = JUDGE_ROSTER[category];
@@ -149,9 +155,14 @@ function toTitleCase(value: string): string {
     .join(" ");
 }
 
+function getFinalVerdict(caseItem: CaseResult): string {
+  return caseItem.final_verdict || caseItem.finalVerdict || "Unknown";
+}
+
 function CaseCard({ c, aiReason, onClick }: { c: CaseResult; aiReason?: string; onClick: () => void }) {
   const courtLevel = getCourtLevel(c.court);
   const location = getCourtLocation(c.court);
+  const finalVerdict = getFinalVerdict(c);
 
   return (
     <motion.div
@@ -190,6 +201,9 @@ function CaseCard({ c, aiReason, onClick }: { c: CaseResult; aiReason?: string; 
           <Calendar className="w-3 h-3" /> {c.year}
         </div>
       </div>
+      <div className="mt-2">
+        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-700">Verdict: {finalVerdict}</span>
+      </div>
       <div className="flex gap-1 mt-3 flex-wrap">
         {c.tags.map((t) => (
           <span key={t} className="px-2 py-0.5 rounded text-[9px] font-medium bg-accent/10 text-accent">{t}</span>
@@ -205,7 +219,7 @@ function GraphView({ cases, onSelect }: { cases: CaseResult[]; onSelect: (c: Cas
   const nodes = useMemo(() => {
     return cases.map((c, i) => {
       const angle = (i / cases.length) * Math.PI * 2;
-      const radius = 160 + Math.random() * 60;
+      const radius = hashToRange(`${c.id}:radius`, 160, 220);
       return {
         ...c,
         x: 300 + Math.cos(angle) * radius,
@@ -266,15 +280,26 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
   const assignment = useMemo(() => getCaseAssignment(c), [c]);
   const courtLevel = useMemo(() => getCourtLevel(c.court), [c.court]);
   const location = useMemo(() => getCourtLocation(c.court), [c.court]);
+  const finalVerdict = useMemo(() => getFinalVerdict(c), [c]);
 
   return (
-    <motion.div
-      initial={{ x: 400, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 400, opacity: 0 }}
-      transition={{ type: "spring", damping: 25 }}
-      className="fixed right-0 top-0 bottom-0 w-full max-w-md z-40 bg-card border-l border-border shadow-2xl p-6 overflow-y-auto"
-    >
+    <>
+      <motion.button
+        type="button"
+        aria-label="Close case details"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 z-30 bg-foreground/20 backdrop-blur-[1px]"
+      />
+      <motion.div
+        initial={{ x: 400, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: 400, opacity: 0 }}
+        transition={{ type: "spring", damping: 25 }}
+        className="fixed right-0 top-[84px] h-[calc(100vh-84px)] w-full max-w-md z-40 bg-card border-l border-border shadow-2xl p-6 overflow-y-auto"
+      >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">{c.type}</span>
@@ -295,6 +320,7 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
       <div className="mb-6 flex items-center gap-2 flex-wrap">
         <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">{courtLevel}</span>
         <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">{location}</span>
+        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700">Verdict: {finalVerdict}</span>
       </div>
       <div className="mb-6">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Similarity Score</p>
@@ -374,7 +400,8 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
           </div>
         </div>
       </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 }
 
@@ -414,11 +441,16 @@ export default function CaseExplorer() {
     setIsLoading(true);
 
     const timeout = setTimeout(async () => {
-      const q = searchQuery.trim();
-      const loadedCases = q ? await dataService.searchCases(q) : await dataService.getCases();
-      if (!active) return;
-      setCases(loadedCases);
-      setIsLoading(false);
+      try {
+        const q = searchQuery.trim();
+        const loadedCases = q ? await dataService.searchCases(q) : await dataService.getCases();
+        if (!active) return;
+        setCases(loadedCases);
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
     }, 250);
 
     return () => {
@@ -486,6 +518,7 @@ export default function CaseExplorer() {
   useEffect(() => {
     if (view !== "grid") return;
     if (!hasMoreCases) return;
+    if (typeof IntersectionObserver === "undefined") return;
 
     const target = loadMoreRef.current;
     if (!target) return;
@@ -508,19 +541,42 @@ export default function CaseExplorer() {
   useEffect(() => {
     let active = true;
     const generateReasons = async () => {
-      if (visibleCases.length === 0) return;
+      if (visibleCases.length === 0) {
+        if (active) setIsReasoning(false);
+        return;
+      }
+
+      const pendingCases = visibleCases.filter((item) => !matchReasons[item.id]);
+      if (pendingCases.length === 0) {
+        if (active) setIsReasoning(false);
+        return;
+      }
+
       setIsReasoning(true);
-      const reasons = await dataService.explainMatches(searchQuery || "legal case match", visibleCases);
-      if (!active) return;
-      setMatchReasons((previous) => ({ ...previous, ...reasons }));
-      setIsReasoning(false);
+      try {
+        const reasons = await dataService.explainMatches(searchQuery || "legal case match", pendingCases);
+        if (!active) return;
+        setMatchReasons((previous) => ({ ...previous, ...reasons }));
+      } finally {
+        if (active) {
+          setIsReasoning(false);
+        }
+      }
     };
     generateReasons();
 
     return () => {
       active = false;
     };
-  }, [visibleCases, searchQuery]);
+  }, [visibleCases, searchQuery, matchReasons]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const selectedStillVisible = filtered.some((item) => item.id === selected.id);
+    if (!selectedStillVisible) {
+      setSelected(null);
+    }
+  }, [filtered, selected]);
 
   return (
     <div className="min-h-screen relative">
@@ -648,6 +704,19 @@ export default function CaseExplorer() {
                     ))}
                   </div>
                 </div>
+                <div className="self-end ml-auto">
+                  <button
+                    onClick={() => {
+                      setCourtFilter("All Courts");
+                      setTypeFilter("All Types");
+                      setLocationFilter("All Locations");
+                      setGroupBy("none");
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -671,8 +740,20 @@ export default function CaseExplorer() {
             <p className="text-muted-foreground">Loading cases...</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
             <p className="text-muted-foreground">No cases found matching your filters.</p>
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setCourtFilter("All Courts");
+                setTypeFilter("All Types");
+                setLocationFilter("All Locations");
+                setGroupBy("none");
+              }}
+              className="px-4 py-2 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+            >
+              Clear Search & Filters
+            </button>
           </div>
         ) : view === "grid" ? (
           <div className="space-y-7">
@@ -706,12 +787,6 @@ export default function CaseExplorer() {
           </div>
         ) : (
           <GraphView cases={filtered.slice(0, MAX_GRAPH_NODES)} onSelect={setSelected} />
-        )}
-
-        {filtered.length === 0 && (
-          <div className="text-center py-20">
-            <p className="text-muted-foreground">No cases match the current filters</p>
-          </div>
         )}
       </div>
 

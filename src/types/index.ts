@@ -6,10 +6,17 @@ export interface CaseResult {
   court: string;
   year: number;
   similarity: number;
+  matchLevel?: string;
   priorityScore?: number;
   priorityBand?: "P0" | "P1" | "P2" | "P3";
   summary: string;
+  judgment?: string;
+  judgement?: string;
+  finalVerdict?: string;
+  final_verdict?: string;
   whyMatch: string;
+  whyMatched?: string;
+  matchedTerms?: string[];
   type: string;
   tags: string[];
 }

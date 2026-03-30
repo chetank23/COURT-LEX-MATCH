@@ -1,84 +1,277 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Sparkles, Zap, Brain, Network, ArrowRight, Scale, Gavel, GitCompare } from "lucide-react";
-import { CaseResult } from "@/types";
+import { Search, Sparkles, Zap, Brain, Network, ArrowRight, Scale, Gavel, GitCompare, UserRoundCheck, CalendarClock, BadgeCheck, X } from "lucide-react";
+import { CaseResult, JudgeProfile } from "@/types";
 import { dataService } from "@/services/dataService";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const aiSteps = [
-  { icon: Brain, label: "Understanding context", duration: 800 },
-  { icon: Network, label: "Generating embeddings", duration: 1000 },
-  { icon: Scale, label: "Matching precedents", duration: 1200 },
+  { icon: Brain, label: "Analyzing case...", duration: 800 },
+  { icon: Network, label: "Extracting insights...", duration: 1000 },
+  { icon: Scale, label: "Finding precedents...", duration: 1200 },
 ];
 
 type WorkflowMode = "find-cases" | "assign-judge";
 type Phase = "idle" | "choice" | "transition" | "analyzing" | "results";
+type JudgeCategory = "Criminal" | "Civil" | "Other";
 
-function TypingText({ text, speed = 20 }: { text: string; speed?: number }) {
-  const [displayed, setDisplayed] = useState("");
-  useEffect(() => {
-    let i = 0;
-    const interval = setInterval(() => {
-      setDisplayed(text.slice(0, i + 1));
-      i++;
-      if (i >= text.length) clearInterval(interval);
-    }, speed);
-    return () => clearInterval(interval);
-  }, [text, speed]);
-  return <>{displayed}</>;
+interface JudgeAssignmentResult {
+  caseItem: CaseResult;
+  assignedJudge: JudgeProfile;
+  fitScore: number;
+  rationale: string;
+  requiresPublicProsecutor: boolean;
+  suggestedHearingDate: string;
+  suggestedHearingTime: string;
+  suggestedHearingLabel: string;
 }
 
-function SimilarityBar({ score, delay }: { score: number; delay: number }) {
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => setWidth(score), delay);
-    return () => clearTimeout(t);
-  }, [score, delay]);
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-        <motion.div
-          className="h-full rounded-full"
-          style={{
-            width: `${width}%`,
-            background: `linear-gradient(90deg, hsl(238 70% 55%), hsl(270 60% 60%))`,
-          }}
-          initial={{ width: 0 }}
-          animate={{ width: `${width}%` }}
-          transition={{ duration: 1, delay: delay / 1000, ease: "easeOut" }}
-        />
-      </div>
-      <span className="text-sm font-semibold font-display text-primary min-w-[40px]">{score}%</span>
-    </div>
-  );
+const FALLBACK_JUDGES: JudgeProfile[] = [
+  {
+    id: "judge-fallback-1",
+    name: "Justice N. Rao",
+    courtLevel: "Supreme Court",
+    category: "Criminal",
+    yearsOfExperience: 20,
+    caseLoadCapacity: 50,
+    currentCaseLoad: 38,
+    availability: "Busy",
+  },
+  {
+    id: "judge-fallback-2",
+    name: "Justice P. Mehta",
+    courtLevel: "High Court",
+    category: "Criminal",
+    yearsOfExperience: 15,
+    caseLoadCapacity: 60,
+    currentCaseLoad: 42,
+    availability: "Available",
+  },
+  {
+    id: "judge-fallback-3",
+    name: "Justice R. Iyer",
+    courtLevel: "High Court",
+    category: "Civil",
+    yearsOfExperience: 18,
+    caseLoadCapacity: 55,
+    currentCaseLoad: 28,
+    availability: "Available",
+  },
+  {
+    id: "judge-fallback-4",
+    name: "Justice A. Menon",
+    courtLevel: "District Court",
+    category: "Other",
+    yearsOfExperience: 12,
+    caseLoadCapacity: 45,
+    currentCaseLoad: 19,
+    availability: "Available",
+  },
+];
+
+
+function toShortSummary(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return "No summary available for this case.";
+
+  const firstSentence = normalized.match(/^(.+?[.!?])(?:\s|$)/)?.[1] || normalized;
+  if (firstSentence.length <= 180) return firstSentence;
+  return `${firstSentence.slice(0, 177).trimEnd()}...`;
 }
 
-function ResultCard({ result, index }: { result: CaseResult; index: number }) {
-  const [expanded, setExpanded] = useState(false);
+function getFinalVerdict(caseItem: CaseResult): string {
+  return caseItem.final_verdict || caseItem.finalVerdict || "Unknown";
+}
+
+function getJudgmentText(caseItem: CaseResult): string {
+  const text = (caseItem.judgment || "").trim();
+  if (text) return text;
+  return "Full judgment text is not available for this record.";
+}
+
+function ResultCard({ result, index, isLast, onOpenDetails }: { result: CaseResult; index: number; isLast: boolean; onOpenDetails: (item: CaseResult) => void }) {
+  const judgementLabel = result.judgement || result.judgment || getFinalVerdict(result);
+  const matchLevel = result.matchLevel || "Moderate Match";
+  const matchedTerms = (result.matchedTerms || result.tags || []).slice(0, 6);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.15, duration: 0.5 }}
-      className="glass-panel rounded-2xl p-5 hover:glow-primary transition-all cursor-pointer group"
-      onClick={() => setExpanded(!expanded)}
+      onClick={() => onOpenDetails(result)}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors">{result.title}</h3>
-          <p className="text-sm text-muted-foreground mt-1">{result.court} · {result.year}</p>
+      <Card className="glass-panel rounded-2xl hover:glow-primary transition-all cursor-pointer group border-primary/10">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-display font-semibold text-primary">Similar Case {index + 1}</p>
+              <CardTitle className="mt-1 text-lg font-display leading-snug group-hover:text-primary transition-colors">
+                {result.title}
+              </CardTitle>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-display font-bold gradient-text">{result.similarity}%</p>
+              <Badge variant="secondary" className="mt-1">{matchLevel}</Badge>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            <span className="font-semibold text-foreground">Court:</span> {result.court} · {result.year}
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <p className="text-sm font-display font-semibold text-foreground mb-1">Summary</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{toShortSummary(result.summary)}</p>
+          </div>
+
+          <div>
+            <p className="text-sm font-display font-semibold text-foreground mb-1">Judgement</p>
+            <p className="text-sm text-foreground/85">{judgementLabel}</p>
+          </div>
+
+          <div>
+            <p className="text-sm font-display font-semibold text-foreground mb-1">Why Matched</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{result.whyMatched || result.whyMatch}</p>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Matched Terms</p>
+            <div className="flex flex-wrap gap-1.5">
+              {matchedTerms.length > 0 ? (
+                matchedTerms.map((term) => (
+                  <Badge key={term} variant="outline" className="text-[11px]">{term}</Badge>
+                ))
+              ) : (
+                <span className="text-xs text-muted-foreground">No explicit term overlap extracted.</span>
+              )}
+            </div>
+          </div>
+
+          <p className="pt-3 border-t border-border text-xs text-primary font-semibold">Click to view complete case details and judgment</p>
+          {!isLast && <p className="text-xs text-muted-foreground/70 tracking-wide select-none">--------------------------------------------------</p>}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+function CaseDetailDrawer({ caseItem, isLoading, onClose }: { caseItem: CaseResult; isLoading: boolean; onClose: () => void }) {
+  const finalVerdict = getFinalVerdict(caseItem);
+
+  return (
+    <>
+      <motion.button
+        type="button"
+        aria-label="Close case details"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-x-0 bottom-0 top-[84px] z-50 bg-foreground/30 backdrop-blur-[1px]"
+      />
+      <motion.aside
+        initial={{ x: 400, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: 400, opacity: 0 }}
+        transition={{ type: "spring", damping: 24 }}
+        className="fixed right-0 top-[84px] h-[calc(100vh-84px)] w-full max-w-2xl z-[60] bg-card border-l border-border shadow-2xl p-6 overflow-y-auto"
+      >
+        <div className="flex items-start justify-between gap-3 mb-5">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Complete Case Details</p>
+            <h3 className="text-xl font-display font-bold text-foreground mt-1">{caseItem.title}</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <div className="flex gap-1.5 flex-wrap justify-end">
-          {result.tags.map((tag) => (
-            <span key={tag} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">{tag}</span>
-          ))}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          <div className="rounded-lg border border-border p-3">
+            <p className="text-xs text-muted-foreground">Court</p>
+            <p className="text-sm font-medium text-foreground mt-1">{caseItem.court}</p>
+          </div>
+          <div className="rounded-lg border border-border p-3">
+            <p className="text-xs text-muted-foreground">Year</p>
+            <p className="text-sm font-medium text-foreground mt-1">{caseItem.year}</p>
+          </div>
+          <div className="rounded-lg border border-border p-3">
+            <p className="text-xs text-muted-foreground">Similarity</p>
+            <p className="text-sm font-medium text-foreground mt-1">{caseItem.similarity}%</p>
+          </div>
+          <div className="rounded-lg border border-border p-3">
+            <p className="text-xs text-muted-foreground">Final Verdict</p>
+            <p className="text-sm font-medium text-foreground mt-1">{finalVerdict}</p>
+          </div>
         </div>
+
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Summary</p>
+          <p className="text-sm text-foreground/85 leading-relaxed">{caseItem.summary}</p>
+        </div>
+
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Why This Matched</p>
+          <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+            <p className="text-sm text-foreground/85 leading-relaxed">{caseItem.whyMatch}</p>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Judgment Given</p>
+          <div className="rounded-xl border border-border bg-muted/40 p-4">
+            <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">
+              {isLoading ? "Loading complete judgment..." : getJudgmentText(caseItem)}
+            </p>
+          </div>
+        </div>
+      </motion.aside>
+    </>
+  );
+}
+
+function JudgeAssignmentCard({ result, index }: { result: JudgeAssignmentResult; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1, duration: 0.45 }}
+      className="glass-panel rounded-2xl p-5 hover:glow-primary transition-all cursor-pointer group"
+      onClick={() => setExpanded((value) => !value)}
+    >
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors truncate">{result.caseItem.title}</h3>
+          <p className="text-sm text-muted-foreground mt-1">{result.caseItem.court} · {result.caseItem.year}</p>
+        </div>
+        <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">Fit {result.fitScore}%</span>
       </div>
-      <SimilarityBar score={result.similarity} delay={index * 150 + 300} />
-      <div className="mt-3">
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          <TypingText text={result.summary} speed={8} />
+
+      <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Assigned Judge</p>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${result.assignedJudge.availability === "Available" ? "bg-green-500/15 text-green-700" : "bg-muted text-muted-foreground"}`}>
+            {result.assignedJudge.availability}
+          </span>
+        </div>
+        <p className="text-sm text-foreground font-semibold flex items-center gap-2">
+          <UserRoundCheck className="w-4 h-4 text-primary" /> {result.assignedJudge.name}
         </p>
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5"><BadgeCheck className="w-3.5 h-3.5" /> {result.assignedJudge.category}</span>
+          <span className="flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5" /> {result.suggestedHearingLabel}</span>
+        </div>
       </div>
+
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -87,9 +280,12 @@ function ResultCard({ result, index }: { result: CaseResult; index: number }) {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-2">Why this matches</p>
-              <p className="text-sm text-foreground/80 leading-relaxed">{result.whyMatch}</p>
+            <div className="mt-4 pt-4 border-t border-border space-y-2">
+              <p className="text-xs font-semibold text-accent uppercase tracking-wider">Assignment rationale</p>
+              <p className="text-sm text-foreground/80 leading-relaxed">{result.rationale}</p>
+              <p className="text-xs text-muted-foreground">
+                Public prosecutor: <span className="font-semibold text-foreground">{result.requiresPublicProsecutor ? "Required" : "Not required"}</span>
+              </p>
             </div>
           </motion.div>
         )}
@@ -98,13 +294,149 @@ function ResultCard({ result, index }: { result: CaseResult; index: number }) {
   );
 }
 
+function classifyCaseCategory(caseType: string): JudgeCategory {
+  const normalizedType = caseType.toLowerCase();
+  if (
+    normalizedType.includes("criminal") ||
+    normalizedType.includes("ipc") ||
+    normalizedType.includes("crime") ||
+    normalizedType.includes("offence")
+  ) {
+    return "Criminal";
+  }
+  if (
+    normalizedType.includes("civil") ||
+    normalizedType.includes("property") ||
+    normalizedType.includes("contract") ||
+    normalizedType.includes("family")
+  ) {
+    return "Civil";
+  }
+  return "Other";
+}
+
+function inferCourtLevel(courtName: string): JudgeProfile["courtLevel"] {
+  const value = courtName.toLowerCase();
+  if (value.includes("supreme")) return "Supreme Court";
+  if (value.includes("high")) return "High Court";
+  return "District Court";
+}
+
+function computeJudgeFit(caseItem: CaseResult, judge: JudgeProfile, liveLoad: number): number {
+  const availabilityScore = judge.availability === "Available" ? 35 : judge.availability === "Busy" ? 12 : -25;
+  const categoryMatchScore = judge.category === classifyCaseCategory(caseItem.type) ? 26 : 8;
+  const courtMatchScore = judge.courtLevel === inferCourtLevel(caseItem.court) ? 14 : 5;
+  const expScore = Math.min(20, Math.round((judge.yearsOfExperience / 25) * 20));
+  const capacity = Math.max(1, judge.caseLoadCapacity);
+  const loadRatio = Math.min(1.2, liveLoad / capacity);
+  const loadScore = Math.round((1 - loadRatio) * 20);
+
+  return Math.max(20, Math.min(99, availabilityScore + categoryMatchScore + courtMatchScore + expScore + loadScore));
+}
+
+function buildAssignmentRationale(caseItem: CaseResult, judge: JudgeProfile): string {
+  const category = classifyCaseCategory(caseItem.type);
+  return `${judge.name} selected for ${category.toLowerCase()}-bench alignment, ${judge.yearsOfExperience} years of experience, and manageable live caseload for ${caseItem.court.toLowerCase()} proceedings.`;
+}
+
+function buildSuggestedHearingSlot(index: number): {
+  hearingDate: string;
+  hearingTime: string;
+  label: string;
+} {
+  const baseDate = new Date();
+  baseDate.setDate(baseDate.getDate() + 3 + index);
+  const day = baseDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const hour = 10 + (index % 4);
+  const hearingDate = baseDate.toISOString().slice(0, 10);
+  const hearingTime = `${String(hour).padStart(2, "0")}:00`;
+  return {
+    hearingDate,
+    hearingTime,
+    label: `${day}, ${hour}:00`,
+  };
+}
+
+function inferHearingVenue(courtName: string): {
+  state: string;
+  district: string;
+  localCourtName: string;
+  courtRoom: string;
+} {
+  const source = courtName.toLowerCase();
+  if (source.includes("supreme")) {
+    return {
+      state: "Delhi",
+      district: "New Delhi",
+      localCourtName: "Supreme Court of India",
+      courtRoom: "Court Room 1",
+    };
+  }
+  if (source.includes("high")) {
+    return {
+      state: "State Jurisdiction",
+      district: "High Court District",
+      localCourtName: courtName,
+      courtRoom: "Court Room 2",
+    };
+  }
+  return {
+    state: "Local State",
+    district: "Local District",
+    localCourtName: courtName,
+    courtRoom: "Court Room 3",
+  };
+}
+
+function assignJudgesToCases(cases: CaseResult[], judges: JudgeProfile[]): JudgeAssignmentResult[] {
+  if (cases.length === 0 || judges.length === 0) return [];
+
+  const loadTracker = new Map(judges.map((judge) => [judge.id, judge.currentCaseLoad]));
+  const rankedCases = [...cases].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
+
+  return rankedCases.map((caseItem, index) => {
+    const preferredCategory = classifyCaseCategory(caseItem.type);
+    const primaryPool = judges.filter((judge) => judge.category === preferredCategory);
+    const pool = primaryPool.length > 0 ? primaryPool : judges;
+
+    const bestJudge = pool
+      .map((judge) => {
+        const liveLoad = loadTracker.get(judge.id) ?? judge.currentCaseLoad;
+        const fit = computeJudgeFit(caseItem, judge, liveLoad);
+        return { judge, fit };
+      })
+      .sort((a, b) => b.fit - a.fit)[0];
+
+    const assignedJudge = bestJudge?.judge || judges[0];
+    const previousLoad = loadTracker.get(assignedJudge.id) ?? assignedJudge.currentCaseLoad;
+    loadTracker.set(assignedJudge.id, previousLoad + 1);
+    const hearingSlot = buildSuggestedHearingSlot(index);
+
+    return {
+      caseItem,
+      assignedJudge,
+      fitScore: bestJudge?.fit || 50,
+      rationale: buildAssignmentRationale(caseItem, assignedJudge),
+      requiresPublicProsecutor: preferredCategory === "Criminal",
+      suggestedHearingDate: hearingSlot.hearingDate,
+      suggestedHearingTime: hearingSlot.hearingTime,
+      suggestedHearingLabel: hearingSlot.label,
+    };
+  });
+}
+
 export default function AISearchLab() {
   const [query, setQuery] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [workflowMode, setWorkflowMode] = useState<WorkflowMode>("find-cases");
   const [currentStep, setCurrentStep] = useState(0);
   const [results, setResults] = useState<CaseResult[]>([]);
+  const [assignments, setAssignments] = useState<JudgeAssignmentResult[]>([]);
+  const [scheduleSummary, setScheduleSummary] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedCase, setSelectedCase] = useState<CaseResult | null>(null);
+  const [isCaseDetailLoading, setIsCaseDetailLoading] = useState(false);
+  const caseDetailRequestRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSearch = () => {
@@ -112,8 +444,55 @@ export default function AISearchLab() {
     setPhase("choice");
   };
 
+  const createHearingDraftsFromAssignments = async (items: JudgeAssignmentResult[]) => {
+    let createdCount = 0;
+    let existingCount = 0;
+
+    for (const item of items) {
+      const existingHearings = await dataService.getHearingsByCaseId(item.caseItem.id);
+      const duplicate = existingHearings.some(
+        (hearing) =>
+          hearing.assignedJudgeId === item.assignedJudge.id &&
+          hearing.hearingDate === item.suggestedHearingDate &&
+          hearing.hearingTime === item.suggestedHearingTime
+      );
+
+      if (duplicate) {
+        existingCount += 1;
+        continue;
+      }
+
+      const venue = inferHearingVenue(item.caseItem.court);
+      await dataService.addHearing({
+        id: `hearing-${item.caseItem.id}-${item.assignedJudge.id}-${item.suggestedHearingDate}`,
+        caseId: item.caseItem.id,
+        caseTitle: item.caseItem.title,
+        assignedJudgeId: item.assignedJudge.id,
+        assignedJudgeName: item.assignedJudge.name,
+        hearingDate: item.suggestedHearingDate,
+        hearingTime: item.suggestedHearingTime,
+        courtRoom: venue.courtRoom,
+        state: venue.state,
+        district: venue.district,
+        localCourtName: venue.localCourtName,
+        status: "Scheduled",
+        notes: `Auto-drafted from AI judge assignment (${item.fitScore}% fit).`,
+      });
+      createdCount += 1;
+    }
+
+    if (createdCount > 0) {
+      setScheduleSummary(`Auto-created ${createdCount} hearing draft${createdCount > 1 ? "s" : ""}${existingCount > 0 ? ` (${existingCount} already existed)` : ""}.`);
+      return;
+    }
+
+    setScheduleSummary(existingCount > 0 ? `All ${existingCount} hearing drafts already existed.` : "No hearing drafts were created.");
+  };
+
   const startAnalysis = async (mode: WorkflowMode) => {
     if (!query.trim()) return;
+    setWorkflowMode(mode);
+    setScheduleSummary("");
     setPhase("transition");
     setIsLoading(true);
     setTimeout(() => {
@@ -126,9 +505,20 @@ export default function AISearchLab() {
           setCurrentStep(step);
           setTimeout(advance, aiSteps[step].duration);
         } else {
-          // Fetch results from data service
           const searchResults = await dataService.searchCases(query);
           setResults(searchResults);
+          await dataService.saveSearch(query, searchResults.length);
+
+          if (mode === "assign-judge") {
+            const judgePool = await dataService.getJudges();
+            const availableJudges = judgePool.length > 0 ? judgePool : FALLBACK_JUDGES;
+            const assigned = assignJudgesToCases(searchResults.slice(0, 8), availableJudges);
+            setAssignments(assigned);
+            await createHearingDraftsFromAssignments(assigned);
+          } else {
+            setAssignments([]);
+          }
+
           setIsLoading(false);
           setTimeout(() => setPhase("results"), 600);
         }
@@ -142,6 +532,36 @@ export default function AISearchLab() {
     setQuery("");
     setCurrentStep(0);
     setWorkflowMode("find-cases");
+    setAssignments([]);
+    setScheduleSummary("");
+    handleCloseCaseDetails();
+  };
+
+  const handleCloseCaseDetails = () => {
+    caseDetailRequestRef.current += 1;
+    setSelectedCase(null);
+    setIsCaseDetailLoading(false);
+  };
+
+  const openCaseDetails = async (item: CaseResult) => {
+    const requestId = caseDetailRequestRef.current + 1;
+    caseDetailRequestRef.current = requestId;
+    setSelectedCase(item);
+    setIsCaseDetailLoading(true);
+    try {
+      const fullCase = await dataService.getCaseById(item.id);
+      if (caseDetailRequestRef.current !== requestId || !fullCase) return;
+      setSelectedCase({
+        ...item,
+        ...fullCase,
+        similarity: item.similarity,
+        whyMatch: item.whyMatch || fullCase.whyMatch,
+      });
+    } finally {
+      if (caseDetailRequestRef.current === requestId) {
+        setIsCaseDetailLoading(false);
+      }
+    }
   };
 
   return (
@@ -218,7 +638,11 @@ export default function AISearchLab() {
               transition={{ delay: 0.5 }}
               className="mt-12 flex flex-wrap justify-center gap-2"
             >
-              {["AI liability in automated decisions", "Data privacy in healthcare AI", "Autonomous vehicle negligence"].map((ex) => (
+              {[
+                "A dispute between two brothers over ownership of ancestral property.",
+                "Data privacy in healthcare AI",
+                "Autonomous vehicle negligence",
+              ].map((ex) => (
                 <button
                   key={ex}
                   onClick={() => { setQuery(ex); inputRef.current?.focus(); }}
@@ -301,7 +725,7 @@ export default function AISearchLab() {
                 transition={{ delay: 1 }}
                 className="text-2xl font-display font-bold gradient-text mt-4"
               >
-                ⚡ LexMatch AI is analyzing meaning…
+                ⚡ CASE UPHOLDER is analyzing meaning…
               </motion.p>
             </div>
           </motion.div>
@@ -363,6 +787,7 @@ export default function AISearchLab() {
                     </motion.div>
                   );
                 })}
+
               </div>
             </div>
           </motion.div>
@@ -395,23 +820,64 @@ export default function AISearchLab() {
                   </button>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Found <span className="text-primary font-semibold">{results.length}</span> matching precedents
+                  {workflowMode === "assign-judge" ? (
+                    <>
+                      Generated <span className="text-primary font-semibold">{assignments.length}</span> judge assignments
+                    </>
+                  ) : (
+                    <>
+                      Found <span className="text-primary font-semibold">{results.length}</span> matching precedents
+                    </>
+                  )}
                 </p>
               </motion.div>
 
               <div className="space-y-4">
-                {results.length === 0 ? (
+                {workflowMode === "assign-judge" ? (
+                  assignments.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">No assignable results found. Please try a different query.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {scheduleSummary && (
+                        <div className="rounded-xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-foreground/85">
+                          {scheduleSummary}
+                        </div>
+                      )}
+                      {assignments.map((assignment, i) => (
+                        <JudgeAssignmentCard key={`${assignment.caseItem.id}-${assignment.assignedJudge.id}`} result={assignment} index={i} />
+                      ))}
+                    </>
+                  )
+                ) : results.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-muted-foreground">No results found. Please try a different query.</p>
                   </div>
                 ) : (
                   results.map((c, i) => (
-                    <ResultCard key={c.id} result={c} index={i} />
+                    <ResultCard
+                      key={c.id}
+                      result={c}
+                      index={i}
+                      isLast={i === results.length - 1}
+                      onOpenDetails={openCaseDetails}
+                    />
                   ))
                 )}
               </div>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedCase && phase === "results" && workflowMode === "find-cases" && (
+          <CaseDetailDrawer
+            caseItem={selectedCase}
+            isLoading={isCaseDetailLoading}
+            onClose={handleCloseCaseDetails}
+          />
         )}
       </AnimatePresence>
     </div>

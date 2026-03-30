@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2, Clock, Users, MapPin } from "lucide-react";
 import { HearingSchedule, JudgeProfile } from "@/types";
+import { dataService } from "@/services/dataService";
 
 type DialogMode = "add" | "edit" | null;
 
@@ -192,7 +193,19 @@ function HearingCard({ hearing, onEdit, onDelete }: { hearing: HearingSchedule; 
   );
 }
 
-function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSchedule | null; mode: DialogMode; onClose: () => void; onSave: (h: HearingSchedule) => void }) {
+function HearingDialog({
+  hearing,
+  mode,
+  onClose,
+  onSave,
+  judges,
+}: {
+  hearing: HearingSchedule | null;
+  mode: DialogMode;
+  onClose: () => void;
+  onSave: (h: HearingSchedule) => void;
+  judges: JudgeProfile[];
+}) {
   const [formData, setFormData] = useState<HearingSchedule>(
     hearing || {
       id: `hearing-${Date.now()}`,
@@ -283,7 +296,7 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   >
                     <option value="">Select Judge</option>
-                    {mockJudges.map((judge) => (
+                    {judges.map((judge) => (
                       <option key={judge.id} value={judge.id}>
                         {judge.name}
                       </option>
@@ -382,10 +395,25 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
 }
 
 export default function HearingCalendar() {
-  const [hearings, setHearings] = useState<HearingSchedule[]>(initialHearings);
+  const [hearings, setHearings] = useState<HearingSchedule[]>([]);
+  const [judges, setJudges] = useState<JudgeProfile[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [selectedHearing, setSelectedHearing] = useState<HearingSchedule | null>(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const [loadedHearings, loadedJudges] = await Promise.all([
+        dataService.getHearings(),
+        dataService.getJudges(),
+      ]);
+
+      setHearings(loadedHearings.length > 0 ? loadedHearings : initialHearings);
+      setJudges(loadedJudges.length > 0 ? loadedJudges : mockJudges);
+    };
+
+    loadData();
+  }, []);
 
   const handleAdd = () => {
     setSelectedHearing(null);
@@ -397,15 +425,18 @@ export default function HearingCalendar() {
     setDialogMode("edit");
   };
 
-  const handleDelete = (id: string) => {
-    setHearings(hearings.filter((h) => h.id !== id));
+  const handleDelete = async (id: string) => {
+    await dataService.removeHearing(id);
+    setHearings((current) => current.filter((hearing) => hearing.id !== id));
   };
 
-  const handleSave = (hearing: HearingSchedule) => {
+  const handleSave = async (hearing: HearingSchedule) => {
     if (dialogMode === "add") {
-      setHearings([...hearings, hearing]);
+      const created = await dataService.addHearing(hearing);
+      setHearings((current) => [...current, created]);
     } else {
-      setHearings(hearings.map((h) => (h.id === hearing.id ? hearing : h)));
+      const updated = await dataService.editHearing(hearing.id, hearing);
+      setHearings((current) => current.map((item) => (item.id === hearing.id ? { ...item, ...updated } : item)));
     }
   };
 
@@ -548,7 +579,13 @@ export default function HearingCalendar() {
         </div>
       </div>
 
-      <HearingDialog hearing={selectedHearing} mode={dialogMode} onClose={() => setDialogMode(null)} onSave={handleSave} />
+      <HearingDialog
+        hearing={selectedHearing}
+        mode={dialogMode}
+        onClose={() => setDialogMode(null)}
+        onSave={handleSave}
+        judges={judges}
+      />
     </div>
   );
 }

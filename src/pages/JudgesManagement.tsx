@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Edit2, Trash2, ChevronDown, ChevronRight, Users, Briefcase, Calendar, X } from "lucide-react";
 import { JudgeProfile } from "@/types";
+import { dataService } from "@/services/dataService";
 
 type DialogMode = "add" | "edit" | null;
 
@@ -278,9 +279,17 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
 }
 
 export default function JudgesManagement() {
-  const [judges, setJudges] = useState<JudgeProfile[]>(initialJudges);
+  const [judges, setJudges] = useState<JudgeProfile[]>([]);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [selectedJudge, setSelectedJudge] = useState<JudgeProfile | null>(null);
+
+  useEffect(() => {
+    const loadJudges = async () => {
+      const loaded = await dataService.getJudges();
+      setJudges(loaded.length > 0 ? loaded : initialJudges);
+    };
+    loadJudges();
+  }, []);
 
   const handleAdd = () => {
     setSelectedJudge(null);
@@ -292,15 +301,18 @@ export default function JudgesManagement() {
     setDialogMode("edit");
   };
 
-  const handleDelete = (id: string) => {
-    setJudges(judges.filter((j) => j.id !== id));
+  const handleDelete = async (id: string) => {
+    await dataService.removeJudge(id);
+    setJudges((current) => current.filter((judge) => judge.id !== id));
   };
 
-  const handleSave = (judge: JudgeProfile) => {
+  const handleSave = async (judge: JudgeProfile) => {
     if (dialogMode === "add") {
-      setJudges([...judges, judge]);
+      const created = await dataService.addJudge(judge);
+      setJudges((current) => [...current, created]);
     } else {
-      setJudges(judges.map((j) => (j.id === judge.id ? judge : j)));
+      const updated = await dataService.editJudge(judge.id, judge);
+      setJudges((current) => current.map((item) => (item.id === judge.id ? { ...item, ...updated } : item)));
     }
   };
 

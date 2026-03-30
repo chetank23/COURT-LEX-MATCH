@@ -17,14 +17,14 @@ export default function TopNav() {
   const navigate = useNavigate();
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 px-4">
+    <div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-3 px-3">
       <motion.nav
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="glass-panel rounded-2xl px-2 py-1.5 flex items-center gap-1"
+        className="glass-panel rounded-xl px-1.5 py-1 flex items-center gap-0.5"
       >
-        <div className="px-3 mr-1">
-          <span className="text-sm font-display font-bold gradient-text">LexMatch AI</span>
+        <div className="px-2.5 mr-0.5">
+          <span className="text-sm font-display font-bold gradient-text">CASE UPHOLDER</span>
         </div>
         {navItems.map((item) => {
           const active = location.pathname === item.path;
@@ -32,14 +32,14 @@ export default function TopNav() {
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+              className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                 active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {active && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute inset-0 bg-primary rounded-xl"
+                  className="absolute inset-0 bg-primary rounded-lg"
                   transition={{ type: "spring", damping: 25, stiffness: 300 }}
                 />
               )}

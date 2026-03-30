@@ -16,6 +16,12 @@
     "test:e2e": "playwright test",
     "data:fetch": "node scripts/fetch_public_cases.mjs",
     "test:api": "node server/smoke_test.mjs",
+    "test:api:smart": "node server/smart_search_integration_test.mjs",
+    "test:api:pdf": "node server/pdf_analysis_test.mjs",
+    "test:api:ratelimit": "node server/rate_limit_test.mjs",
+    "test:api:limits": "node server/request_limits_test.mjs",
+    "test:api:obs": "node server/observability_test.mjs",
+    "test:api:load": "node server/load_smoke_test.mjs",
     "db:schema": "psql -d lexmatch_ai -f server/db/schema.sql"
   },
   "dependencies": {
@@ -57,6 +63,8 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
+    "pdf-parse": "^2.4.5",
+    "pg": "^8.16.3",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
@@ -67,6 +75,7 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "tesseract.js": "^7.0.0",
     "vaul": "^0.9.9",
     "zod": "^3.25.76"
   },
