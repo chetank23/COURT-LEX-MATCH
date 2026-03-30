@@ -22,6 +22,8 @@
     "test:api:limits": "node server/request_limits_test.mjs",
     "test:api:obs": "node server/observability_test.mjs",
     "test:api:load": "node server/load_smoke_test.mjs",
+    "test:api:rag": "node server/rag_integration_test.mjs",
+    "rag:index": "node scripts/build_rag_index.mjs",
     "db:schema": "psql -d lexmatch_ai -f server/db/schema.sql"
   },
   "dependencies": {

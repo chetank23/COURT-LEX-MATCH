@@ -21,6 +21,7 @@ import { generateSummary } from "./services/summarizer.mjs";
 import { mapJudgement } from "./services/judgementMapper.mjs";
 import { buildMatchExplanation } from "./services/explanationGenerator.mjs";
 import { getMatchLevel } from "./services/similarity.mjs";
+import { buildRagIndex, queryRag } from "./services/ragService.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +53,7 @@ const VERDICT_RULES = [
 let caseCache = null;
 let caseSearchIndex = null;
 let caseSearchIndexMap = null;
+let ragIndexCache = null;
 const queryEmbeddingCache = new Map();
 const rateLimitBuckets = new Map();
 const serverStartedAt = Date.now();
@@ -122,6 +124,7 @@ async function loadCases() {
   });
   caseSearchIndex = buildCaseSearchIndex(caseCache);
   caseSearchIndexMap = new Map(caseSearchIndex.map((item) => [item.id, item]));
+  ragIndexCache = buildRagIndex(caseCache);
 
   return caseCache;
 }
@@ -290,6 +293,19 @@ export async function createServer() {
         }
       }
 
+      if (pathname === "/api/rag/query") {
+        const rateWindowMs = readEnvInt("LEXMATCH_RATE_LIMIT_WINDOW_MS", DEFAULT_RATE_LIMIT_WINDOW_MS);
+        const maxRequests = readEnvInt("LEXMATCH_RATE_LIMIT_SEARCH_MAX", DEFAULT_RATE_LIMIT_SEARCH_MAX);
+        const limit = consumeRateLimit("rag-query", clientAddress, maxRequests, rateWindowMs);
+        if (!limit.allowed) {
+          sendJson(res, 429, {
+            error: "Rate limit exceeded for RAG query. Please retry shortly.",
+            retryAfterSeconds: Math.max(1, Math.ceil(limit.retryAfterMs / 1000)),
+          });
+          return;
+        }
+      }
+
       if (pathname === "/api/analyze-pdf" && req.method === "POST") {
         const rateWindowMs = readEnvInt("LEXMATCH_RATE_LIMIT_WINDOW_MS", DEFAULT_RATE_LIMIT_WINDOW_MS);
         const maxRequests = readEnvInt("LEXMATCH_RATE_LIMIT_ANALYZE_MAX", DEFAULT_RATE_LIMIT_ANALYZE_MAX);
@@ -431,6 +447,51 @@ export async function createServer() {
         });
 
         sendJson(res, 200, { results: formatted });
+        return;
+      }
+
+      if (pathname === "/api/rag/query") {
+        let query = "";
+        let topK = 8;
+
+        if (req.method === "GET") {
+          query = `${url.searchParams.get("q") || ""}`;
+          const parsedTopK = Number.parseInt(url.searchParams.get("topK") || "8", 10);
+          if (Number.isFinite(parsedTopK)) topK = parsedTopK;
+        } else if (req.method === "POST") {
+          const payload = await readJsonBody(req);
+          query = `${payload.query || ""}`;
+          const parsedTopK = Number.parseInt(`${payload.topK || 8}`, 10);
+          if (Number.isFinite(parsedTopK)) topK = parsedTopK;
+        } else {
+          sendJson(res, 405, { error: "Method not allowed" });
+          return;
+        }
+
+        if (!ragIndexCache) {
+          ragIndexCache = buildRagIndex(allCases);
+        }
+
+        const response = queryRag({
+          query,
+          index: ragIndexCache,
+          topK,
+          minScore: 0.22,
+        });
+
+        recordAuditEvent({
+          action: "rag_query",
+          entity: "rag",
+          requestId,
+          clientAddress,
+          details: {
+            topK,
+            grounded: response.grounded,
+            query: `${response.query || ""}`.slice(0, 160),
+          },
+        });
+
+        sendJson(res, 200, response);
         return;
       }
 

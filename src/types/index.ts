@@ -107,3 +107,32 @@ export interface HearingSchedule {
   status: "Scheduled" | "Ongoing" | "Completed" | "Postponed";
   notes: string;
 }
+
+export interface RagSource {
+  caseId: string;
+  title: string;
+  court: string;
+  year: number;
+  type: string;
+  finalVerdict?: string;
+  section: string;
+  score: number;
+  excerpt: string;
+}
+
+export interface RagRetrievedChunk {
+  chunkId: string;
+  caseId: string;
+  score: number;
+  section: string;
+  text: string;
+}
+
+export interface RagQueryResponse {
+  query: string;
+  answer: string;
+  grounded: boolean;
+  confidence: number;
+  sources: RagSource[];
+  retrievedChunks: RagRetrievedChunk[];
+}

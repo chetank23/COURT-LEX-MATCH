@@ -7,6 +7,7 @@ import {
   FIRJudgeAssignment,
   JudgeProfile,
   HearingSchedule,
+  RagQueryResponse,
 } from "@/types";
 import { AlertTriangle, FileText, Gavel, Layers, Scale } from "lucide-react";
 
@@ -259,6 +260,24 @@ export const dataService = {
       acc[current.id] = current.reason;
       return acc;
     }, {});
+  },
+
+  async queryRag(query: string, topK = 8): Promise<RagQueryResponse> {
+    const payload = (await this._requestJson("/api/rag/query", {
+      method: "POST",
+      body: JSON.stringify({ query, topK }),
+    })) as RagQueryResponse | null;
+
+    if (payload) return payload;
+
+    return {
+      query,
+      answer: "RAG service is currently unavailable.",
+      grounded: false,
+      confidence: 0,
+      sources: [],
+      retrievedChunks: [],
+    };
   },
 
   /**

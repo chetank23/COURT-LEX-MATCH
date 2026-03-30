@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Sparkles, Zap, Brain, Network, ArrowRight, Scale, Gavel, GitCompare, UserRoundCheck, CalendarClock, BadgeCheck, X } from "lucide-react";
-import { CaseResult, JudgeProfile } from "@/types";
+import { CaseResult, JudgeProfile, RagQueryResponse, RagSource } from "@/types";
 import { dataService } from "@/services/dataService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 
 const aiSteps = [
   { icon: Brain, label: "Analyzing case...", duration: 800 },
@@ -16,6 +15,7 @@ const aiSteps = [
 type WorkflowMode = "find-cases" | "assign-judge";
 type Phase = "idle" | "choice" | "transition" | "analyzing" | "results";
 type JudgeCategory = "Criminal" | "Civil" | "Other";
+type RetrievalMode = "semantic" | "rag";
 
 interface JudgeAssignmentResult {
   caseItem: CaseResult;
@@ -429,8 +429,10 @@ export default function AISearchLab() {
   const [query, setQuery] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [workflowMode, setWorkflowMode] = useState<WorkflowMode>("find-cases");
+  const [retrievalMode, setRetrievalMode] = useState<RetrievalMode>("semantic");
   const [currentStep, setCurrentStep] = useState(0);
   const [results, setResults] = useState<CaseResult[]>([]);
+  const [ragResult, setRagResult] = useState<RagQueryResponse | null>(null);
   const [assignments, setAssignments] = useState<JudgeAssignmentResult[]>([]);
   const [scheduleSummary, setScheduleSummary] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -505,9 +507,18 @@ export default function AISearchLab() {
           setCurrentStep(step);
           setTimeout(advance, aiSteps[step].duration);
         } else {
-          const searchResults = await dataService.searchCases(query);
-          setResults(searchResults);
-          await dataService.saveSearch(query, searchResults.length);
+          let searchResults: CaseResult[] = [];
+          if (mode === "find-cases" && retrievalMode === "rag") {
+            const ragResponse = await dataService.queryRag(query, 8);
+            setRagResult(ragResponse);
+            setResults([]);
+            await dataService.saveSearch(query, ragResponse.sources.length);
+          } else {
+            searchResults = await dataService.searchCases(query);
+            setResults(searchResults);
+            setRagResult(null);
+            await dataService.saveSearch(query, searchResults.length);
+          }
 
           if (mode === "assign-judge") {
             const judgePool = await dataService.getJudges();
@@ -532,7 +543,10 @@ export default function AISearchLab() {
     setQuery("");
     setCurrentStep(0);
     setWorkflowMode("find-cases");
+    setRetrievalMode("semantic");
     setAssignments([]);
+    setRagResult(null);
+    setResults([]);
     setScheduleSummary("");
     handleCloseCaseDetails();
   };
@@ -556,6 +570,42 @@ export default function AISearchLab() {
         ...fullCase,
         similarity: item.similarity,
         whyMatch: item.whyMatch || fullCase.whyMatch,
+      });
+    } finally {
+      if (caseDetailRequestRef.current === requestId) {
+        setIsCaseDetailLoading(false);
+      }
+    }
+  };
+
+  const openCaseDetailsFromRagSource = async (source: RagSource) => {
+    const seedCase: CaseResult = {
+      id: source.caseId,
+      title: source.title,
+      court: source.court,
+      year: source.year,
+      similarity: Math.min(99, Math.max(40, Math.round(source.score * 100))),
+      summary: source.excerpt,
+      judgment: source.excerpt,
+      finalVerdict: source.finalVerdict,
+      final_verdict: source.finalVerdict,
+      whyMatch: `Retrieved from ${source.section} section by RAG grounding.`,
+      type: source.type,
+      tags: ["RAG", source.section],
+    };
+
+    const requestId = caseDetailRequestRef.current + 1;
+    caseDetailRequestRef.current = requestId;
+    setSelectedCase(seedCase);
+    setIsCaseDetailLoading(true);
+    try {
+      const fullCase = await dataService.getCaseById(source.caseId);
+      if (caseDetailRequestRef.current !== requestId || !fullCase) return;
+      setSelectedCase({
+        ...seedCase,
+        ...fullCase,
+        similarity: seedCase.similarity,
+        whyMatch: fullCase.whyMatch || seedCase.whyMatch,
       });
     } finally {
       if (caseDetailRequestRef.current === requestId) {
@@ -630,6 +680,28 @@ export default function AISearchLab() {
               <p className="text-center text-xs text-muted-foreground mt-3">
                 No keywords needed. Just explain the situation.
               </p>
+              <div className="mt-3 flex justify-center gap-2">
+                <button
+                  onClick={() => setRetrievalMode("semantic")}
+                  className={`px-4 py-2 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                    retrievalMode === "semantic"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Semantic Search
+                </button>
+                <button
+                  onClick={() => setRetrievalMode("rag")}
+                  className={`px-4 py-2 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                    retrievalMode === "rag"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  RAG Answer Mode
+                </button>
+              </div>
             </motion.div>
 
             <motion.div
@@ -825,9 +897,15 @@ export default function AISearchLab() {
                       Generated <span className="text-primary font-semibold">{assignments.length}</span> judge assignments
                     </>
                   ) : (
-                    <>
-                      Found <span className="text-primary font-semibold">{results.length}</span> matching precedents
-                    </>
+                    retrievalMode === "rag" ? (
+                      <>
+                        RAG confidence <span className="text-primary font-semibold">{ragResult?.confidence || 0}%</span> · sources <span className="text-primary font-semibold">{ragResult?.sources.length || 0}</span>
+                      </>
+                    ) : (
+                      <>
+                        Found <span className="text-primary font-semibold">{results.length}</span> matching precedents
+                      </>
+                    )
                   )}
                 </p>
               </motion.div>
@@ -847,6 +925,58 @@ export default function AISearchLab() {
                       )}
                       {assignments.map((assignment, i) => (
                         <JudgeAssignmentCard key={`${assignment.caseItem.id}-${assignment.assignedJudge.id}`} result={assignment} index={i} />
+                      ))}
+                    </>
+                  )
+                ) : retrievalMode === "rag" ? (
+                  !ragResult || ragResult.sources.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">{ragResult?.answer || "No grounded legal answer found. Please try a more case-specific legal query."}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Card className="glass-panel rounded-2xl border-primary/15">
+                        <CardHeader>
+                          <p className="text-sm font-display font-semibold text-primary">Grounded RAG Answer</p>
+                          <CardTitle className="text-lg font-display">Answer for your legal query</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <p className="text-sm text-foreground/90 leading-relaxed">{ragResult.answer}</p>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="secondary">Grounded: {ragResult.grounded ? "Yes" : "No"}</Badge>
+                            <Badge variant="secondary">Confidence: {ragResult.confidence}%</Badge>
+                            <Badge variant="secondary">Retrieved Chunks: {ragResult.retrievedChunks.length}</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {ragResult.sources.map((source, i) => (
+                        <Card key={`${source.caseId}-${source.section}-${i}`} className="glass-panel rounded-2xl border-primary/10">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-display font-semibold text-primary">Source {i + 1}</p>
+                                <CardTitle className="mt-1 text-base font-display leading-snug">{source.title}</CardTitle>
+                              </div>
+                              <Badge variant="secondary">Score {Math.round(source.score * 100)}%</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-2">{source.court} · {source.year} · {source.section}</p>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            {source.finalVerdict && (
+                              <p className="text-xs text-foreground"><span className="font-semibold">Final Verdict:</span> {source.finalVerdict}</p>
+                            )}
+                            <p className="text-sm text-muted-foreground leading-relaxed">{source.excerpt}</p>
+                            <div className="pt-2 border-t border-border">
+                              <button
+                                onClick={() => void openCaseDetailsFromRagSource(source)}
+                                className="text-xs font-semibold text-primary hover:opacity-90 transition-opacity cursor-pointer"
+                              >
+                                Open Full Case Details
+                              </button>
+                            </div>
+                          </CardContent>
+                        </Card>
                       ))}
                     </>
                   )
