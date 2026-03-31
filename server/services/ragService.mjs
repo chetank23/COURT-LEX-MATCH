@@ -1,6 +1,8 @@
 const DEFAULT_EMBED_DIMS = 192;
 const DEFAULT_CHUNK_WORDS = 110;
 const DEFAULT_CHUNK_OVERLAP = 24;
+const BM25_K1 = 1.4;
+const BM25_B = 0.75;
 
 const LEGAL_TERMS = new Set([
   "article",
@@ -143,6 +145,20 @@ function extractTokens(text) {
   return Array.from(new Set(words));
 }
 
+function extractTokenFrequencies(text) {
+  const words = normalizeText(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word));
+
+  const tokenFreq = Object.create(null);
+  for (const word of words) {
+    tokenFreq[word] = (tokenFreq[word] || 0) + 1;
+  }
+  return tokenFreq;
+}
+
 function expandQueryTokens(tokens) {
   const expanded = new Set(tokens);
   for (const token of tokens) {
@@ -218,9 +234,117 @@ function isLegalLikeQuery(query) {
   return tokens.some((token) => LEGAL_TERMS.has(token));
 }
 
+function extractLegalReferences(text) {
+  const source = normalizeText(text).toLowerCase();
+  if (!source) return [];
+
+  const refs = new Set();
+  for (const match of source.matchAll(/\b(article|section)\s+(\d+[a-z]?)\b/g)) {
+    refs.add(`${match[1]}-${match[2]}`);
+  }
+  for (const match of source.matchAll(/\b(ipc|crpc)\s*(\d+[a-z]?)\b/g)) {
+    refs.add(`${match[1]}-${match[2]}`);
+  }
+
+  return Array.from(refs);
+}
+
+function computePhraseBoost(query, text) {
+  const q = normalizeText(query).toLowerCase();
+  const t = normalizeText(text).toLowerCase();
+  if (!q || !t) return 0;
+
+  const queryTerms = q
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((term) => term.length >= 4 && !STOP_WORDS.has(term));
+
+  if (queryTerms.length < 2) return 0;
+
+  let phraseHits = 0;
+  const maxPhrases = Math.min(3, queryTerms.length - 1);
+  for (let i = 0; i < queryTerms.length - 1 && phraseHits < maxPhrases; i += 1) {
+    const phrase = `${queryTerms[i]} ${queryTerms[i + 1]}`;
+    if (t.includes(phrase)) phraseHits += 1;
+  }
+
+  return Math.min(0.14, phraseHits * 0.05);
+}
+
+function bm25TokenScore(queryToken, chunk, idfMap, avgChunkLength, totalChunks) {
+  const tf = chunk.tokenFreq?.[queryToken] || 0;
+  if (!tf) return 0;
+
+  const rawIdf = idfMap?.[queryToken];
+  const df = Number.isFinite(rawIdf) ? rawIdf : 0;
+  const safeIdf = Math.log(1 + (totalChunks - df + 0.5) / (df + 0.5));
+  const chunkLength = Math.max(1, chunk.length || 1);
+  const normDenom = tf + BM25_K1 * (1 - BM25_B + BM25_B * (chunkLength / Math.max(1, avgChunkLength || 1)));
+
+  return safeIdf * ((tf * (BM25_K1 + 1)) / Math.max(normDenom, 1e-6));
+}
+
+function bm25Score(queryTokens, chunk, idfMap, avgChunkLength, totalChunks) {
+  let score = 0;
+  for (const token of queryTokens) {
+    score += bm25TokenScore(token, chunk, idfMap, avgChunkLength, totalChunks);
+  }
+  return score;
+}
+
+function tokenJaccardSimilarity(aTokens, bTokens) {
+  const a = new Set(aTokens || []);
+  const b = new Set(bTokens || []);
+  if (a.size === 0 || b.size === 0) return 0;
+
+  let intersection = 0;
+  for (const token of a) {
+    if (b.has(token)) intersection += 1;
+  }
+
+  const union = a.size + b.size - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+function scoreCalibration(rawScore) {
+  // Lift high-quality matches while keeping weak candidates near zero.
+  return 1 - Math.exp(-2.2 * Math.max(0, rawScore));
+}
+
+function mmrSelect(candidates, limit) {
+  const selected = [];
+  const remaining = [...candidates];
+  const lambda = 0.78;
+
+  while (selected.length < limit && remaining.length > 0) {
+    let bestIndex = 0;
+    let bestScore = -Infinity;
+
+    for (let i = 0; i < remaining.length; i += 1) {
+      const candidate = remaining[i];
+      let maxSimilarity = 0;
+      for (const chosen of selected) {
+        maxSimilarity = Math.max(maxSimilarity, tokenJaccardSimilarity(candidate.tokens, chosen.tokens));
+      }
+      const mmr = lambda * candidate.score - (1 - lambda) * maxSimilarity;
+      if (mmr > bestScore) {
+        bestScore = mmr;
+        bestIndex = i;
+      }
+    }
+
+    selected.push(remaining[bestIndex]);
+    remaining.splice(bestIndex, 1);
+  }
+
+  return selected;
+}
+
 export function buildRagIndex(cases, options = {}) {
   const dims = Number.isFinite(options.dims) ? options.dims : DEFAULT_EMBED_DIMS;
   const chunks = [];
+  const tokenDocFreq = Object.create(null);
+  let totalChunkLength = 0;
 
   for (const item of cases || []) {
     const sections = [
@@ -237,6 +361,14 @@ export function buildRagIndex(cases, options = {}) {
         const vector = embedText(`${item.title || ""} ${text}`, dims);
         const norm = vectorNorm(vector);
         const tokens = extractTokens(text);
+        const tokenFreq = extractTokenFrequencies(text);
+        const uniqueChunkTokens = new Set(Object.keys(tokenFreq));
+        for (const token of uniqueChunkTokens) {
+          tokenDocFreq[token] = (tokenDocFreq[token] || 0) + 1;
+        }
+        const length = Object.values(tokenFreq).reduce((acc, n) => acc + n, 0);
+        totalChunkLength += length;
+
         chunks.push({
           id: `rag-${item.id}-${section.name.toLowerCase()}-${i + 1}`,
           caseId: item.id,
@@ -248,6 +380,8 @@ export function buildRagIndex(cases, options = {}) {
           section: section.name,
           text,
           tokens,
+          tokenFreq,
+          length,
           vector,
           norm,
         });
@@ -255,9 +389,13 @@ export function buildRagIndex(cases, options = {}) {
     }
   }
 
+  const avgChunkLength = chunks.length > 0 ? totalChunkLength / chunks.length : 1;
+
   return {
     dims,
     chunks,
+    tokenDocFreq,
+    avgChunkLength,
     builtAt: new Date().toISOString(),
   };
 }
@@ -271,6 +409,8 @@ export function serializeRagIndex(index) {
   return {
     dims: index?.dims || DEFAULT_EMBED_DIMS,
     builtAt: index?.builtAt || new Date().toISOString(),
+    avgChunkLength: Number(index?.avgChunkLength) || 1,
+    tokenDocFreq: index?.tokenDocFreq || {},
     chunks: serializedChunks,
   };
 }
@@ -285,13 +425,33 @@ export function hydrateRagIndex(payload) {
       vector,
       norm,
       tokens: Array.isArray(chunk.tokens) ? chunk.tokens : extractTokens(chunk.text || ""),
+      tokenFreq:
+        chunk.tokenFreq && typeof chunk.tokenFreq === "object"
+          ? chunk.tokenFreq
+          : extractTokenFrequencies(chunk.text || ""),
+      length:
+        Number.isFinite(chunk.length) && chunk.length > 0
+          ? chunk.length
+          : Object.values(
+              chunk.tokenFreq && typeof chunk.tokenFreq === "object"
+                ? chunk.tokenFreq
+                : extractTokenFrequencies(chunk.text || "")
+            ).reduce((acc, n) => acc + Number(n || 0), 0),
     };
   });
+
+  const tokenDocFreq = payload?.tokenDocFreq && typeof payload.tokenDocFreq === "object" ? payload.tokenDocFreq : {};
+  const avgChunkLength =
+    Number.isFinite(payload?.avgChunkLength) && payload.avgChunkLength > 0
+      ? payload.avgChunkLength
+      : chunks.reduce((acc, chunk) => acc + Math.max(1, chunk.length || 1), 0) / Math.max(1, chunks.length);
 
   return {
     dims,
     builtAt: payload?.builtAt || new Date().toISOString(),
     chunks,
+    tokenDocFreq,
+    avgChunkLength,
   };
 }
 
@@ -394,13 +554,16 @@ export function queryRag({ query, index, topK = 8, minScore = 0.22 }) {
     };
   }
 
-  const ragIndex = index || { chunks: [], dims: DEFAULT_EMBED_DIMS };
+  const ragIndex = index || { chunks: [], dims: DEFAULT_EMBED_DIMS, tokenDocFreq: {}, avgChunkLength: 1 };
   const queryVec = embedText(cleanQuery, ragIndex.dims || DEFAULT_EMBED_DIMS);
   const queryNorm = vectorNorm(queryVec);
   const queryTokens = extractTokens(cleanQuery);
   const expandedTokens = expandQueryTokens(queryTokens);
+  const queryReferenceSet = new Set(extractLegalReferences(cleanQuery));
+  const expandedTokenList = Array.from(expandedTokens);
 
   const safeMinScore = Number.isFinite(minScore) ? Math.max(0.12, Math.min(0.6, minScore)) : 0.22;
+  const totalChunks = Math.max(1, (ragIndex.chunks || []).length);
 
   const candidatePool = (ragIndex.chunks || [])
     .map((chunk) => {
@@ -408,15 +571,46 @@ export function queryRag({ query, index, topK = 8, minScore = 0.22 }) {
       const tokens = chunk.tokens || [];
       const overlapCount = tokens.reduce((acc, token) => (expandedTokens.has(token) ? acc + 1 : acc), 0);
       const keywordOverlap = expandedTokens.size > 0 ? overlapCount / expandedTokens.size : 0;
+      const exactQueryHits = queryTokens.reduce((acc, token) => (tokens.includes(token) ? acc + 1 : acc), 0);
+      const exactCoverage = queryTokens.length > 0 ? exactQueryHits / queryTokens.length : 0;
       const titleOverlap = queryTokens.reduce(
         (acc, token) => (`${chunk.title || ""}`.toLowerCase().includes(token) ? acc + 1 : acc),
         0
       );
       const titleBoost = queryTokens.length > 0 ? titleOverlap / queryTokens.length : 0;
+      const lexicalBm25 = bm25Score(
+        expandedTokenList,
+        chunk,
+        ragIndex.tokenDocFreq || {},
+        ragIndex.avgChunkLength || 1,
+        totalChunks
+      );
+      const bm25Normalized = lexicalBm25 / (lexicalBm25 + 6);
+      const phraseBoost = computePhraseBoost(cleanQuery, chunk.text || "");
+      const chunkRefSet = new Set(extractLegalReferences(`${chunk.title || ""} ${chunk.text || ""}`));
+      let legalRefBoost = 0;
+      if (queryReferenceSet.size > 0 && chunkRefSet.size > 0) {
+        let matches = 0;
+        for (const ref of queryReferenceSet) {
+          if (chunkRefSet.has(ref)) matches += 1;
+        }
+        legalRefBoost = Math.min(0.12, matches * 0.06);
+      }
+      const blendedCore = cosine * 0.5 + bm25Normalized * 0.32 + keywordOverlap * 0.1 + titleBoost * 0.03;
+      const calibratedCore = scoreCalibration(blendedCore);
       const sectionWeight = chunk.section === "Judgment" ? 1 : chunk.section === "Summary" ? 0.92 : 0.85;
-      const score = (cosine * 0.68 + keywordOverlap * 0.24 + titleBoost * 0.08) * sectionWeight;
+      const score = Math.min(
+        0.995,
+        (calibratedCore + exactCoverage * 0.22 + phraseBoost + legalRefBoost) * sectionWeight
+      );
       return {
         ...chunk,
+        cosine,
+        bm25: lexicalBm25,
+        keywordOverlap,
+        exactCoverage,
+        phraseBoost,
+        legalRefBoost,
         score,
       };
     })
@@ -429,15 +623,17 @@ export function queryRag({ query, index, topK = 8, minScore = 0.22 }) {
   const diverseScored = [];
 
   for (const candidate of candidatePool) {
-    if (diverseScored.length >= safeTopK) break;
+    if (diverseScored.length >= Math.max(safeTopK * 3, 12)) break;
     const count = caseCounter.get(candidate.caseId) || 0;
     if (count >= perCaseLimit) continue;
     caseCounter.set(candidate.caseId, count + 1);
     diverseScored.push(candidate);
   }
 
-  const topChunks = diverseScored.filter((c) => c.score > 0.4).slice(0, 3);
-  const scored = topChunks.length > 0 ? topChunks : diverseScored.slice(0, 3);
+  const reranked = mmrSelect(diverseScored, safeTopK);
+
+  const topChunks = reranked.filter((c) => c.score > 0.4).slice(0, 3);
+  const scored = topChunks.length > 0 ? topChunks : reranked.slice(0, 3);
 
   if (scored.length === 0) {
     return {
