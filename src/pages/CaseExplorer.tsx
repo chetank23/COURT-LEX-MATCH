@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Grid3X3, GitBranch, Filter, X, Scale, Calendar, Users, ShieldCheck, UserRoundCheck, Search, MapPin, Sparkles } from "lucide-react";
 import { CaseResult } from "@/types";
 import { dataService } from "@/services/dataService";
+import { useSearch } from "@/contexts/SearchContext";
 
 type JudgeCategory = "Criminal" | "Civil" | "Other";
 
@@ -57,12 +58,6 @@ function hashText(value: string): number {
     hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
   }
   return hash;
-}
-
-function hashToRange(value: string, min: number, max: number): number {
-  const hash = hashText(value);
-  const fraction = (hash % 10_000) / 10_000;
-  return min + fraction * (max - min);
 }
 
 function getCaseAssignment(c: CaseResult): CaseAssignment {
@@ -155,14 +150,9 @@ function toTitleCase(value: string): string {
     .join(" ");
 }
 
-function getFinalVerdict(caseItem: CaseResult): string {
-  return caseItem.final_verdict || caseItem.finalVerdict || "Unknown";
-}
-
 function CaseCard({ c, aiReason, onClick }: { c: CaseResult; aiReason?: string; onClick: () => void }) {
   const courtLevel = getCourtLevel(c.court);
   const location = getCourtLocation(c.court);
-  const finalVerdict = getFinalVerdict(c);
 
   return (
     <motion.div
@@ -201,9 +191,6 @@ function CaseCard({ c, aiReason, onClick }: { c: CaseResult; aiReason?: string; 
           <Calendar className="w-3 h-3" /> {c.year}
         </div>
       </div>
-      <div className="mt-2">
-        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-700">Verdict: {finalVerdict}</span>
-      </div>
       <div className="flex gap-1 mt-3 flex-wrap">
         {c.tags.map((t) => (
           <span key={t} className="px-2 py-0.5 rounded text-[9px] font-medium bg-accent/10 text-accent">{t}</span>
@@ -219,7 +206,7 @@ function GraphView({ cases, onSelect }: { cases: CaseResult[]; onSelect: (c: Cas
   const nodes = useMemo(() => {
     return cases.map((c, i) => {
       const angle = (i / cases.length) * Math.PI * 2;
-      const radius = hashToRange(`${c.id}:radius`, 160, 220);
+      const radius = 160 + Math.random() * 60;
       return {
         ...c,
         x: 300 + Math.cos(angle) * radius,
@@ -280,26 +267,15 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
   const assignment = useMemo(() => getCaseAssignment(c), [c]);
   const courtLevel = useMemo(() => getCourtLevel(c.court), [c.court]);
   const location = useMemo(() => getCourtLocation(c.court), [c.court]);
-  const finalVerdict = useMemo(() => getFinalVerdict(c), [c]);
 
   return (
-    <>
-      <motion.button
-        type="button"
-        aria-label="Close case details"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="fixed inset-0 z-30 bg-foreground/20 backdrop-blur-[1px]"
-      />
-      <motion.div
-        initial={{ x: 400, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        exit={{ x: 400, opacity: 0 }}
-        transition={{ type: "spring", damping: 25 }}
-        className="fixed right-0 top-[84px] h-[calc(100vh-84px)] w-full max-w-md z-40 bg-card border-l border-border shadow-2xl p-6 overflow-y-auto"
-      >
+    <motion.div
+      initial={{ x: 400, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: 400, opacity: 0 }}
+      transition={{ type: "spring", damping: 25 }}
+      className="fixed right-0 top-0 bottom-0 w-full max-w-md z-40 bg-card border-l border-border shadow-2xl p-6 overflow-y-auto"
+    >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">{c.type}</span>
@@ -320,7 +296,6 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
       <div className="mb-6 flex items-center gap-2 flex-wrap">
         <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">{courtLevel}</span>
         <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">{location}</span>
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700">Verdict: {finalVerdict}</span>
       </div>
       <div className="mb-6">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Similarity Score</p>
@@ -400,12 +375,12 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
           </div>
         </div>
       </div>
-      </motion.div>
-    </>
+    </motion.div>
   );
 }
 
 export default function CaseExplorer() {
+  const { state: searchState } = useSearch();
   const [view, setView] = useState<"grid" | "graph">("grid");
   const [groupBy, setGroupBy] = useState<GroupByMode>("none");
   const [courtFilter, setCourtFilter] = useState("All Courts");
@@ -420,6 +395,13 @@ export default function CaseExplorer() {
   const [isLoading, setIsLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH_SIZE);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  // Determine if we should show matched cases or explore cases
+  const showMatchedCases = searchState.hasUserData;
+  const pageTitle = showMatchedCases ? "Case Explorer" : "Case Explorer";
+  const pageSubtitle = showMatchedCases 
+    ? "Browse by category, location, and court level with AI match explanations"
+    : "Explore available cases in the database by category, location, and court level";
 
   const courts = useMemo(() => {
     const directCourts = Array.from(new Set(cases.map((c) => c.court)))
@@ -441,23 +423,29 @@ export default function CaseExplorer() {
     setIsLoading(true);
 
     const timeout = setTimeout(async () => {
-      try {
-        const q = searchQuery.trim();
-        const loadedCases = q ? await dataService.searchCases(q) : await dataService.getCases();
-        if (!active) return;
-        setCases(loadedCases);
-      } finally {
-        if (active) {
-          setIsLoading(false);
+      let loadedCases: CaseResult[] = [];
+
+      if (showMatchedCases) {
+        // Load matched cases from search context
+        if (searchState.matchedCases.length > 0) {
+          loadedCases = searchState.matchedCases;
         }
+      } else {
+        // Load all cases for exploration
+        const q = searchQuery.trim();
+        loadedCases = q ? await dataService.searchCases(q) : await dataService.getCases();
       }
+
+      if (!active) return;
+      setCases(loadedCases);
+      setIsLoading(false);
     }, 250);
 
     return () => {
       active = false;
       clearTimeout(timeout);
     };
-  }, [searchQuery]);
+  }, [searchQuery, showMatchedCases, searchState.matchedCases]);
 
   const filtered = useMemo(() => {
     return cases.filter((c) => {
@@ -492,8 +480,9 @@ export default function CaseExplorer() {
   const hasMoreCases = visibleCount < filtered.length;
 
   const grouped = useMemo(() => {
+    const groupTitle = showMatchedCases ? "Matched Cases" : "Explore Cases";
     if (groupBy === "none") {
-      return [{ title: "Matched Cases", key: "matched-cases", items: visibleCases }];
+      return [{ title: groupTitle, key: "cases", items: visibleCases }];
     }
 
     const bucket = new Map<string, CaseResult[]>();
@@ -509,16 +498,15 @@ export default function CaseExplorer() {
     return Array.from(bucket.entries())
       .sort((a, b) => b[1].length - a[1].length)
       .map(([title, items]) => ({ title, key: title, items }));
-  }, [visibleCases, groupBy]);
+  }, [visibleCases, groupBy, showMatchedCases]);
 
   useEffect(() => {
     setVisibleCount(INITIAL_BATCH_SIZE);
-  }, [searchQuery, courtFilter, typeFilter, locationFilter, groupBy]);
+  }, [searchQuery, courtFilter, typeFilter, locationFilter, groupBy, showMatchedCases]);
 
   useEffect(() => {
     if (view !== "grid") return;
     if (!hasMoreCases) return;
-    if (typeof IntersectionObserver === "undefined") return;
 
     const target = loadMoreRef.current;
     if (!target) return;
@@ -541,42 +529,20 @@ export default function CaseExplorer() {
   useEffect(() => {
     let active = true;
     const generateReasons = async () => {
-      if (visibleCases.length === 0) {
-        if (active) setIsReasoning(false);
-        return;
-      }
-
-      const pendingCases = visibleCases.filter((item) => !matchReasons[item.id]);
-      if (pendingCases.length === 0) {
-        if (active) setIsReasoning(false);
-        return;
-      }
-
+      if (visibleCases.length === 0) return;
+      if (!showMatchedCases) return; // Skip reasoning for explore mode
       setIsReasoning(true);
-      try {
-        const reasons = await dataService.explainMatches(searchQuery || "legal case match", pendingCases);
-        if (!active) return;
-        setMatchReasons((previous) => ({ ...previous, ...reasons }));
-      } finally {
-        if (active) {
-          setIsReasoning(false);
-        }
-      }
+      const reasons = await dataService.explainMatches(searchQuery || "legal case match", visibleCases);
+      if (!active) return;
+      setMatchReasons((previous) => ({ ...previous, ...reasons }));
+      setIsReasoning(false);
     };
     generateReasons();
 
     return () => {
       active = false;
     };
-  }, [visibleCases, searchQuery, matchReasons]);
-
-  useEffect(() => {
-    if (!selected) return;
-    const selectedStillVisible = filtered.some((item) => item.id === selected.id);
-    if (!selectedStillVisible) {
-      setSelected(null);
-    }
-  }, [filtered, selected]);
+  }, [visibleCases, searchQuery, showMatchedCases]);
 
   return (
     <div className="min-h-screen relative">
@@ -585,8 +551,13 @@ export default function CaseExplorer() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-display font-bold gradient-text">Case Explorer</h1>
-            <p className="text-sm text-muted-foreground mt-1">Browse by category, location, and court level with AI match explanations</p>
+            <h1 className="text-3xl font-display font-bold gradient-text">{pageTitle}</h1>
+            <p className="text-sm text-muted-foreground mt-1">{pageSubtitle}</p>
+            {showMatchedCases && (
+              <p className="text-xs text-accent mt-2">
+                ✨ {searchState.aiSearchQuery ? `Showing matches for: "${searchState.aiSearchQuery}"` : "Showing PDF analysis results"}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <div className="glass-panel rounded-xl px-3 py-2.5 flex items-center gap-2 min-w-[260px]">
@@ -594,7 +565,7 @@ export default function CaseExplorer() {
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search matched cases..."
+                placeholder={showMatchedCases ? "Search matched cases..." : "Search cases..."}
                 className="bg-transparent outline-none w-full text-sm text-foreground placeholder:text-muted-foreground"
               />
             </div>
@@ -704,25 +675,12 @@ export default function CaseExplorer() {
                     ))}
                   </div>
                 </div>
-                <div className="self-end ml-auto">
-                  <button
-                    onClick={() => {
-                      setCourtFilter("All Courts");
-                      setTypeFilter("All Types");
-                      setLocationFilter("All Locations");
-                      setGroupBy("none");
-                    }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {isReasoning && (
+        {isReasoning && showMatchedCases && (
           <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
             <Sparkles className="w-3.5 h-3.5" /> AI is generating exact match reasons for visible cases...
           </div>
@@ -730,30 +688,32 @@ export default function CaseExplorer() {
 
         {!isLoading && filtered.length > 0 && (
           <div className="mb-4 text-xs text-muted-foreground">
-            Showing {visibleCases.length} of {filtered.length} matched cases
+            {showMatchedCases 
+              ? `Showing ${visibleCases.length} of ${filtered.length} matched cases`
+              : `Showing ${visibleCases.length} of ${filtered.length} available cases`
+            }
           </div>
         )}
 
         {/* Content */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground">Loading cases...</p>
+            <p className="text-muted-foreground">
+              {showMatchedCases ? "Loading matched cases..." : "Loading cases..."}
+            </p>
+          </div>
+        ) : showMatchedCases && cases.length === 0 ? (
+          // No matched cases - show empty state for matched mode
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+              <Search className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <p className="text-muted-foreground mb-2">No matched cases found</p>
+            <p className="text-xs text-muted-foreground">Try searching again or go back to AI Search Lab</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">No cases found matching your filters.</p>
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setCourtFilter("All Courts");
-                setTypeFilter("All Types");
-                setLocationFilter("All Locations");
-                setGroupBy("none");
-              }}
-              className="px-4 py-2 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
-            >
-              Clear Search & Filters
-            </button>
           </div>
         ) : view === "grid" ? (
           <div className="space-y-7">
@@ -787,6 +747,12 @@ export default function CaseExplorer() {
           </div>
         ) : (
           <GraphView cases={filtered.slice(0, MAX_GRAPH_NODES)} onSelect={setSelected} />
+        )}
+
+        {filtered.length === 0 && (
+          <div className="text-center py-20">
+            <p className="text-muted-foreground">No cases match the current filters</p>
+          </div>
         )}
       </div>
 

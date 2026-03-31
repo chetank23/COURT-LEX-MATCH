@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileText, Brain, Layers, Scale, ChevronDown, ChevronRight, Tag, Eye, AlertTriangle, Gavel, ShieldCheck, GitCompare } from "lucide-react";
-import { Section, FIRPriorityAssessment, FIRJudgeAssignment } from "@/types";
+import { Section, FIRPriorityAssessment, FIRJudgeAssignment, CaseResult } from "@/types";
 import { dataService } from "@/services/dataService";
+import { useSearch } from "@/contexts/SearchContext";
 
 const analysisSteps = [
   { icon: FileText, label: "Extracting text", duration: 1200 },
@@ -127,6 +128,7 @@ function SectionCard({ section, lawyerMode }: { section: Section; lawyerMode: bo
 }
 
 export default function PDFAnalyzer() {
+  const { setPDFAnalysisData } = useSearch();
   const [phase, setPhase] = useState<Phase>("upload");
   const [workflowMode, setWorkflowMode] = useState<WorkflowMode>("assign-judge");
   const [currentStep, setCurrentStep] = useState(0);
@@ -140,6 +142,31 @@ export default function PDFAnalyzer() {
   const [isApplyingOverride, setIsApplyingOverride] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const extractMatchesFromSections = (analyzedSections: Section[]): CaseResult[] => {
+    const matchMap = new Map<string, CaseResult>();
+    
+    analyzedSections.forEach((section) => {
+      section.matches.forEach((match, idx) => {
+        const matchId = `${section.id}-match-${idx}`;
+        if (!matchMap.has(match.title)) {
+          matchMap.set(match.title, {
+            id: matchId,
+            title: match.title,
+            court: "Supreme Court of India",
+            year: new Date().getFullYear(),
+            similarity: match.similarity,
+            summary: match.reason,
+            whyMatch: match.reason,
+            type: "Legal Case",
+            tags: [section.title],
+          });
+        }
+      });
+    });
+
+    return Array.from(matchMap.values());
+  };
 
   const applyManualOverride = async () => {
     if (!selectedFile || !firPriority || !overrideCaseType || !overrideSeverity) return;
@@ -188,6 +215,11 @@ export default function PDFAnalyzer() {
         setOverrideSeverity(assessedPriority.severity);
         if (analyzedSections.length > 0) {
           await dataService.savePDFUpload(selectedFile.name, analyzedSections.length);
+          // Extract matches from sections and push to context
+          const matchResults = extractMatchesFromSections(analyzedSections);
+          if (matchResults.length > 0) {
+            setPDFAnalysisData(matchResults);
+          }
         }
         setTimeout(() => setPhase("results"), 500);
       }

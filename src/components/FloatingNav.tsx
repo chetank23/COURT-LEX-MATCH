@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Layers, FileText, BarChart3, Clock, Users, Calendar } from "lucide-react";
+import { Search, Layers, FileText, BarChart3, Clock, Users, Calendar, ShieldCheck, LogIn, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { path: "/", label: "AI Search Lab", icon: Search },
@@ -10,11 +11,13 @@ const navItems = [
   { path: "/calendar", label: "Calendar", icon: Calendar },
   { path: "/insights", label: "Insights", icon: BarChart3 },
   { path: "/history", label: "History", icon: Clock },
+  { path: "/secure-cases", label: "Secure Cases", icon: ShieldCheck },
 ];
 
 export default function TopNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated, logout, user } = useAuth();
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-3 px-3">
@@ -50,6 +53,32 @@ export default function TopNav() {
             </button>
           );
         })}
+
+        {isAuthenticated ? (
+          <button
+            onClick={() => {
+              logout();
+              navigate("/login");
+            }}
+            className="relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            title={`Logged in as ${user?.name || "User"}`}
+          >
+            <span className="relative z-10 flex items-center gap-2">
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </span>
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate("/login")}
+            className="relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          >
+            <span className="relative z-10 flex items-center gap-2">
+              <LogIn className="w-4 h-4" />
+              <span className="hidden sm:inline">Login</span>
+            </span>
+          </button>
+        )}
       </motion.nav>
     </div>
   );
