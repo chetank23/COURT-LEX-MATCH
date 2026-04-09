@@ -45,3 +45,16 @@ Environment variables:
 
 - `/api/cases/search` now combines lexical matching with a local hashed-vector semantic score.
 - No paid AI API is required for this retrieval path.
+
+## Optional DeepSeek-R1 Generation
+
+The server can optionally post-process grounded RAG answers and case explanations with DeepSeek-R1.
+
+Environment variables:
+
+- `DEEPSEEK_API_KEY` : enables DeepSeek generation when set
+- `DEEPSEEK_BASE_URL` : overrides the API base URL, default `https://api.deepseek.com`
+- `DEEPSEEK_MODEL` : model name to use, default `deepseek-r1`
+- `DEEPSEEK_TIMEOUT_MS` : request timeout in ms, default `30000`
+
+If these variables are not configured, the API keeps using the local retrieval and explanation pipeline.

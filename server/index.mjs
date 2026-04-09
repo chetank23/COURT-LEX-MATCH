@@ -22,6 +22,7 @@ import { mapJudgement } from "./services/judgementMapper.mjs";
 import { buildMatchExplanation } from "./services/explanationGenerator.mjs";
 import { getMatchLevel } from "./services/similarity.mjs";
 import { buildRagIndex, queryRag } from "./services/ragService.mjs";
+import { generateDeepSeekGroundedAnswer } from "./services/deepseekClient.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -485,6 +486,20 @@ export async function createServer() {
           minScore: 0.22,
         });
 
+        const deepSeekAnswer = await generateDeepSeekGroundedAnswer({
+          query: response.query,
+          localAnswer: response.answer,
+          sources: response.sources,
+          retrievedChunks: response.retrievedChunks,
+          mode: "rag",
+        });
+
+        if (deepSeekAnswer) {
+          response.answer = deepSeekAnswer;
+          response.grounded = true;
+          response.confidence = Math.min(99, Math.max(response.confidence, 85));
+        }
+
         recordAuditEvent({
           action: "rag_query",
           entity: "rag",
@@ -520,8 +535,39 @@ export async function createServer() {
           return;
         }
 
+        const localExplanation = buildMatchExplanation(query, match).whyMatched;
+        const deepSeekExplanation = await generateDeepSeekGroundedAnswer({
+          query,
+          localAnswer: localExplanation,
+          sources: [
+            {
+              caseId: match.id,
+              title: match.title,
+              court: match.court,
+              year: match.year,
+              type: match.type,
+              finalVerdict: match.finalVerdict,
+              section: "Case Summary",
+              score: 1,
+              excerpt: `${match.summary || ""} ${match.judgment || ""}`.slice(0, 400),
+            },
+          ],
+          retrievedChunks: [
+            {
+              chunkId: `case-${match.id}`,
+              caseId: match.id,
+              score: 1,
+              section: "Case Summary",
+              text: `${match.summary || ""} ${match.judgment || ""}`.slice(0, 500),
+            },
+          ],
+          mode: "explain",
+          caseTitle: match.title,
+          localExplanation,
+        });
+
         sendJson(res, 200, {
-          explanation: buildMatchExplanation(query, match).whyMatched,
+          explanation: deepSeekExplanation || localExplanation,
         });
         return;
       }
