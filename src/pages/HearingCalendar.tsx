@@ -92,10 +92,69 @@ const mockJudges: JudgeProfile[] = [
   },
 ];
 
+function parseHearingDate(value: string) {
+  const trimmed = `${value || ""}`.trim();
+  if (!trimmed) return null;
+
+  const dmyMatch = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dmyMatch) {
+    const [, day, month, year] = dmyMatch;
+    return new Date(Number.parseInt(year, 10), Number.parseInt(month, 10) - 1, Number.parseInt(day, 10));
+  }
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return new Date(Number.parseInt(year, 10), Number.parseInt(month, 10) - 1, Number.parseInt(day, 10));
+  }
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatHearingDate(value: string) {
+  const parsed = parseHearingDate(value);
+  if (!parsed) return value;
+  const day = `${parsed.getDate()}`.padStart(2, "0");
+  const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
+  const year = `${parsed.getFullYear()}`;
+  return `${day}-${month}-${year}`;
+}
+
+function formatDateForInput(value: string) {
+  const parsed = parseHearingDate(value);
+  if (!parsed) return "";
+  const day = `${parsed.getDate()}`.padStart(2, "0");
+  const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
+  const year = `${parsed.getFullYear()}`;
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeHearingTime(value: string) {
+  const raw = `${value || ""}`.trim();
+  const ampmMatch = raw.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/);
+  if (ampmMatch) {
+    let hours = Number.parseInt(ampmMatch[1], 10);
+    const minutes = ampmMatch[2];
+    const period = ampmMatch[3].toUpperCase();
+    if (period === "PM" && hours < 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+    return `${`${hours}`.padStart(2, "0")}:${minutes}`;
+  }
+
+  const twentyFourHourMatch = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (twentyFourHourMatch) {
+    const hours = Number.parseInt(twentyFourHourMatch[1], 10);
+    return `${`${hours}`.padStart(2, "0")}:${twentyFourHourMatch[2]}`;
+  }
+
+  return "10:00";
+}
+
 function HearingCard({ hearing, onEdit, onDelete }: { hearing: HearingSchedule; onEdit: (h: HearingSchedule) => void; onDelete: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false);
-  const date = new Date(hearing.hearingDate);
-  const dateStr = date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const date = parseHearingDate(hearing.hearingDate);
+  const dateStr = date ? date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : hearing.hearingDate;
 
   const statusColors = {
     Scheduled: "bg-blue-500/15 text-blue-700",
@@ -202,7 +261,7 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
       assignedJudgeId: "",
       assignedJudgeName: "",
       hearingDate: "",
-      hearingTime: "10:00 AM",
+      hearingTime: "10:00",
       courtRoom: "",
       state: "",
       district: "",
@@ -254,8 +313,8 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hearing Date</label>
                   <input
                     type="date"
-                    value={formData.hearingDate}
-                    onChange={(e) => setFormData({ ...formData, hearingDate: e.target.value })}
+                    value={formatDateForInput(formData.hearingDate)}
+                    onChange={(e) => setFormData({ ...formData, hearingDate: e.target.value ? formatHearingDate(e.target.value) : "" })}
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
                 </div>
@@ -263,8 +322,8 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hearing Time</label>
                   <input
                     type="time"
-                    value={formData.hearingTime.split(" ")[0]}
-                    onChange={(e) => setFormData({ ...formData, hearingTime: e.target.value })}
+                    value={formData.hearingTime}
+                    onChange={(e) => setFormData({ ...formData, hearingTime: normalizeHearingTime(e.target.value) })}
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
                 </div>
@@ -415,13 +474,16 @@ export default function HearingCalendar() {
   };
 
   const monthHearings = hearings.filter((h) => {
-    const hDate = new Date(h.hearingDate);
-    return hDate.getMonth() === currentMonth.getMonth() && hDate.getFullYear() === currentMonth.getFullYear();
+    const hDate = parseHearingDate(h.hearingDate);
+    return hDate ? hDate.getMonth() === currentMonth.getMonth() && hDate.getFullYear() === currentMonth.getFullYear() : false;
   });
 
   const upcomingHearings = hearings
-    .filter((h) => new Date(h.hearingDate) >= new Date())
-    .sort((a, b) => new Date(a.hearingDate).getTime() - new Date(b.hearingDate).getTime())
+    .filter((h) => {
+      const parsed = parseHearingDate(h.hearingDate);
+      return parsed ? parsed >= new Date() : false;
+    })
+    .sort((a, b) => (parseHearingDate(a.hearingDate)?.getTime() || 0) - (parseHearingDate(b.hearingDate)?.getTime() || 0))
     .slice(0, 5);
 
   return (
@@ -476,7 +538,7 @@ export default function HearingCalendar() {
               <div className="space-y-3">
                 {monthHearings.length > 0 ? (
                   monthHearings
-                    .sort((a, b) => new Date(a.hearingDate).getTime() - new Date(b.hearingDate).getTime())
+                    .sort((a, b) => (parseHearingDate(a.hearingDate)?.getTime() || 0) - (parseHearingDate(b.hearingDate)?.getTime() || 0))
                     .map((hearing) => <HearingCard key={hearing.id} hearing={hearing} onEdit={handleEdit} onDelete={handleDelete} />)
                 ) : (
                   <div className="text-center py-8">
@@ -494,8 +556,8 @@ export default function HearingCalendar() {
               <div className="space-y-3">
                 {upcomingHearings.length > 0 ? (
                   upcomingHearings.map((hearing) => {
-                    const date = new Date(hearing.hearingDate);
-                    const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                    const date = parseHearingDate(hearing.hearingDate);
+                    const dateStr = date ? date.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : hearing.hearingDate;
 
                     return (
                       <motion.div

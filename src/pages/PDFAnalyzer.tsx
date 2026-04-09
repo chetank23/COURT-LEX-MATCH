@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, Brain, Layers, Scale, ChevronDown, ChevronRight, Tag, Eye, AlertTriangle, Gavel, ShieldCheck, GitCompare } from "lucide-react";
+import { Upload, FileText, Brain, Layers, Scale, ChevronDown, ChevronRight, Tag, Eye, AlertTriangle, ShieldCheck, GitCompare, ArrowUpRight, Clock3, Flag, ShieldAlert, User } from "lucide-react";
 import { Section, FIRPriorityAssessment, FIRJudgeAssignment, CaseResult } from "@/types";
 import { dataService } from "@/services/dataService";
 import { useSearch } from "@/contexts/SearchContext";
@@ -12,7 +12,7 @@ const analysisSteps = [
   { icon: Scale, label: "Matching cases", duration: 1000 },
 ];
 
-type WorkflowMode = "find-cases" | "assign-judge";
+type WorkflowMode = "find-cases";
 type Phase = "upload" | "choice" | "analyzing" | "results";
 
 function SectionCard({ section, lawyerMode }: { section: Section; lawyerMode: boolean }) {
@@ -128,9 +128,9 @@ function SectionCard({ section, lawyerMode }: { section: Section; lawyerMode: bo
 }
 
 export default function PDFAnalyzer() {
-  const { setPDFAnalysisData } = useSearch();
+  const { state, setPDFAnalysisData } = useSearch();
   const [phase, setPhase] = useState<Phase>("upload");
-  const [workflowMode, setWorkflowMode] = useState<WorkflowMode>("assign-judge");
+  const [workflowMode, setWorkflowMode] = useState<WorkflowMode>("find-cases");
   const [currentStep, setCurrentStep] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [lawyerMode, setLawyerMode] = useState(false);
@@ -178,6 +178,13 @@ export default function PDFAnalyzer() {
       severity: overrideSeverity,
       priorityScore: score,
       priorityBand: toPriorityBand(score),
+      bailRiskScore: overrideSeverity === "Critical" ? 84 : overrideSeverity === "High" ? 68 : overrideSeverity === "Medium" ? 48 : 28,
+      escapeRiskScore: overrideSeverity === "Critical" ? 78 : overrideSeverity === "High" ? 62 : overrideSeverity === "Medium" ? 38 : 18,
+      riskScore: overrideSeverity === "Critical" ? 82 : overrideSeverity === "High" ? 64 : overrideSeverity === "Medium" ? 43 : 24,
+      riskFactors: [
+        `manual override: ${overrideCaseType}`,
+        `manual severity: ${overrideSeverity}`,
+      ],
       rationale: `Priority manually overridden to ${overrideCaseType} with ${overrideSeverity.toLowerCase()} severity based on reviewer assessment.`,
     };
 
@@ -221,6 +228,7 @@ export default function PDFAnalyzer() {
             setPDFAnalysisData(matchResults);
           }
         }
+
         setTimeout(() => setPhase("results"), 500);
       }
     };
@@ -295,32 +303,19 @@ export default function PDFAnalyzer() {
             className="min-h-screen flex items-center justify-center relative z-10 px-6"
           >
             <div className="max-w-lg w-full text-center">
-              <h2 className="text-2xl font-display font-bold text-foreground mb-2">What would you like to do?</h2>
-              <p className="text-sm text-muted-foreground mb-8">Choose how to process your FIR document</p>
+              <h2 className="text-2xl font-display font-bold text-foreground mb-2">Find Matching Cases</h2>
+              <p className="text-sm text-muted-foreground mb-8">Search for matching precedents related to this FIR</p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button
-                  onClick={() => proceedWithAnalysis("find-cases")}
-                  className="glass-panel rounded-2xl p-6 hover:glow-primary hover:bg-primary/5 transition-all cursor-pointer group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20">
-                    <GitCompare className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-foreground mb-2">Find Matching Cases</h3>
-                  <p className="text-xs text-muted-foreground">Search for matching precedents related to this FIR</p>
-                </button>
-
-                <button
-                  onClick={() => proceedWithAnalysis("assign-judge")}
-                  className="glass-panel rounded-2xl p-6 hover:glow-primary hover:bg-primary/5 transition-all cursor-pointer group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20">
-                    <Gavel className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-foreground mb-2">Assess & Assign Judge</h3>
-                  <p className="text-xs text-muted-foreground">Analyze FIR and assign appropriate judge based on priority</p>
-                </button>
-              </div>
+              <button
+                onClick={() => proceedWithAnalysis("find-cases")}
+                className="w-full glass-panel rounded-2xl p-6 hover:glow-primary hover:bg-primary/5 transition-all cursor-pointer group"
+              >
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20">
+                  <GitCompare className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="font-semibold text-foreground mb-2">Begin Analysis</h3>
+                <p className="text-xs text-muted-foreground">AI will extract and analyze the FIR document</p>
+              </button>
 
               <button
                 onClick={() => setPhase("upload")}
@@ -422,7 +417,7 @@ export default function PDFAnalyzer() {
                       setOverrideCaseType("");
                       setOverrideSeverity("");
                       setSelectedFile(null);
-                      setWorkflowMode("assign-judge");
+                      setWorkflowMode("find-cases");
                     }}
                     className="px-4 py-2 rounded-xl bg-muted text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   >
@@ -457,9 +452,30 @@ export default function PDFAnalyzer() {
                     <div className="rounded-xl border border-border p-3 bg-muted/30">
                       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Assigned Judge</p>
                       <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                        <Gavel className="w-4 h-4 text-primary" />
+                        <User className="w-4 h-4 text-primary" />
                         {firJudgeAssignment.assignedJudge}
                       </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <div className="rounded-xl border border-border p-3 bg-muted/20">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">
+                        <Flag className="w-3.5 h-3.5" /> Bail Risk
+                      </p>
+                      <p className="text-sm font-semibold text-foreground">{firPriority.bailRiskScore}</p>
+                    </div>
+                    <div className="rounded-xl border border-border p-3 bg-muted/20">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5" /> Escape Risk
+                      </p>
+                      <p className="text-sm font-semibold text-foreground">{firPriority.escapeRiskScore}</p>
+                    </div>
+                    <div className="rounded-xl border border-border p-3 bg-muted/20">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1.5">
+                        <Clock3 className="w-3.5 h-3.5" /> Risk Composite
+                      </p>
+                      <p className="text-sm font-semibold text-foreground">{firPriority.riskScore}</p>
                     </div>
                   </div>
 
@@ -500,6 +516,19 @@ export default function PDFAnalyzer() {
                     <p className="text-sm text-foreground/80">{firPriority.rationale}</p>
                   </div>
 
+                  {firPriority.riskFactors.length > 0 ? (
+                    <div className="rounded-xl border border-border p-3 mb-3 bg-muted/20">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Risk Signals</p>
+                      <div className="flex flex-wrap gap-2">
+                        {firPriority.riskFactors.slice(0, 4).map((factor) => (
+                          <span key={factor} className="px-2.5 py-1 rounded-full text-[11px] bg-primary/10 text-primary font-medium">
+                            {factor}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="flex items-center justify-between gap-2 rounded-lg border border-border p-2.5">
                     <span className="text-xs text-foreground/90">{firJudgeAssignment.partyLabel} needs public prosecutor</span>
                     <span
@@ -510,6 +539,28 @@ export default function PDFAnalyzer() {
                       <ShieldCheck className="w-3.5 h-3.5" />
                       {firJudgeAssignment.requiresPublicProsecutor ? "Required" : "Not Required"}
                     </span>
+                  </div>
+
+                  <div className="mt-3 rounded-xl border border-border p-3 bg-muted/20">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Judge Ranking</p>
+                      <span className="text-[11px] text-muted-foreground">{firJudgeAssignment.routeMode.toUpperCase()}</span>
+                    </div>
+                    <p className="text-xs text-foreground/80 mb-3">{firJudgeAssignment.assignmentReason}</p>
+                    <div className="space-y-2">
+                      {firJudgeAssignment.judgeRankings.slice(0, 3).map((item, index) => (
+                        <div key={`${item.judgeName}-${index}`} className="rounded-lg border border-border bg-card/60 p-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                              <ArrowUpRight className="w-4 h-4 text-primary" />
+                              {item.judgeName}
+                            </p>
+                            <span className="text-xs font-semibold text-primary">{item.score}</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-1">{item.reason}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -557,4 +608,12 @@ function toPriorityBand(score: number): FIRPriorityAssessment["priorityBand"] {
   if (score >= 70) return "P1";
   if (score >= 50) return "P2";
   return "P3";
+}
+
+function hashText(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
 }

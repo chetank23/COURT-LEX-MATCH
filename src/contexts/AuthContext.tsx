@@ -17,6 +17,14 @@ interface ManagedCase {
   uploadedBy: string;
   uploadName?: string;
   notes: string;
+  autoAssigned?: boolean;
+  assignmentReason?: string;
+  priorityScore?: number;
+  priorityBand?: "P0" | "P1" | "P2" | "P3";
+  bailRiskScore?: number;
+  escapeRiskScore?: number;
+  riskScore?: number;
+  publicDefenderStatus?: "Pending Allocation" | "Not Required";
   updatedAt: number;
 }
 
@@ -60,6 +68,14 @@ const INITIAL_MANAGED_CASES: ManagedCase[] = [
     assignedJudge: "Justice N. Rao",
     uploadedBy: "Court Support Officer",
     notes: "Urgent listing requested by prosecution.",
+    autoAssigned: true,
+    assignmentReason: "Selected for criminal bench fit and judge availability.",
+    priorityScore: 88,
+    priorityBand: "P0",
+    bailRiskScore: 79,
+    escapeRiskScore: 72,
+    riskScore: 76,
+    publicDefenderStatus: "Pending Allocation",
     updatedAt: Date.now(),
   },
   {
@@ -69,6 +85,14 @@ const INITIAL_MANAGED_CASES: ManagedCase[] = [
     assignedJudge: "Justice R. Iyer",
     uploadedBy: "Court Support Officer",
     notes: "Awaiting affidavit verification.",
+    autoAssigned: false,
+    assignmentReason: "Manual assignment retained for ongoing review.",
+    priorityScore: 62,
+    priorityBand: "P2",
+    bailRiskScore: 24,
+    escapeRiskScore: 18,
+    riskScore: 21,
+    publicDefenderStatus: "Not Required",
     updatedAt: Date.now(),
   },
 ];

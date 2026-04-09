@@ -50,6 +50,12 @@ const VERDICT_RULES = [
   { label: "Bail Rejected", pattern: /\b(bail (?:rejected|denied|dismissed))\b/i },
 ];
 
+const DEFAULT_FIR_ROSTER = {
+  Criminal: ["Justice N. Rao", "Justice P. Mehta", "Justice S. Khan"],
+  Civil: ["Justice R. Iyer", "Justice K. Banerjee", "Justice V. Sen"],
+  Other: ["Justice A. Menon", "Justice D. Kapoor", "Justice T. Joseph"],
+};
+
 let caseCache = null;
 let caseSearchIndex = null;
 let caseSearchIndexMap = null;
@@ -744,27 +750,36 @@ export async function createServer() {
       }
 
       if (pathname === "/api/fir/assess-priority" && req.method === "GET") {
-        sendJson(res, 200, {
-          caseType: "Criminal",
-          severity: "Medium",
-          priorityScore: 72,
-          priorityBand: "P1",
-          rationale: "Baseline FIR assessment from backend until OCR pipeline is connected.",
-        });
+        const text = `${url.searchParams.get("filename") || ""} ${url.searchParams.get("text") || ""}`;
+        const assessment = buildFirAssessment(text);
+        sendJson(res, 200, assessment);
+        return;
+      }
+
+      if (pathname === "/api/fir/assess-priority" && req.method === "POST") {
+        const payload = await readJsonBody(req);
+        const text = buildFirText(payload.filename || "", payload.sections || [], payload.extractedText || "");
+        const assessment = buildFirAssessment(text);
+        sendJson(res, 200, assessment);
         return;
       }
 
       if (pathname === "/api/fir/assign-judge" && req.method === "GET") {
+        const text = `${url.searchParams.get("filename") || ""} ${url.searchParams.get("text") || ""}`;
+        const assessment = buildFirAssessment(text);
         const judges = await listJudges();
-        const criminalJudges = judges.filter((item) => item.category === "Criminal");
-        const available = criminalJudges.length > 0 ? criminalJudges : judges;
-        sendJson(res, 200, {
-          category: "Criminal",
-          assignedJudge: available[0]?.name || "Justice N. Rao",
-          availableJudges: available.map((item) => item.name),
-          partyLabel: "Accused",
-          requiresPublicProsecutor: true,
-        });
+        const assignment = buildFirAssignment(assessment, judges, text);
+        sendJson(res, 200, assignment);
+        return;
+      }
+
+      if (pathname === "/api/fir/assign-judge" && req.method === "POST") {
+        const payload = await readJsonBody(req);
+        const text = buildFirText(payload.filename || "", payload.sections || [], payload.extractedText || "");
+        const assessment = payload.assessment || buildFirAssessment(text);
+        const judges = await listJudges();
+        const assignment = buildFirAssignment(assessment, judges, text);
+        sendJson(res, 200, assignment);
         return;
       }
 
@@ -790,6 +805,211 @@ function buildCaseExplanation(query, item) {
   const matchedTags = item.tags.filter((tag) => loweredQuery.includes(tag.toLowerCase()));
   const tagPhrase = matchedTags.length > 0 ? `matching topic tags (${matchedTags.join(", ")})` : "overlapping legal themes";
   return `Matched on ${tagPhrase}, case type (${item.type}), and strong similarity signals from title and summary context.`;
+}
+
+function buildFirText(filename, sections, extractedText) {
+  const sectionText = Array.isArray(sections)
+    ? sections
+        .map((section) => `${section.title || ""} ${section.summary || ""} ${section.content || ""} ${(section.highlights || []).join(" ")}`)
+        .join(" ")
+    : "";
+  return `${filename || ""} ${extractedText || ""} ${sectionText}`.trim();
+}
+
+function buildFirAssessment(text) {
+  const caseType = classifyFirCaseType(text);
+  const severity = detectFirSeverity(text);
+  const risk = assessFirRisk(text, caseType, severity);
+  const priorityScore = computeFirPriority(caseType, severity, risk);
+  return {
+    caseType,
+    severity,
+    bailRiskScore: risk.bailRiskScore,
+    escapeRiskScore: risk.escapeRiskScore,
+    riskScore: risk.riskScore,
+    riskFactors: risk.riskFactors,
+    priorityScore,
+    priorityBand: toPriorityBand(priorityScore),
+    rationale: buildFirRationale({ caseType, severity, risk }),
+  };
+}
+
+function buildFirAssignment(assessment, judges, seedText) {
+  const category = toJudgeCategory(assessment.caseType);
+  const roster = judges && judges.length > 0 ? judges : buildFallbackJudges(category);
+  const rankings = rankJudgesForAssessment(assessment, roster, seedText);
+  const selected = rankings[0] || null;
+
+  return {
+    category,
+    assignedJudgeId: selected?.judgeId,
+    assignedJudge: selected?.judgeName || DEFAULT_FIR_ROSTER[category][0],
+    availableJudges: rankings.map((item) => item.judgeName),
+    judgeRankings: rankings,
+    assignmentReason: selected?.reason || "Assigned using fallback roster.",
+    routeMode: "auto",
+    partyLabel: category === "Criminal" ? "Accused" : "Defendant",
+    requiresPublicProsecutor: category === "Criminal",
+  };
+}
+
+function classifyFirCaseType(text) {
+  const normalized = `${text || ""}`.toLowerCase();
+  if (normalized.includes("fir") || normalized.includes("ipc") || normalized.includes("criminal") || normalized.includes("murder") || normalized.includes("assault")) {
+    return "Criminal";
+  }
+  if (normalized.includes("civil") || normalized.includes("property") || normalized.includes("contract") || normalized.includes("injunction")) {
+    return "Civil";
+  }
+  return "Specialized Cases";
+}
+
+function detectFirSeverity(text) {
+  const normalized = `${text || ""}`.toLowerCase();
+  if (includesAny(normalized, ["murder", "rape", "terror", "kidnap", "attempt to murder", "acid attack"])) return "Critical";
+  if (includesAny(normalized, ["grievous", "armed", "extortion", "rioting", "fraud", "serious injury"])) return "High";
+  if (includesAny(normalized, ["threat", "cheating", "breach", "damage", "dispute"])) return "Medium";
+  return "Low";
+}
+
+function assessFirRisk(text, caseType, severity) {
+  const normalized = `${text || ""}`.toLowerCase();
+  let bailRiskScore = 18 + (caseType === "Criminal" ? 10 : 0) + (severity === "Critical" ? 18 : severity === "High" ? 12 : severity === "Medium" ? 6 : 0);
+  let escapeRiskScore = 12 + (caseType === "Criminal" ? 8 : 0) + (severity === "Critical" ? 18 : severity === "High" ? 12 : severity === "Medium" ? 4 : 0);
+  const riskFactors = [];
+
+  const bailTerms = [
+    ["non-bailable", 18],
+    ["bail rejected", 22],
+    ["bail denied", 22],
+    ["custody", 10],
+    ["remand", 8],
+    ["surety", 6],
+    ["anticipatory bail", 12],
+    ["interim bail", 14],
+    ["bail", 8],
+  ];
+  const escapeTerms = [
+    ["abscond", 22],
+    ["fugitive", 24],
+    ["flight risk", 28],
+    ["foreign travel", 20],
+    ["passport", 12],
+    ["look out circular", 18],
+    ["escape", 18],
+    ["flee", 20],
+    ["no fixed address", 14],
+    ["international", 10],
+  ];
+
+  for (const [term, boost] of bailTerms) {
+    if (normalized.includes(term)) {
+      bailRiskScore += boost;
+      riskFactors.push(`bail signal: ${term}`);
+    }
+  }
+
+  for (const [term, boost] of escapeTerms) {
+    if (normalized.includes(term)) {
+      escapeRiskScore += boost;
+      riskFactors.push(`escape signal: ${term}`);
+    }
+  }
+
+  if (severity === "Critical") riskFactors.push("critical offense severity");
+  if (severity === "High") riskFactors.push("high offense severity");
+
+  bailRiskScore = Math.max(10, Math.min(99, Math.round(bailRiskScore)));
+  escapeRiskScore = Math.max(10, Math.min(99, Math.round(escapeRiskScore)));
+
+  return {
+    bailRiskScore,
+    escapeRiskScore,
+    riskScore: Math.max(10, Math.min(99, Math.round(bailRiskScore * 0.55 + escapeRiskScore * 0.45))),
+    riskFactors,
+  };
+}
+
+function computeFirPriority(caseType, severity, risk) {
+  const typeWeight = { Criminal: 42, Civil: 26, "Specialized Cases": 34 };
+  const severityWeight = { Low: 12, Medium: 24, High: 36, Critical: 48 };
+  const weighted = 0.34 * typeWeight[caseType] + 0.3 * severityWeight[severity] + 0.18 * risk.bailRiskScore + 0.18 * risk.escapeRiskScore;
+  return Math.max(20, Math.min(99, Math.round(weighted)));
+}
+
+function buildFirRationale({ caseType, severity, risk }) {
+  const factors = risk.riskFactors.length > 0 ? `Risk factors: ${risk.riskFactors.slice(0, 3).join(", ")}.` : "No explicit bail or flight-risk markers detected.";
+  return `Priority derived from ${caseType.toLowerCase()} classification, ${severity.toLowerCase()} severity, bail risk ${risk.bailRiskScore}, and escape risk ${risk.escapeRiskScore}. ${factors}`;
+}
+
+function toJudgeCategory(caseType) {
+  return caseType === "Criminal" ? "Criminal" : caseType === "Civil" ? "Civil" : "Other";
+}
+
+function buildFallbackJudges(category) {
+  return DEFAULT_FIR_ROSTER[category].map((name, index) => ({
+    id: `${category.toLowerCase()}-fallback-${index + 1}`,
+    name,
+    category,
+    courtLevel: category === "Criminal" ? "High Court" : category === "Civil" ? "High Court" : "District Court",
+    yearsOfExperience: 10 + index * 4,
+    caseLoadCapacity: 45 + index * 5,
+    currentCaseLoad: 18 + index * 8,
+    availability: index === 0 ? "Available" : index === 1 ? "Busy" : "Available",
+  }));
+}
+
+function rankJudgesForAssessment(assessment, judges, seedText) {
+  const category = toJudgeCategory(assessment.caseType);
+  return judges
+    .map((judge) => {
+      const utilization = judge.caseLoadCapacity ? judge.currentCaseLoad / judge.caseLoadCapacity : 1;
+      const capacityHeadroom = Math.max(0, 1 - utilization);
+      const availabilityScore = judge.availability === "Available" ? 1 : judge.availability === "Busy" ? 0.6 : 0.15;
+      const categoryMatch = judge.category === category ? 1 : category === "Other" && judge.category === "Criminal" ? 0.72 : 0.38;
+      const experienceScore = Math.min(1, judge.yearsOfExperience / 25);
+      const courtScore = assessCourtFit(judge.courtLevel, assessment.severity, assessment.riskScore);
+      const seedAffinity = hashText(`${seedText}:${judge.name}`) % 11;
+      const score = Math.round(100 * (categoryMatch * 0.3 + availabilityScore * 0.22 + capacityHeadroom * 0.18 + experienceScore * 0.1 + courtScore * 0.17 + Math.max(0.55, Math.min(1, assessment.riskScore / 100)) * 0.03) + seedAffinity);
+      return {
+        judgeId: judge.id,
+        judgeName: judge.name,
+        score,
+        utilization: Math.round(utilization * 100),
+        availability: judge.availability,
+        reason: buildJudgeReason({ categoryMatch, availability: judge.availability, utilization, severity: assessment.severity, riskScore: assessment.riskScore }),
+      };
+    })
+    .sort((a, b) => b.score - a.score || a.utilization - b.utilization || a.judgeName.localeCompare(b.judgeName));
+}
+
+function assessCourtFit(courtLevel, severity, riskScore) {
+  if (severity === "Critical" || riskScore >= 80) {
+    if (courtLevel === "Supreme Court") return 1;
+    if (courtLevel === "High Court") return 0.92;
+    return 0.68;
+  }
+
+  if (severity === "High" || riskScore >= 60) {
+    if (courtLevel === "High Court") return 1;
+    if (courtLevel === "Supreme Court") return 0.92;
+    return 0.76;
+  }
+
+  if (courtLevel === "District Court") return 1;
+  return 0.84;
+}
+
+function buildJudgeReason(input) {
+  const availabilityText = input.availability === "Available" ? "available" : `${input.availability}`.toLowerCase();
+  const loadText = input.utilization >= 85 ? "high current load" : input.utilization >= 60 ? "moderate current load" : "low current load";
+  const fitText = input.categoryMatch >= 0.9 ? "strong category fit" : "acceptable fallback fit";
+  const riskText = input.riskScore >= 80 ? "critical risk profile" : input.riskScore >= 60 ? "elevated risk profile" : `${input.severity.toLowerCase()} severity`;
+  return `Selected for ${fitText}, ${availabilityText} status, ${loadText}, and ${riskText}.`;
+}
+
+function includesAny(source, terms) {
+  return terms.some((term) => source.includes(term));
 }
 
 async function buildPdfSections(fileName, cases, options = {}) {

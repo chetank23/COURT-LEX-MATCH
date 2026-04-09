@@ -5,7 +5,7 @@ type WorkflowMode = "find-cases" | "assign-judge";
 type Phase = "idle" | "choice" | "transition" | "analyzing" | "results";
 
 interface SearchState {
-  // AI Search Lab data
+  // Case Lab data
   aiSearchQuery: string | null;
   aiSearchResults: CaseResult[];
   
@@ -18,7 +18,7 @@ interface SearchState {
   // Flag to determine if there's any user-generated data
   hasUserData: boolean;
 
-  // AI Search Lab UI State (persisted)
+  // Case Lab UI State (persisted)
   aiLabPhase: Phase;
   aiLabWorkflowMode: WorkflowMode;
   aiLabCurrentStep: number;
@@ -132,10 +132,50 @@ export const SearchProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addHearing = (hearing: HearingSchedule) => {
-    setState((prev) => ({
-      ...prev,
-      hearings: [...prev.hearings, hearing],
-    }));
+    setState((prev) => {
+      const placeTimeConflict = prev.hearings.find(
+        (item) =>
+          item.caseId !== hearing.caseId &&
+          item.hearingDate === hearing.hearingDate &&
+          normalizeHearingTime(item.hearingTime) === normalizeHearingTime(hearing.hearingTime) &&
+          normalizeHearingTime(item.localCourtName) === normalizeHearingTime(hearing.localCourtName) &&
+          normalizeHearingTime(item.courtRoom) === normalizeHearingTime(hearing.courtRoom)
+      );
+
+      if (placeTimeConflict) {
+        return prev;
+      }
+
+      const duplicate = prev.hearings.find(
+        (item) =>
+          item.caseId === hearing.caseId &&
+          item.hearingDate === hearing.hearingDate &&
+          normalizeHearingTime(item.hearingTime) === normalizeHearingTime(hearing.hearingTime)
+      );
+
+      if (!duplicate) {
+        return {
+          ...prev,
+          hearings: [...prev.hearings, hearing],
+        };
+      }
+
+      return {
+        ...prev,
+        hearings: prev.hearings.map((item) =>
+          item.id === duplicate.id
+            ? {
+                ...item,
+                ...hearing,
+                id: duplicate.id,
+                caseId: duplicate.caseId,
+                hearingDate: duplicate.hearingDate,
+                hearingTime: duplicate.hearingTime,
+              }
+            : item
+        ),
+      };
+    });
   };
 
   const updateHearing = (hearing: HearingSchedule) => {
@@ -188,3 +228,7 @@ export const useSearch = () => {
   }
   return context;
 };
+
+function normalizeHearingTime(value: string) {
+  return `${value || ""}`.trim().toLowerCase();
+}

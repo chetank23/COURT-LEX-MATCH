@@ -20,6 +20,28 @@ const FIR_JUDGE_ROSTER: Record<"Criminal" | "Civil" | "Other", string[]> = {
   Other: ["Justice A. Menon", "Justice D. Kapoor", "Justice T. Joseph"],
 };
 
+const DEFAULT_JUDGE_COURTS: Record<"Criminal" | "Civil" | "Other", "Supreme Court" | "High Court" | "District Court"> = {
+  Criminal: "High Court",
+  Civil: "High Court",
+  Other: "District Court",
+};
+
+type JudgeCandidate = {
+  id?: string;
+  name: string;
+  category: "Criminal" | "Civil" | "Other";
+  courtLevel: "Supreme Court" | "High Court" | "District Court";
+  yearsOfExperience: number;
+  caseLoadCapacity: number;
+  currentCaseLoad: number;
+  availability: "Available" | "Busy" | "On Leave";
+  district?: string;
+  state?: string;
+  area?: string;
+  courtName?: string;
+  specializations?: ("Criminal" | "Civil" | "Constitutional" | "Commercial" | "Labor" | "Revenue")[];
+};
+
 /**
  * Data Service Layer
  * 
@@ -314,39 +336,30 @@ export const dataService = {
   },
 
   async assessFIRPriority(file: File, sections: Section[]): Promise<FIRPriorityAssessment> {
-    const fromApi = (await this._fetchJson(
-      `/api/fir/assess-priority?filename=${encodeURIComponent(file.name)}`
-    )) as FIRPriorityAssessment | null;
+    const combinedText = buildFIRText(file.name, sections);
+    const fromApi = (await this._requestJson("/api/fir/assess-priority", {
+      method: "POST",
+      body: JSON.stringify({
+        filename: file.name,
+        sections,
+        extractedText: combinedText,
+      }),
+    })) as FIRPriorityAssessment | null;
     if (fromApi) return fromApi;
 
-    const combinedText = [
-      file.name,
-      ...sections.map((section) => `${section.title} ${section.summary} ${section.content}`),
-    ].join(" ");
-
-    const caseType = classifyFIRCaseType(combinedText);
-    const severity = detectFIRSeverity(combinedText);
-
-    const typeWeight: Record<FIRPriorityAssessment["caseType"], number> = {
-      Criminal: 35,
-      Civil: 22,
-      "Specialized Cases": 28,
-    };
-    const severityWeight: Record<FIRPriorityAssessment["severity"], number> = {
-      Low: 12,
-      Medium: 24,
-      High: 36,
-      Critical: 48,
-    };
-
-    const score = Math.max(20, Math.min(99, typeWeight[caseType] + severityWeight[severity]));
+    const signals = assessFIRSignals(combinedText);
+    const score = computeRoutingPriority(signals);
 
     return {
-      caseType,
-      severity,
+      caseType: signals.caseType,
+      severity: signals.severity,
+      bailRiskScore: signals.bailRiskScore,
+      escapeRiskScore: signals.escapeRiskScore,
+      riskScore: signals.riskScore,
+      riskFactors: signals.riskFactors,
       priorityScore: score,
       priorityBand: toPriorityBand(score),
-      rationale: buildFIRPriorityRationale(caseType, severity),
+      rationale: buildFIRPriorityRationale(signals),
     };
   },
 
@@ -355,29 +368,101 @@ export const dataService = {
     assessment: FIRPriorityAssessment,
     sections: Section[]
   ): Promise<FIRJudgeAssignment> {
-    const fromApi = (await this._fetchJson(
-      `/api/fir/assign-judge?filename=${encodeURIComponent(file.name)}`
-    )) as FIRJudgeAssignment | null;
+    const fromApi = (await this._requestJson("/api/fir/assign-judge", {
+      method: "POST",
+      body: JSON.stringify({
+        filename: file.name,
+        assessment,
+        sections,
+        extractedText: buildFIRText(file.name, sections),
+      }),
+    })) as FIRJudgeAssignment | null;
     if (fromApi) return fromApi;
 
-    const category: FIRJudgeAssignment["category"] =
-      assessment.caseType === "Criminal"
-        ? "Criminal"
-        : assessment.caseType === "Civil"
-          ? "Civil"
-          : "Other";
-
-    const availableJudges = FIR_JUDGE_ROSTER[category];
-    const seed = `${file.name}:${assessment.caseType}:${assessment.severity}:${sections.length}`;
-    const assignedJudge = availableJudges[hashText(seed) % availableJudges.length];
+    const category = toJudgeCategory(assessment.caseType);
+    const candidateJudges = await this.getJudges();
+    const judges = candidateJudges.length > 0 ? candidateJudges : buildFallbackJudges(category);
+    const ranking = rankJudgesForAssessment(assessment, judges, file.name, sections);
+    const chosen = ranking[0] || null;
+    const availableJudges = ranking.map((item) => item.judgeName);
     const requiresPublicProsecutor = category === "Criminal";
 
     return {
       category,
-      assignedJudge,
+      assignedJudgeId: chosen?.judgeId,
+      assignedJudge: chosen?.judgeName || FIR_JUDGE_ROSTER[category][0],
       availableJudges,
+      judgeRankings: ranking,
+      assignmentReason:
+        chosen?.reason || "Assigned using fallback roster because no ranked judge recommendation was available.",
+      routeMode: "fallback",
       partyLabel: requiresPublicProsecutor ? "Accused" : "Defendant",
       requiresPublicProsecutor,
+    };
+  },
+
+  async recommendJudgeForCase(caseItem: {
+    id?: string;
+    title: string;
+    summary?: string;
+    type?: string;
+    court?: string;
+    priorityScore?: number;
+    priorityBand?: string;
+  }): Promise<FIRJudgeAssignment> {
+    const rawText = [caseItem.title, caseItem.summary || "", caseItem.type || "", caseItem.court || ""].join(" ");
+    const signals = assessFIRSignals(rawText);
+    const computedPriority = computeRoutingPriority(signals);
+    const priorityScore =
+      caseItem.priorityScore && Number.isFinite(caseItem.priorityScore)
+        ? Math.max(computedPriority, caseItem.priorityScore)
+        : computedPriority;
+    const assessment: FIRPriorityAssessment = {
+      ...signals,
+      priorityScore,
+      priorityBand: toPriorityBand(priorityScore),
+      rationale: buildFIRPriorityRationale(signals),
+    };
+
+    const judges = await this.getJudges();
+    const roster = judges.length > 0 ? judges : buildFallbackJudges(toJudgeCategory(assessment.caseType));
+    const ranking = rankJudgesForAssessment(assessment, roster, caseItem.title, []);
+    const selected = ranking[0] || null;
+    const category = toJudgeCategory(assessment.caseType);
+
+    return {
+      category,
+      assignedJudgeId: selected?.judgeId,
+      assignedJudge: selected?.judgeName || FIR_JUDGE_ROSTER[category][0],
+      availableJudges: ranking.map((item) => item.judgeName),
+      judgeRankings: ranking,
+      assignmentReason: selected?.reason || "Assigned using case metadata fallback.",
+      routeMode: "auto",
+      partyLabel: category === "Criminal" ? "Accused" : "Defendant",
+      requiresPublicProsecutor: category === "Criminal",
+    };
+  },
+
+  assessCaseRouting(caseItem: {
+    title: string;
+    summary?: string;
+    typeHint?: FIRPriorityAssessment["caseType"];
+    priorityScoreHint?: number;
+  }): FIRPriorityAssessment {
+    const rawText = [caseItem.title, caseItem.summary || "", caseItem.typeHint || ""].join(" ");
+    const signals = caseItem.typeHint
+      ? assessRoutingSignals(rawText, caseItem.typeHint)
+      : assessFIRSignals(rawText);
+    const computed = computeRoutingPriority(signals);
+    const priorityScore =
+      caseItem.priorityScoreHint && Number.isFinite(caseItem.priorityScoreHint)
+        ? Math.max(computed, caseItem.priorityScoreHint)
+        : computed;
+    return {
+      ...signals,
+      priorityScore,
+      priorityBand: toPriorityBand(priorityScore),
+      rationale: buildFIRPriorityRationale(signals),
     };
   },
 
@@ -528,6 +613,165 @@ export const dataService = {
   },
 
   /**
+   * Judge Availability & Specialization Checking
+   */
+  async getAvailableJudgesByArea(input: {
+    district: string;
+    caseType?: "Criminal" | "Civil" | "Other";
+    date?: string;
+    onlyAvailable?: boolean;
+  }): Promise<JudgeProfile[]> {
+    const allJudges = await this.getJudges();
+    const hearings = await this.getHearings();
+
+    let filtered = allJudges.filter((judge) => {
+      // Filter by district/area
+      const districtMatch = !input.district || !judge.district || judge.district.toLowerCase().includes(input.district.toLowerCase());
+      
+      // Filter by case type specialization
+      const caseTypeMatch = !input.caseType || judge.category === input.caseType || (judge.specializations?.includes(input.caseType) ?? false);
+
+      // Filter by availability status
+      const availabilityMatch = !input.onlyAvailable || judge.availability === "Available";
+
+      return districtMatch && caseTypeMatch && availabilityMatch;
+    });
+
+    // If date is provided, filter out judges with hearings on that date
+    if (input.date) {
+      filtered = filtered.map((judge) => {
+        const hearingsOnDate = hearings.filter(
+          (h) => h.assignedJudgeId === judge.id && h.hearingDate === input.date
+        );
+        return {
+          ...judge,
+          scheduledHearingDates: hearingsOnDate.map((h) => h.hearingDate),
+        };
+      });
+    }
+
+    return filtered.sort((a, b) => {
+      // Sort by availability first
+      const availOrder = { "Available": 0, "Busy": 1, "On Leave": 2 };
+      const availDiff = (availOrder[a.availability] ?? 3) - (availOrder[b.availability] ?? 3);
+      if (availDiff !== 0) return availDiff;
+
+      // Then by current case load (lower is better)
+      const loadDiff = a.currentCaseLoad - b.currentCaseLoad;
+      if (loadDiff !== 0) return loadDiff;
+
+      // Then by experience (higher is better)
+      return b.yearsOfExperience - a.yearsOfExperience;
+    });
+  },
+
+  async getJudgeAvailabilityStatus(judgeId: string): Promise<{
+    judgeId: string;
+    judgeName: string;
+    availability: "Available" | "Busy" | "On Leave";
+    currentCaseLoad: number;
+    caseLoadCapacity: number;
+    utilizationPercent: number;
+    isFree: boolean;
+    specializations: string[];
+    upcomingHearings: HearingSchedule[];
+  } | null> {
+    const judge = await this.getJudgeById(judgeId);
+    if (!judge) return null;
+
+    const hearings = await this.getHearingsByJudgeId(judgeId);
+    const utilization = judge.caseLoadCapacity > 0 ? (judge.currentCaseLoad / judge.caseLoadCapacity) * 100 : 0;
+    const isFree = judge.availability === "Available" && judge.currentCaseLoad < judge.caseLoadCapacity * 0.8;
+
+    return {
+      judgeId: judge.id,
+      judgeName: judge.name,
+      availability: judge.availability,
+      currentCaseLoad: judge.currentCaseLoad,
+      caseLoadCapacity: judge.caseLoadCapacity,
+      utilizationPercent: Math.round(utilization),
+      isFree,
+      specializations: judge.specializations || [],
+      upcomingHearings: hearings.slice(0, 5),
+    };
+  },
+
+  async getJudgesCountByArea(district: string): Promise<{
+    total: number;
+    available: number;
+    busy: number;
+    onLeave: number;
+    byCaseType: Record<string, number>;
+  }> {
+    const allJudges = await this.getJudges();
+    const filteredJudges = allJudges.filter(
+      (j) => !district || !j.district || j.district.toLowerCase().includes(district.toLowerCase())
+    );
+
+    const counts = {
+      total: filteredJudges.length,
+      available: filteredJudges.filter((j) => j.availability === "Available").length,
+      busy: filteredJudges.filter((j) => j.availability === "Busy").length,
+      onLeave: filteredJudges.filter((j) => j.availability === "On Leave").length,
+      byCaseType: {} as Record<string, number>,
+    };
+
+    // Count by case type
+    filteredJudges.forEach((judge) => {
+      counts.byCaseType[judge.category] = (counts.byCaseType[judge.category] ?? 0) + 1;
+    });
+
+    return counts;
+  },
+
+  async findBestJudgeForCase(input: {
+    caseType: "Criminal" | "Civil" | "Other";
+    district: string;
+    severity?: "Critical" | "High" | "Medium" | "Low";
+    hearingDate?: string;
+  }): Promise<{
+    judge: JudgeProfile | null;
+    alternatives: JudgeProfile[];
+    reason: string;
+    availabilityInfo: string;
+  }> {
+    const available = await this.getAvailableJudgesByArea({
+      district: input.district,
+      caseType: input.caseType,
+      date: input.hearingDate,
+      onlyAvailable: true,
+    });
+
+    if (available.length === 0) {
+      const allInDistrict = await this.getAvailableJudgesByArea({
+        district: input.district,
+        caseType: input.caseType,
+      });
+
+      return {
+        judge: allInDistrict[0] || null,
+        alternatives: allInDistrict.slice(1),
+        reason: "No judge available on requested date; recommending judge with upcoming availability",
+        availabilityInfo: allInDistrict[0]
+          ? `${allInDistrict[0].name} is currently ${allInDistrict[0].availability.toLowerCase()} (${allInDistrict[0].currentCaseLoad}/${allInDistrict[0].caseLoadCapacity} cases)`
+          : `No judges found for ${input.caseType} cases in ${input.district}`,
+      };
+    }
+
+    const primary = available[0];
+    const alternatives = available.slice(1, 3);
+
+    const details = `${primary.name} is ${primary.availability.toLowerCase()} with ${primary.caseLoadCapacity - primary.currentCaseLoad} case slots available`;
+
+    return {
+      judge: primary,
+      alternatives,
+      reason: `Selected for ${input.caseType} case specialization, availability status, and case load capacity in ${input.district}`,
+      availabilityInfo: details,
+    };
+  },
+
+  /**
    * Hearing Schedule Management.
    */
   async getHearings(): Promise<HearingSchedule[]> {
@@ -579,6 +823,269 @@ export const dataService = {
     if (fromApi && Array.isArray(fromApi)) return fromApi;
     return [];
   },
+
+  async getAllHearings(): Promise<HearingSchedule[]> {
+    const fromApi = (await this._fetchJson("/api/hearings")) as HearingSchedule[] | null;
+    if (fromApi && Array.isArray(fromApi)) return fromApi;
+    return [];
+  },
+
+  async getLocalCourtAvailability(input: {
+    caseText: string;
+    hearingDate?: string;
+    hearingTime?: string;
+  }): Promise<{
+    state: string;
+    district: string;
+    policeStation: string;
+    availableCourts: Array<{ localCourtName: string; courtRoom: string }>;
+    unavailableCourts: Array<{ localCourtName: string; courtRoom: string }>;
+  }> {
+    const inferred = inferLocationFromCaseText(input.caseText);
+    const candidateCourts = buildLocalCourtCatalog(inferred);
+    const scheduleDate = input.hearingDate || toNextBusinessDateDMY();
+    const scheduleTime = normalize24HourTime(input.hearingTime || "10:30");
+    const hearings = await this.getAllHearings();
+
+    const unavailableCourts = candidateCourts.filter((court) =>
+      hearings.some(
+        (hearing) =>
+          hearing.hearingDate === scheduleDate &&
+          normalize24HourTime(hearing.hearingTime) === scheduleTime &&
+          normalizeToken(hearing.localCourtName) === normalizeToken(court.localCourtName) &&
+          normalizeToken(hearing.courtRoom) === normalizeToken(court.courtRoom)
+      )
+    );
+    const availableCourts = candidateCourts.filter(
+      (court) =>
+        !unavailableCourts.some(
+          (blocked) =>
+            normalizeToken(blocked.localCourtName) === normalizeToken(court.localCourtName) &&
+            normalizeToken(blocked.courtRoom) === normalizeToken(court.courtRoom)
+        )
+    );
+
+    return {
+      state: inferred.state,
+      district: inferred.district,
+      policeStation: inferred.policeStation,
+      availableCourts,
+      unavailableCourts,
+    };
+  },
+
+  async getSchedulingAdvisory(input: {
+    caseId: string;
+    severity: string;
+    hearingDate: string;
+    hearingTime: string;
+    localCourtName: string;
+    courtRoom: string;
+  }): Promise<{
+    canSchedule: boolean;
+    shouldPromptReschedule: boolean;
+    message: string;
+    conflictHearing?: HearingSchedule;
+    suggestedLowSeverityReschedule?: { hearingDate: string; hearingTime: string };
+  }> {
+    const scheduleTime = normalize24HourTime(input.hearingTime);
+    const hearings = await this.getAllHearings();
+    const conflictHearing = hearings.find(
+      (hearing) =>
+        hearing.caseId !== input.caseId &&
+        hearing.hearingDate === input.hearingDate &&
+        normalize24HourTime(hearing.hearingTime) === scheduleTime &&
+        normalizeToken(hearing.localCourtName) === normalizeToken(input.localCourtName) &&
+        normalizeToken(hearing.courtRoom) === normalizeToken(input.courtRoom)
+    );
+
+    if (!conflictHearing) {
+      return {
+        canSchedule: true,
+        shouldPromptReschedule: false,
+        message: "",
+      };
+    }
+
+    const incomingSeverity = normalizeSeverity(input.severity);
+    const existingSeverity = extractSeverityFromNotes(conflictHearing.notes);
+
+    const shouldPromptReschedule =
+      severityRank(incomingSeverity) > severityRank(existingSeverity) &&
+      severityRank(incomingSeverity) >= severityRank("High") &&
+      severityRank(existingSeverity) <= severityRank("Low");
+
+    if (shouldPromptReschedule) {
+      const suggestedLowSeverityReschedule = findNextAvailableCourtSlot(
+        hearings,
+        conflictHearing.localCourtName,
+        conflictHearing.courtRoom,
+        conflictHearing.hearingDate,
+        conflictHearing.hearingTime,
+        conflictHearing.id
+      );
+
+      return {
+        canSchedule: false,
+        shouldPromptReschedule: true,
+        message: `High severity case can be prioritized by rescheduling low severity case \"${conflictHearing.caseTitle}\".`,
+        conflictHearing,
+        suggestedLowSeverityReschedule,
+      };
+    }
+
+    return {
+      canSchedule: false,
+      shouldPromptReschedule: false,
+      message: "Selected local court and courtroom are already booked at this time.",
+      conflictHearing,
+    };
+  },
+
+  async prioritizeHighSeverityScheduling(input: {
+    highCase: {
+      caseId: string;
+      caseTitle: string;
+      assignedJudgeId?: string;
+      assignedJudgeName: string;
+      localCourtName: string;
+      courtRoom: string;
+      state?: string;
+      district?: string;
+      hearingDate: string;
+      hearingTime: string;
+      notes?: string;
+      severity: string;
+    };
+    conflictHearingId: string;
+    conflictRescheduleDate?: string;
+    conflictRescheduleTime?: string;
+  }): Promise<{ rescheduledHearing: HearingSchedule; scheduledHighSeverityHearing: HearingSchedule }> {
+    const conflict = await this.getHearingById(input.conflictHearingId);
+    if (!conflict) {
+      throw new Error("Unable to locate low severity case to reschedule.");
+    }
+
+    const allHearings = await this.getAllHearings();
+    const fallbackSlot = findNextAvailableCourtSlot(
+      allHearings,
+      conflict.localCourtName,
+      conflict.courtRoom,
+      conflict.hearingDate,
+      conflict.hearingTime,
+      conflict.id
+    );
+
+    const targetDate = input.conflictRescheduleDate || fallbackSlot.hearingDate;
+    const targetTime = normalize24HourTime(input.conflictRescheduleTime || fallbackSlot.hearingTime);
+    const updatedNotes = `${conflict.notes || ""} Rescheduled to prioritize ${normalizeSeverity(input.highCase.severity)} severity matter.`.trim();
+
+    const updatedConflict = await this.editHearing(conflict.id, {
+      hearingDate: targetDate,
+      hearingTime: targetTime,
+      notes: updatedNotes,
+    });
+
+    const rescheduledHearing: HearingSchedule = {
+      ...conflict,
+      ...updatedConflict,
+      hearingDate: targetDate,
+      hearingTime: targetTime,
+    };
+
+    const scheduledHighSeverityHearing = await this.scheduleHearingForAssignment({
+      caseId: input.highCase.caseId,
+      caseTitle: input.highCase.caseTitle,
+      assignedJudgeId: input.highCase.assignedJudgeId,
+      assignedJudgeName: input.highCase.assignedJudgeName,
+      localCourtName: input.highCase.localCourtName,
+      courtRoom: input.highCase.courtRoom,
+      state: input.highCase.state,
+      district: input.highCase.district,
+      hearingDate: input.highCase.hearingDate,
+      hearingTime: input.highCase.hearingTime,
+      notes: input.highCase.notes,
+    });
+
+    return { rescheduledHearing, scheduledHighSeverityHearing };
+  },
+
+  async scheduleHearingForAssignment(input: {
+    caseId: string;
+    caseTitle: string;
+    assignedJudgeId?: string;
+    assignedJudgeName: string;
+    localCourtName?: string;
+    courtRoom?: string;
+    state?: string;
+    district?: string;
+    notes?: string;
+    hearingDate?: string;
+    hearingTime?: string;
+  }): Promise<HearingSchedule> {
+    const scheduleDate = input.hearingDate || toNextBusinessDateDMY();
+    const scheduleTime = normalize24HourTime(input.hearingTime || "10:30");
+    const chosenLocalCourt = input.localCourtName || "District Court";
+    const chosenCourtRoom = input.courtRoom || "Court Room 1";
+    const allHearings = await this.getAllHearings();
+    const existingHearings = await this.getHearingsByCaseId(input.caseId);
+    const duplicateSlot = existingHearings.find(
+      (hearing) => hearing.hearingDate === scheduleDate && normalize24HourTime(hearing.hearingTime) === scheduleTime
+    );
+
+    if (duplicateSlot) {
+      const reassigned: Partial<HearingSchedule> = {
+        caseTitle: input.caseTitle,
+        assignedJudgeId: input.assignedJudgeId || `judge-${hashText(input.assignedJudgeName)}`,
+        assignedJudgeName: input.assignedJudgeName,
+        localCourtName: chosenLocalCourt,
+        courtRoom: chosenCourtRoom,
+        state: input.state || duplicateSlot.state,
+        district: input.district || duplicateSlot.district,
+        status: "Scheduled",
+        notes: input.notes || duplicateSlot.notes,
+      };
+
+      const updated = await this.editHearing(duplicateSlot.id, reassigned);
+      return {
+        ...duplicateSlot,
+        ...updated,
+        hearingDate: scheduleDate,
+        hearingTime: scheduleTime,
+      };
+    }
+
+    const slotConflict = allHearings.find(
+      (hearing) =>
+        hearing.caseId !== input.caseId &&
+        hearing.hearingDate === scheduleDate &&
+        normalize24HourTime(hearing.hearingTime) === scheduleTime &&
+        normalizeToken(hearing.localCourtName) === normalizeToken(chosenLocalCourt) &&
+        normalizeToken(hearing.courtRoom) === normalizeToken(chosenCourtRoom)
+    );
+
+    if (slotConflict) {
+      throw new Error("Selected local court and courtroom are already booked at this time.");
+    }
+
+    const hearing: HearingSchedule = {
+      id: `hearing-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      caseId: input.caseId,
+      caseTitle: input.caseTitle,
+      assignedJudgeId: input.assignedJudgeId || `judge-${hashText(input.assignedJudgeName)}`,
+      assignedJudgeName: input.assignedJudgeName,
+      hearingDate: scheduleDate,
+      hearingTime: scheduleTime,
+      courtRoom: chosenCourtRoom,
+      state: input.state || "TBD",
+      district: input.district || "TBD",
+      localCourtName: chosenLocalCourt,
+      status: "Scheduled",
+      notes: input.notes || "Auto-scheduled at judge assignment.",
+    };
+
+    return await this.addHearing(hearing);
+  },
 };
 
 function sectionIconFromName(name?: string): Section["icon"] {
@@ -626,11 +1133,189 @@ function buildFallbackSections(fileName: string): Section[] {
   ];
 }
 
+function toNextBusinessDateISO() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  while (date.getDay() === 0 || date.getDay() === 6) {
+    date.setDate(date.getDate() + 1);
+  }
+
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toNextBusinessDateDMY() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  while (date.getDay() === 0 || date.getDay() === 6) {
+    date.setDate(date.getDate() + 1);
+  }
+
+  const year = `${date.getFullYear()}`;
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${day}-${month}-${year}`;
+}
+
+function normalize24HourTime(value: string) {
+  const raw = `${value || ""}`.trim();
+  if (!raw) return "10:30";
+
+  const ampmMatch = raw.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/);
+  if (ampmMatch) {
+    let hours = Number.parseInt(ampmMatch[1], 10);
+    const minutes = ampmMatch[2];
+    const period = ampmMatch[3].toUpperCase();
+    if (period === "PM" && hours < 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+    return `${`${hours}`.padStart(2, "0")}:${minutes}`;
+  }
+
+  const twentyFourHourMatch = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (twentyFourHourMatch) {
+    const hours = Number.parseInt(twentyFourHourMatch[1], 10);
+    const minutes = twentyFourHourMatch[2];
+    return `${`${hours}`.padStart(2, "0")}:${minutes}`;
+  }
+
+  return "10:30";
+}
+
 function inferTypeFromFileName(fileName: string): "Criminal" | "Civil" | "Specialized Cases" {
   const lower = fileName.toLowerCase();
   if (lower.includes("fir") || lower.includes("ipc") || lower.includes("crime")) return "Criminal";
   if (lower.includes("property") || lower.includes("contract") || lower.includes("civil")) return "Civil";
   return "Specialized Cases";
+}
+
+function inferLocationFromCaseText(text: string): { state: string; district: string; policeStation: string; city: string } {
+  const raw = `${text || ""}`;
+  const normalized = raw.toLowerCase();
+
+  const districtMatch = raw.match(/district\s*[:\-]\s*([^,\n]+)/i);
+  const policeStationMatch = raw.match(/police station\s*[:\-]\s*([^,\n]+)/i);
+
+  const cityHints: Array<{ key: string; city: string; district: string; state: string }> = [
+    { key: "bengaluru", city: "Bengaluru", district: "Bengaluru Urban", state: "Karnataka" },
+    { key: "bangalore", city: "Bengaluru", district: "Bengaluru Urban", state: "Karnataka" },
+    { key: "mumbai", city: "Mumbai", district: "Mumbai", state: "Maharashtra" },
+    { key: "delhi", city: "Delhi", district: "New Delhi", state: "Delhi" },
+    { key: "chennai", city: "Chennai", district: "Chennai", state: "Tamil Nadu" },
+    { key: "hyderabad", city: "Hyderabad", district: "Hyderabad", state: "Telangana" },
+    { key: "kolkata", city: "Kolkata", district: "Kolkata", state: "West Bengal" },
+    { key: "pune", city: "Pune", district: "Pune", state: "Maharashtra" },
+  ];
+
+  const hinted = cityHints.find((hint) => normalized.includes(hint.key));
+  const district = (districtMatch?.[1] || hinted?.district || "Local District").trim();
+  const policeStation = (policeStationMatch?.[1] || "Local Police Station").trim();
+  const city = hinted?.city || district;
+  const state = hinted?.state || "State Not Available";
+
+  return { state, district, policeStation, city };
+}
+
+function buildLocalCourtCatalog(location: { state: string; district: string; policeStation: string; city: string }) {
+  const districtCourtBase = `${location.district} District Court`;
+  const metropolitanCourtBase = `${location.city} Metropolitan Magistrate Court`;
+  const sessionsCourtBase = `${location.district} Sessions Court`;
+
+  return [
+    { localCourtName: districtCourtBase, courtRoom: "Court Room 1" },
+    { localCourtName: districtCourtBase, courtRoom: "Court Room 2" },
+    { localCourtName: metropolitanCourtBase, courtRoom: "Court Room 1" },
+    { localCourtName: sessionsCourtBase, courtRoom: "Court Room 1" },
+  ];
+}
+
+function normalizeToken(value: string) {
+  return `${value || ""}`.trim().toLowerCase();
+}
+
+function parseDateTime(dateValue: string, timeValue: string) {
+  const dateMatch = `${dateValue || ""}`.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  const timeMatch = normalize24HourTime(timeValue).match(/^(\d{2}):(\d{2})$/);
+  if (!dateMatch || !timeMatch) return null;
+
+  const day = Number.parseInt(dateMatch[1], 10);
+  const month = Number.parseInt(dateMatch[2], 10);
+  const year = Number.parseInt(dateMatch[3], 10);
+  const hour = Number.parseInt(timeMatch[1], 10);
+  const minute = Number.parseInt(timeMatch[2], 10);
+  return new Date(year, month - 1, day, hour, minute, 0, 0);
+}
+
+function formatDateDMY(date: Date) {
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const year = `${date.getFullYear()}`;
+  return `${day}-${month}-${year}`;
+}
+
+function formatTimeHHMM(date: Date) {
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function findNextAvailableCourtSlot(
+  hearings: HearingSchedule[],
+  localCourtName: string,
+  courtRoom: string,
+  startDate: string,
+  startTime: string,
+  ignoreHearingId?: string
+) {
+  let cursor = parseDateTime(startDate, startTime) || new Date();
+  cursor = new Date(cursor.getTime() + 30 * 60 * 1000);
+
+  for (let attempts = 0; attempts < 240; attempts += 1) {
+    const candidateDate = formatDateDMY(cursor);
+    const candidateTime = formatTimeHHMM(cursor);
+    const occupied = hearings.some(
+      (hearing) =>
+        hearing.id !== ignoreHearingId &&
+        hearing.hearingDate === candidateDate &&
+        normalize24HourTime(hearing.hearingTime) === candidateTime &&
+        normalizeToken(hearing.localCourtName) === normalizeToken(localCourtName) &&
+        normalizeToken(hearing.courtRoom) === normalizeToken(courtRoom)
+    );
+
+    if (!occupied) {
+      return { hearingDate: candidateDate, hearingTime: candidateTime };
+    }
+
+    cursor = new Date(cursor.getTime() + 30 * 60 * 1000);
+  }
+
+  return {
+    hearingDate: toNextBusinessDateDMY(),
+    hearingTime: "11:00",
+  };
+}
+
+function extractSeverityFromNotes(notes: string) {
+  const raw = `${notes || ""}`;
+  const match = raw.match(/severity\s*[:\-]\s*(critical|high|medium|low)/i);
+  return normalizeSeverity(match?.[1] || "Medium");
+}
+
+function normalizeSeverity(value: string) {
+  const raw = `${value || ""}`.trim().toLowerCase();
+  if (raw === "critical") return "Critical";
+  if (raw === "high") return "High";
+  if (raw === "low") return "Low";
+  return "Medium";
+}
+
+function severityRank(value: string) {
+  const normalized = normalizeSeverity(value);
+  if (normalized === "Critical") return 4;
+  if (normalized === "High") return 3;
+  if (normalized === "Medium") return 2;
+  return 1;
 }
 
 async function fileToBase64(file: File): Promise<string | null> {
@@ -718,6 +1403,7 @@ function computePriority(raw: {
   title: string;
 }) {
   const text = `${raw.issues || ""} ${raw.decision || ""} ${raw.title || ""}`.toLowerCase();
+  const signals = assessRoutingSignals(text, "Specialized Cases");
 
   const urgency = keywordScore(text, ["bail", "stay", "urgent", "interim", "habeas", "injunction"], 100);
   const impact = keywordScore(text, ["constitutional", "fundamental", "public", "nation", "policy"], 100);
@@ -726,11 +1412,14 @@ function computePriority(raw: {
   const complianceRisk = keywordScore(text, ["tax", "regulation", "penalty", "violation", "compliance"], 100);
 
   const weighted =
-    0.3 * urgency +
-    0.25 * impact +
-    0.2 * deadlineRisk +
+    0.24 * urgency +
+    0.2 * impact +
+    0.16 * deadlineRisk +
     0.15 * similarityConfidence +
-    0.1 * complianceRisk;
+    0.08 * complianceRisk +
+    0.1 * signals.riskScore +
+    0.07 * signals.bailRiskScore +
+    0.0 * signals.escapeRiskScore;
 
   const year = Number.parseInt((raw.decision_date || "").slice(0, 4), 10);
   const recencyBoost = Number.isFinite(year) ? Math.max(0, year - 2000) * 0.15 : 0;
@@ -861,15 +1550,245 @@ function detectFIRSeverity(text: string): FIRPriorityAssessment["severity"] {
   return "Low";
 }
 
-function includesAny(source: string, terms: string[]) {
-  return terms.some((term) => source.includes(term));
+function assessRoutingSignals(text: string, caseType: FIRPriorityAssessment["caseType"]) {
+  const normalized = text.toLowerCase();
+  const severity = detectFIRSeverity(normalized);
+  const bailRiskFactors = [
+    ["non-bailable", 18],
+    ["bail rejected", 22],
+    ["bail denied", 22],
+    ["custody", 10],
+    ["remand", 8],
+    ["surety", 6],
+    ["anticipatory bail", 12],
+    ["interim bail", 14],
+    ["bail", 8],
+  ] as const;
+  const escapeRiskFactors = [
+    ["abscond", 22],
+    ["fugitive", 24],
+    ["flight risk", 28],
+    ["foreign travel", 20],
+    ["passport", 12],
+    ["look out circular", 18],
+    ["escape", 18],
+    ["flee", 20],
+    ["no fixed address", 14],
+    ["international", 10],
+  ] as const;
+
+  const riskFactors = new Set<string>();
+  let bailRiskScore = 18 + (caseType === "Criminal" ? 10 : 0) + (severity === "Critical" ? 18 : severity === "High" ? 12 : severity === "Medium" ? 6 : 0);
+  let escapeRiskScore = 12 + (caseType === "Criminal" ? 8 : 0) + (severity === "Critical" ? 18 : severity === "High" ? 12 : severity === "Medium" ? 4 : 0);
+
+  bailRiskFactors.forEach(([term, boost]) => {
+    if (normalized.includes(term)) {
+      bailRiskScore += boost;
+      riskFactors.add(`bail signal: ${term}`);
+    }
+  });
+
+  escapeRiskFactors.forEach(([term, boost]) => {
+    if (normalized.includes(term)) {
+      escapeRiskScore += boost;
+      riskFactors.add(`escape signal: ${term}`);
+    }
+  });
+
+  if (severity === "Critical") {
+    riskFactors.add("critical offense severity");
+  } else if (severity === "High") {
+    riskFactors.add("high offense severity");
+  }
+
+  bailRiskScore = Math.max(10, Math.min(99, Math.round(bailRiskScore)));
+  escapeRiskScore = Math.max(10, Math.min(99, Math.round(escapeRiskScore)));
+
+  const riskScore = Math.max(10, Math.min(99, Math.round((bailRiskScore * 0.55 + escapeRiskScore * 0.45))));
+
+  return {
+    caseType,
+    severity,
+    bailRiskScore,
+    escapeRiskScore,
+    riskScore,
+    riskFactors: Array.from(riskFactors),
+  };
 }
 
-function buildFIRPriorityRationale(
-  caseType: FIRPriorityAssessment["caseType"],
-  severity: FIRPriorityAssessment["severity"]
+function assessFIRSignals(text: string) {
+  const caseType = classifyFIRCaseType(text);
+  const routing = assessRoutingSignals(text, caseType);
+  return routing;
+}
+
+function computeRoutingPriority(signals: ReturnType<typeof assessFIRSignals>) {
+  const typeWeight: Record<FIRPriorityAssessment["caseType"], number> = {
+    Criminal: 42,
+    Civil: 26,
+    "Specialized Cases": 34,
+  };
+  const severityWeight: Record<FIRPriorityAssessment["severity"], number> = {
+    Low: 12,
+    Medium: 24,
+    High: 36,
+    Critical: 48,
+  };
+
+  const weighted =
+    0.34 * typeWeight[signals.caseType] +
+    0.3 * severityWeight[signals.severity] +
+    0.18 * signals.bailRiskScore +
+    0.18 * signals.escapeRiskScore;
+
+  return Math.max(20, Math.min(99, Math.round(weighted)));
+}
+
+function buildFIRPriorityRationale(signals: ReturnType<typeof assessFIRSignals>) {
+  const factors = signals.riskFactors.length > 0 ? `Risk factors: ${signals.riskFactors.slice(0, 3).join(", ")}.` : "No explicit bail or flight-risk markers detected.";
+  return `Priority derived from ${signals.caseType.toLowerCase()} classification, ${signals.severity.toLowerCase()} severity, bail risk ${signals.bailRiskScore}, and escape risk ${signals.escapeRiskScore}. ${factors}`;
+}
+
+function toJudgeCategory(caseType: FIRPriorityAssessment["caseType"]): "Criminal" | "Civil" | "Other" {
+  return caseType === "Criminal" ? "Criminal" : caseType === "Civil" ? "Civil" : "Other";
+}
+
+function buildFallbackJudges(category: "Criminal" | "Civil" | "Other"): JudgeCandidate[] {
+  const districts = ["Bangalore", "Mysore", "Belgaum", "Yadgir"];
+  const states = ["Karnataka", "Karnataka", "Karnataka", "Karnataka"];
+  const courts = [
+    "District Court",
+    "High Court Bench",
+    "Sessions Court",
+    "Metropolitan Magistrate Court",
+  ];
+
+  return FIR_JUDGE_ROSTER[category].map((name, index) => {
+    const districtIndex = index % districts.length;
+    return {
+      id: `${category.toLowerCase()}-fallback-${index + 1}`,
+      name,
+      category,
+      courtLevel: DEFAULT_JUDGE_COURTS[category],
+      yearsOfExperience: 10 + index * 4,
+      caseLoadCapacity: 45 + index * 5,
+      currentCaseLoad: 18 + index * 8,
+      availability: index === 0 ? "Available" : index === 1 ? "Busy" : "Available",
+      district: districts[districtIndex],
+      state: states[districtIndex],
+      area: `${districts[districtIndex]}, ${states[districtIndex]}`,
+      courtName: courts[districtIndex],
+      specializations:
+        category === "Criminal"
+          ? ["Criminal", "Constitutional"]
+          : category === "Civil"
+            ? ["Civil", "Commercial", "Labor"]
+            : (["Revenue"] as const),
+    };
+  });
+}
+
+function rankJudgesForAssessment(
+  assessment: FIRPriorityAssessment,
+  judges: Array<JudgeProfile | JudgeCandidate>,
+  seedText: string,
+  sections: Section[]
+): Array<{
+  judgeId?: string;
+  judgeName: string;
+  score: number;
+  utilization: number;
+  availability: "Available" | "Busy" | "On Leave";
+  reason: string;
+}> {
+  const category = toJudgeCategory(assessment.caseType);
+  const severityWeight = assessment.severity === "Critical" ? 1 : assessment.severity === "High" ? 0.9 : assessment.severity === "Medium" ? 0.72 : 0.55;
+  const riskWeight = Math.max(0.55, Math.min(1, assessment.riskScore / 100));
+
+  return judges
+    .map((judge) => {
+      const utilization = judge.caseLoadCapacity > 0 ? judge.currentCaseLoad / judge.caseLoadCapacity : 1;
+      const capacityHeadroom = Math.max(0, 1 - utilization);
+      const availabilityScore = judge.availability === "Available" ? 1 : judge.availability === "Busy" ? 0.6 : 0.15;
+      const categoryMatch = judge.category === category ? 1 : category === "Other" && judge.category === "Criminal" ? 0.72 : 0.38;
+      const experienceScore = Math.min(1, judge.yearsOfExperience / 25);
+      const courtScore = assessCourtFit(judge.courtLevel, assessment.severity, assessment.riskScore);
+      const sectionBoost = Math.min(0.08, sections.length * 0.02);
+      const seedAffinity = hashText(`${seedText}:${judge.name}`) % 11;
+      const score = Math.round(
+        100 * (
+          categoryMatch * 0.3 +
+          availabilityScore * 0.22 +
+          capacityHeadroom * 0.18 +
+          experienceScore * 0.1 +
+          courtScore * 0.12 +
+          severityWeight * 0.05 +
+          riskWeight * 0.03 +
+          sectionBoost
+        ) + seedAffinity
+      );
+
+      const reason = buildJudgeReason({
+        categoryMatch,
+        availability: judge.availability,
+        utilization,
+        severity: assessment.severity,
+        riskScore: assessment.riskScore,
+      });
+
+      return {
+        judgeId: judge.id,
+        judgeName: judge.name,
+        score,
+        utilization: Math.round(utilization * 100),
+        availability: judge.availability,
+        reason,
+      };
+    })
+    .sort((a, b) => b.score - a.score || a.utilization - b.utilization || a.judgeName.localeCompare(b.judgeName));
+}
+
+function assessCourtFit(
+  courtLevel: JudgeProfile["courtLevel"] | JudgeCandidate["courtLevel"],
+  severity: FIRPriorityAssessment["severity"],
+  riskScore: number
 ) {
-  return `Priority derived from ${caseType.toLowerCase()} classification and ${severity.toLowerCase()} severity indicators in the FIR content.`;
+  if (severity === "Critical" || riskScore >= 80) {
+    if (courtLevel === "Supreme Court") return 1;
+    if (courtLevel === "High Court") return 0.92;
+    return 0.68;
+  }
+
+  if (severity === "High" || riskScore >= 60) {
+    if (courtLevel === "High Court") return 1;
+    if (courtLevel === "Supreme Court") return 0.92;
+    return 0.76;
+  }
+
+  if (courtLevel === "District Court") return 1;
+  return 0.84;
+}
+
+function buildJudgeReason(input: {
+  categoryMatch: number;
+  availability: "Available" | "Busy" | "On Leave";
+  utilization: number;
+  severity: FIRPriorityAssessment["severity"];
+  riskScore: number;
+}) {
+  const availabilityText = input.availability === "Available" ? "available" : input.availability.toLowerCase();
+  const loadText = input.utilization >= 85 ? "high current load" : input.utilization >= 60 ? "moderate current load" : "low current load";
+  const fitText = input.categoryMatch >= 0.9 ? "strong category fit" : "acceptable fallback fit";
+  const riskText = input.riskScore >= 80 ? "critical risk profile" : input.riskScore >= 60 ? "elevated risk profile" : `${input.severity.toLowerCase()} severity`;
+  return `Selected for ${fitText}, ${availabilityText} status, ${loadText}, and ${riskText}.`;
+}
+
+function buildFIRText(fileName: string, sections: Section[]) {
+  return [fileName, ...sections.map((section) => `${section.title} ${section.summary} ${section.content} ${section.highlights.join(" ")}`)].join(" ");
+}
+
+function includesAny(source: string, terms: string[]) {
+  return terms.some((term) => source.includes(term));
 }
 
 function hashText(value: string): number {

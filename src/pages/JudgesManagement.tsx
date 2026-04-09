@@ -141,6 +141,10 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
       caseLoadCapacity: 50,
       currentCaseLoad: 0,
       availability: "Available",
+      area: "",
+      district: "",
+      state: "",
+      specializations: [],
     }
   );
 
@@ -158,7 +162,7 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="glass-panel rounded-2xl max-w-md w-full p-6"
+            className="glass-panel rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -206,6 +210,37 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
                     <option>Other</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">State</label>
+                  <input
+                    value={formData.state || ""}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    placeholder="e.g., Karnataka"
+                    className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">District/Area</label>
+                  <input
+                    value={formData.district || ""}
+                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                    placeholder="e.g., Bangalore"
+                    className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Court Name</label>
+                <input
+                  value={formData.courtName || ""}
+                  onChange={(e) => setFormData({ ...formData, courtName: e.target.value })}
+                  placeholder="e.g., District Court"
+                  className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

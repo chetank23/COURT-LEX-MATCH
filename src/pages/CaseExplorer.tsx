@@ -1,19 +1,13 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Grid3X3, GitBranch, Filter, X, Scale, Calendar, Users, ShieldCheck, UserRoundCheck, Search, MapPin, Sparkles } from "lucide-react";
-import { CaseResult } from "@/types";
+import { CaseResult, FIRJudgeAssignment } from "@/types";
 import { dataService } from "@/services/dataService";
 import { useSearch } from "@/contexts/SearchContext";
 
 type JudgeCategory = "Criminal" | "Civil" | "Other";
 
-interface CaseAssignment {
-  category: JudgeCategory;
-  assignedJudge: string;
-  availableJudges: string[];
-  partyLabel: "Accused" | "Defendant";
-  requiresPublicProsecutor: boolean;
-}
+type CaseAssignment = FIRJudgeAssignment;
 
 type CourtLevel = "Supreme Court" | "High Court" | "District Court" | "Other Court";
 type GroupByMode = "none" | "category" | "location" | "court-level";
@@ -65,11 +59,21 @@ function getCaseAssignment(c: CaseResult): CaseAssignment {
   const availableJudges = JUDGE_ROSTER[category];
   const assignedJudge = availableJudges[hashText(`${c.id}:${c.title}`) % availableJudges.length];
   const requiresPublicProsecutor = category === "Criminal";
+  const judgeRankings: CaseAssignment["judgeRankings"] = availableJudges.map((judge, index) => ({
+    judgeName: judge,
+    score: Math.max(50, 92 - index * 8),
+    utilization: 55 + index * 10,
+    availability: index === 0 ? "Available" : "Busy",
+    reason: index === 0 ? "Selected using deterministic fallback roster." : "Fallback roster candidate.",
+  }));
 
   return {
     category,
     assignedJudge,
     availableJudges,
+    judgeRankings,
+    assignmentReason: "Assigned using deterministic fallback roster.",
+    routeMode: "fallback",
     partyLabel: requiresPublicProsecutor ? "Accused" : "Defendant",
     requiresPublicProsecutor,
   };
@@ -267,6 +271,20 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
   const assignment = useMemo(() => getCaseAssignment(c), [c]);
   const courtLevel = useMemo(() => getCourtLevel(c.court), [c.court]);
   const location = useMemo(() => getCourtLocation(c.court), [c.court]);
+  const [rankedAssignment, setRankedAssignment] = useState(assignment);
+
+  useEffect(() => {
+    let active = true;
+    setRankedAssignment(assignment);
+
+    void dataService.recommendJudgeForCase(c).then((nextAssignment) => {
+      if (active) setRankedAssignment(nextAssignment);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [assignment, c]);
 
   return (
     <motion.div
@@ -347,14 +365,14 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Assigned Judge</p>
             <p className="text-sm text-foreground flex items-center gap-2">
               <UserRoundCheck className="w-4 h-4 text-primary" />
-              {assignment.assignedJudge}
+              {rankedAssignment.assignedJudge}
             </p>
           </div>
 
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Available Panel</p>
             <div className="flex flex-wrap gap-1.5">
-              {assignment.availableJudges.map((judge) => (
+              {rankedAssignment.availableJudges.map((judge) => (
                 <span key={judge} className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-foreground/80">
                   {judge}
                 </span>
@@ -362,16 +380,30 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
             </div>
           </div>
 
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Routing Reason</p>
+            <p className="text-xs text-foreground/80 leading-relaxed">{rankedAssignment.assignmentReason}</p>
+          </div>
+
           <div className="flex items-center justify-between gap-2 rounded-lg border border-border p-2.5">
-            <span className="text-xs text-foreground/90">{assignment.partyLabel} needs public prosecutor</span>
+            <span className="text-xs text-foreground/90">{rankedAssignment.partyLabel} needs public prosecutor</span>
             <span
               className={`text-xs font-semibold px-2 py-1 rounded-md flex items-center gap-1 ${
-                assignment.requiresPublicProsecutor ? "bg-green-500/15 text-green-700" : "bg-muted text-muted-foreground"
+                rankedAssignment.requiresPublicProsecutor ? "bg-green-500/15 text-green-700" : "bg-muted text-muted-foreground"
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              {assignment.requiresPublicProsecutor ? "Required" : "Not Required"}
+              {rankedAssignment.requiresPublicProsecutor ? "Required" : "Not Required"}
             </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {rankedAssignment.judgeRankings.slice(0, 3).map((judge) => (
+              <div key={judge.judgeName} className="rounded-lg border border-border bg-muted/30 p-2">
+                <p className="text-[11px] font-semibold text-foreground">{judge.judgeName}</p>
+                <p className="text-[10px] text-muted-foreground">Score {judge.score}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -709,7 +741,7 @@ export default function CaseExplorer() {
               <Search className="w-8 h-8 text-muted-foreground" />
             </div>
             <p className="text-muted-foreground mb-2">No matched cases found</p>
-            <p className="text-xs text-muted-foreground">Try searching again or go back to AI Search Lab</p>
+            <p className="text-xs text-muted-foreground">Try searching again or go back to Case Lab</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center py-12">

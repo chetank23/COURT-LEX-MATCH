@@ -9,6 +9,9 @@ export interface CaseResult {
   matchLevel?: string;
   priorityScore?: number;
   priorityBand?: "P0" | "P1" | "P2" | "P3";
+  bailRiskScore?: number;
+  escapeRiskScore?: number;
+  riskScore?: number;
   summary: string;
   judgment?: string;
   judgement?: string;
@@ -70,13 +73,30 @@ export interface FIRPriorityAssessment {
   severity: "Low" | "Medium" | "High" | "Critical";
   priorityScore: number;
   priorityBand: "P0" | "P1" | "P2" | "P3";
+  bailRiskScore: number;
+  escapeRiskScore: number;
+  riskScore: number;
+  riskFactors: string[];
   rationale: string;
+}
+
+export interface JudgeRecommendation {
+  judgeId?: string;
+  judgeName: string;
+  score: number;
+  utilization: number;
+  availability: JudgeProfile["availability"];
+  reason: string;
 }
 
 export interface FIRJudgeAssignment {
   category: "Criminal" | "Civil" | "Other";
+  assignedJudgeId?: string;
   assignedJudge: string;
   availableJudges: string[];
+  judgeRankings: JudgeRecommendation[];
+  assignmentReason: string;
+  routeMode: "auto" | "fallback" | "override";
   partyLabel: "Accused" | "Defendant";
   requiresPublicProsecutor: boolean;
 }
@@ -90,6 +110,12 @@ export interface JudgeProfile {
   caseLoadCapacity: number;
   currentCaseLoad: number;
   availability: "Available" | "Busy" | "On Leave";
+  area?: string;
+  district?: string;
+  state?: string;
+  specializations?: ("Criminal" | "Civil" | "Constitutional" | "Commercial" | "Labor" | "Revenue")[];
+  courtName?: string;
+  scheduledHearingDates?: string[];
 }
 
 export interface HearingSchedule {

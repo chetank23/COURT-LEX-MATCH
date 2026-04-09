@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { UploadCloud, BriefcaseBusiness, Gavel, LogOut, ClipboardCheck } from "lucide-react";
 import { useAuth, type ManagedCase } from "@/contexts/AuthContext";
 import { useSearch } from "@/contexts/SearchContext";
+import { dataService } from "@/services/dataService";
 
 type ManagedStatus = ManagedCase["status"];
 
@@ -16,6 +17,7 @@ export default function SecureCaseWorkspace() {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftJudge, setDraftJudge] = useState(JUDGES[0]);
   const [draftNotes, setDraftNotes] = useState("");
+  const [isAutoAssigning, setIsAutoAssigning] = useState(false);
 
   const candidateCases = useMemo(() => state.matchedCases.slice(0, 8), [state.matchedCases]);
 
@@ -74,6 +76,31 @@ export default function SecureCaseWorkspace() {
                     </div>
                   </div>
 
+                  <div className="mt-3 grid md:grid-cols-4 gap-2 text-xs">
+                    <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2">
+                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">Priority</p>
+                      <p className="text-foreground mt-1 font-semibold">{caseItem.priorityBand || "P3"} · {caseItem.priorityScore ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2">
+                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">Bail Risk</p>
+                      <p className="text-foreground mt-1 font-semibold">{caseItem.bailRiskScore ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2">
+                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">Escape Risk</p>
+                      <p className="text-foreground mt-1 font-semibold">{caseItem.escapeRiskScore ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2">
+                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">Defender</p>
+                      <p className="text-foreground mt-1 font-semibold">{caseItem.publicDefenderStatus || "Pending Allocation"}</p>
+                    </div>
+                  </div>
+
+                  {caseItem.assignmentReason ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {caseItem.autoAssigned ? "Auto-assigned" : "Manual override"}: {caseItem.assignmentReason}
+                    </p>
+                  ) : null}
+
                   {user?.role === "staff" ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <select
@@ -121,7 +148,7 @@ export default function SecureCaseWorkspace() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">No AI matched cases yet. Run AI Search Lab or PDF Analyzer first.</p>
+                  <p className="text-sm text-muted-foreground">No AI matched cases yet. Run Case Lab or PDF Analyzer first.</p>
                 )}
               </div>
             </div>
@@ -164,24 +191,45 @@ export default function SecureCaseWorkspace() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm min-h-24"
                   />
                   <button
-                    onClick={() => {
-                      if (!draftTitle.trim()) return;
+                    onClick={async () => {
+                      if (!draftTitle.trim() || isAutoAssigning) return;
+                      setIsAutoAssigning(true);
+                      const assessment = dataService.assessCaseRouting({
+                        title: draftTitle.trim(),
+                        summary: draftNotes.trim(),
+                      });
+                      const recommendation = await dataService.recommendJudgeForCase({
+                        title: draftTitle.trim(),
+                        summary: draftNotes.trim(),
+                        priorityScore: assessment.priorityScore,
+                      });
+
                       upsertManagedCase({
                         id: `case-${Date.now()}`,
                         title: draftTitle.trim(),
                         status: "New",
-                        assignedJudge: draftJudge,
+                        assignedJudge: recommendation.assignedJudge || draftJudge,
                         uploadedBy: user?.name || "Court Support Officer",
                         uploadName: selectedFileName,
                         notes: draftNotes.trim(),
+                        autoAssigned: true,
+                        assignmentReason: recommendation.assignmentReason,
+                        priorityScore: assessment.priorityScore,
+                        priorityBand: assessment.priorityBand,
+                        bailRiskScore: assessment.bailRiskScore,
+                        escapeRiskScore: assessment.escapeRiskScore,
+                        riskScore: assessment.riskScore,
+                        publicDefenderStatus: recommendation.requiresPublicProsecutor ? "Pending Allocation" : "Not Required",
                       });
                       setDraftTitle("");
                       setDraftNotes("");
                       setSelectedFileName("");
+                      setIsAutoAssigning(false);
                     }}
-                    className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity"
+                    disabled={isAutoAssigning}
+                    className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Add Case To Managed Queue
+                    {isAutoAssigning ? "Assessing And Assigning..." : "Add Case To Managed Queue"}
                   </button>
                 </div>
                 {selectedFileName ? <p className="text-xs text-muted-foreground mt-2">Selected upload: {selectedFileName}</p> : null}

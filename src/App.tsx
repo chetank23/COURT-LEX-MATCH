@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import AISearchLab from "./pages/AISearchLab";
 import CaseExplorer from "./pages/CaseExplorer";
 import PDFAnalyzer from "./pages/PDFAnalyzer";
+import JudgeAssignmentCenter from "./pages/JudgeAssignmentCenter";
 import InsightsDashboard from "./pages/InsightsDashboard";
 import HistoryTimeline from "./pages/HistoryTimeline";
 import JudgesManagement from "./pages/JudgesManagement";
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/history" element={<HistoryTimeline />} />
               <Route path="/login" element={<Login />} />
               <Route element={<ProtectedRoute />}>
+                <Route path="/assign-judges" element={<JudgeAssignmentCenter />} />
                 <Route path="/secure-cases" element={<SecureCaseWorkspace />} />
               </Route>
               <Route path="*" element={<NotFound />} />

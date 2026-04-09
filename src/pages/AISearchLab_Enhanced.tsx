@@ -159,18 +159,10 @@ const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
   district,
   caseType,
   hearingDate,
-  hearingTime,
-  isScheduling,
-  schedulingJudgeId,
-  onSchedule,
 }: {
   district: string;
   caseType: string;
   hearingDate: string;
-  hearingTime: string;
-  isScheduling: boolean;
-  schedulingJudgeId: string | null;
-  onSchedule: (judge: JudgeProfile) => void;
 }) {
   const [judges, setJudges] = useState<JudgeProfile[]>([]);
   const [counts, setCounts] = useState<any>(null);
@@ -280,14 +272,6 @@ const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
                       Specializations: {judge.specializations.slice(0, 2).join(", ")}
                     </p>
                   ) : null}
-                  <button
-                    type="button"
-                    onClick={() => onSchedule(judge)}
-                    disabled={isScheduling}
-                    className="mt-2 inline-flex items-center gap-1 rounded-md bg-primary/90 px-2 py-1 text-[11px] font-semibold text-primary-foreground hover:bg-primary disabled:opacity-60"
-                  >
-                    {isScheduling && schedulingJudgeId === judge.id ? "Scheduling..." : `Schedule ${hearingTime || "10:30"}`}
-                  </button>
                 </div>
                 <span
                   className={`text-xs font-bold px-2 py-1 rounded whitespace-nowrap ml-2 ${
@@ -322,7 +306,7 @@ const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
 });
 
 export default function AISearchLab() {
-  const { state, setAISearchData, addHearing } = useSearch();
+  const { state, setAISearchData } = useSearch();
 
   // Initialize from context or use default state
   const [query, setQuery] = useState(state.aiSearchQuery || "");
@@ -336,10 +320,6 @@ export default function AISearchLab() {
   const [selectedDistrict, setSelectedDistrict] = useState("Bangalore");
   const [selectedCaseType, setSelectedCaseType] = useState("Criminal");
   const [schedulingDate, setSchedulingDate] = useState("");
-  const [schedulingTime, setSchedulingTime] = useState("10:30");
-  const [scheduleFeedback, setScheduleFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [isScheduling, setIsScheduling] = useState(false);
-  const [schedulingJudgeId, setSchedulingJudgeId] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const persistTimeoutRef = useRef<NodeJS.Timeout>();
@@ -397,70 +377,7 @@ export default function AISearchLab() {
     setWorkflowMode("find-cases");
     setResults([]);
     setSchedulingDate("");
-    setSchedulingTime("10:30");
-    setScheduleFeedback(null);
   }, []);
-
-  const normalizeDateDMY = useCallback((rawValue: string) => {
-    const raw = `${rawValue || ""}`.trim();
-    if (!raw) return "";
-    const normalized = raw.replace(/\//g, "-");
-    const parts = normalized.split("-");
-    if (parts.length !== 3) return "";
-    const [d, m, y] = parts;
-    if (d.length < 1 || m.length < 1 || y.length !== 4) return "";
-    return `${d.padStart(2, "0")}-${m.padStart(2, "0")}-${y}`;
-  }, []);
-
-  const handleScheduleFromJudge = useCallback(
-    async (judge: JudgeProfile) => {
-      const normalizedDate = normalizeDateDMY(schedulingDate);
-      if (!normalizedDate) {
-        setScheduleFeedback({
-          type: "error",
-          message: "Enter hearing date in DD-MM-YYYY or DD/MM/YYYY format.",
-        });
-        return;
-      }
-
-      const caseTitle = query.trim() || results[0]?.title || "Case from Case Lab";
-      const caseId = `case-${Math.abs(hashText(caseTitle))}`;
-      const selectedTime = `${schedulingTime || "10:30"}`.trim();
-
-      setIsScheduling(true);
-      setSchedulingJudgeId(judge.id);
-      setScheduleFeedback(null);
-
-      try {
-        const hearing = await dataService.scheduleHearingForAssignment({
-          caseId,
-          caseTitle,
-          assignedJudgeId: judge.id,
-          assignedJudgeName: judge.name,
-          localCourtName: judge.courtName || `${selectedDistrict} District Court`,
-          courtRoom: "Court Room 1",
-          state: judge.state || "TBD",
-          district: judge.district || selectedDistrict,
-          hearingDate: normalizedDate,
-          hearingTime: selectedTime,
-          notes: `Scheduled from Case Lab. Case type: ${selectedCaseType}.`,
-        });
-
-        addHearing(hearing);
-        setScheduleFeedback({
-          type: "success",
-          message: `Scheduled with ${judge.name} on ${normalizedDate} at ${selectedTime}.`,
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unable to schedule hearing.";
-        setScheduleFeedback({ type: "error", message });
-      } finally {
-        setIsScheduling(false);
-        setSchedulingJudgeId(null);
-      }
-    },
-    [addHearing, normalizeDateDMY, query, results, schedulingDate, schedulingTime, selectedDistrict, selectedCaseType]
-  );
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -796,46 +713,12 @@ export default function AISearchLab() {
                   </div>
                 </div>
 
-                <div className="mb-6 max-w-xs">
-                  <label className="text-sm font-semibold text-foreground block mb-2">
-                    Hearing Time
-                  </label>
-                  <input
-                    type="text"
-                    value={schedulingTime}
-                    onChange={(e) => setSchedulingTime(e.target.value)}
-                    placeholder="HH:MM"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
-                  />
-                </div>
-
-                {scheduleFeedback ? (
-                  <div
-                    className={`mb-4 flex items-center gap-2 rounded-lg border p-3 text-sm ${
-                      scheduleFeedback.type === "success"
-                        ? "border-green-500/40 bg-green-500/10 text-green-700"
-                        : "border-red-500/40 bg-red-500/10 text-red-700"
-                    }`}
-                  >
-                    {scheduleFeedback.type === "success" ? (
-                      <CheckCircle className="h-4 w-4" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4" />
-                    )}
-                    <span>{scheduleFeedback.message}</span>
-                  </div>
-                ) : null}
-
                 {/* Judge Availability Widget */}
                 {selectedDistrict && selectedCaseType && schedulingDate && (
                   <JudgeAvailabilityWidget
                     district={selectedDistrict}
                     caseType={selectedCaseType}
                     hearingDate={schedulingDate}
-                    hearingTime={schedulingTime}
-                    isScheduling={isScheduling}
-                    schedulingJudgeId={schedulingJudgeId}
-                    onSchedule={handleScheduleFromJudge}
                   />
                 )}
               </motion.div>
@@ -869,13 +752,4 @@ export default function AISearchLab() {
       </AnimatePresence>
     </div>
   );
-}
-
-function hashText(value: string) {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash;
 }
