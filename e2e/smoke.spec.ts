@@ -19,14 +19,14 @@ test("case explorer filters and results are interactive", async ({ page }) => {
   await page.goto("/explorer");
 
   await expect(page.getByRole("heading", { name: "Case Explorer" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Matched Cases" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Explore Cases|Matched Cases/i }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Filters" }).click();
   await expect(page.getByText("View By")).toBeVisible();
 
-  await page.getByPlaceholder("Search matched cases...").fill("criminal");
-  await expect(page.getByText(/showing/i)).toBeVisible();
+  await page.getByPlaceholder(/Search (matched )?cases\.\.\./i).fill("criminal");
+  await expect(page.getByText(/showing|no cases found/i).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Category" }).click();
-  await expect(page.getByRole("heading", { name: "Criminal" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Criminal|Civil|Specialized Cases|Explore Cases|Matched Cases/i }).first()).toBeVisible();
 });

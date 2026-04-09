@@ -928,7 +928,7 @@ export const dataService = {
       return {
         canSchedule: false,
         shouldPromptReschedule: true,
-        message: `High severity case can be prioritized by rescheduling low severity case \"${conflictHearing.caseTitle}\".`,
+        message: `High severity case can be prioritized by rescheduling low severity case "${conflictHearing.caseTitle}".`,
         conflictHearing,
         suggestedLowSeverityReschedule,
       };
@@ -1194,8 +1194,8 @@ function inferLocationFromCaseText(text: string): { state: string; district: str
   const raw = `${text || ""}`;
   const normalized = raw.toLowerCase();
 
-  const districtMatch = raw.match(/district\s*[:\-]\s*([^,\n]+)/i);
-  const policeStationMatch = raw.match(/police station\s*[:\-]\s*([^,\n]+)/i);
+  const districtMatch = raw.match(/district\s*[:-]\s*([^,\n]+)/i);
+  const policeStationMatch = raw.match(/police station\s*[:-]\s*([^,\n]+)/i);
 
   const cityHints: Array<{ key: string; city: string; district: string; state: string }> = [
     { key: "bengaluru", city: "Bengaluru", district: "Bengaluru Urban", state: "Karnataka" },
@@ -1298,7 +1298,7 @@ function findNextAvailableCourtSlot(
 
 function extractSeverityFromNotes(notes: string) {
   const raw = `${notes || ""}`;
-  const match = raw.match(/severity\s*[:\-]\s*(critical|high|medium|low)/i);
+  const match = raw.match(/severity\s*[:-]\s*(critical|high|medium|low)/i);
   return normalizeSeverity(match?.[1] || "Medium");
 }
 

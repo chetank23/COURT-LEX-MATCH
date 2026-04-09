@@ -173,7 +173,7 @@ const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
   onSchedule: (judge: JudgeProfile) => void;
 }) {
   const [judges, setJudges] = useState<JudgeProfile[]>([]);
-  const [counts, setCounts] = useState<any>(null);
+  const [counts, setCounts] = useState<Awaited<ReturnType<typeof dataService.getJudgesCountByArea>> | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -181,10 +181,13 @@ const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
     const loadData = async () => {
       setLoading(true);
       try {
+        const normalizedCaseType: NonNullable<Parameters<typeof dataService.getAvailableJudgesByArea>[0]["caseType"]> =
+          caseType === "Criminal" || caseType === "Civil" || caseType === "Other" ? caseType : "Criminal";
+
         const [judgeList, judgeStats] = await Promise.all([
           dataService.getAvailableJudgesByArea({
             district,
-            caseType: (caseType as any) || "Criminal",
+            caseType: normalizedCaseType,
             date: hearingDate,
             onlyAvailable: true,
           }),

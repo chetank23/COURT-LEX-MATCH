@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
 
 export type UserRole = "judge" | "staff";
