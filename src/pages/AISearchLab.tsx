@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -16,12 +16,33 @@ import {
 import { CaseResult, JudgeProfile, RagQueryResponse } from "@/types";
 import { dataService } from "@/services/dataService";
 import { useSearch } from "@/contexts/SearchContext";
+import LiveMotionBackground from "@/components/LiveMotionBackground";
 
 const aiSteps = [
   { icon: Brain, label: "Understanding context", duration: 800 },
   { icon: Network, label: "Generating embeddings", duration: 1000 },
   { icon: Scale, label: "Matching precedents", duration: 1200 },
 ];
+
+const QUICK_PROMPT_ROTATE_MS = 3000;
+const QUICK_PROMPT_WINDOW = 3;
+const QUICK_CASE_PROMPTS = [
+  "Contractor abandoned municipal bridge project mid-phase",
+  "Hospital shared patient scans with insurer without consent",
+  "Tenant evicted without written notice despite rent receipts",
+  "Employer fired me after I reported unsafe factory conditions",
+  "Bank froze my account without notice during a loan dispute",
+  "Insurance claim rejected as pre-existing illness without clear proof",
+  "Startup cofounder exited and kept company source code access",
+  "Municipality demolished shop without prior notice or hearing",
+  "Buyer paid token amount but seller sold property to someone else",
+  "Parent denied child visitation despite family court interim order",
+];
+
+function getOrderedPromptWindow(prompts: string[], offset: number, size: number): string[] {
+  if (prompts.length <= size) return prompts;
+  return Array.from({ length: size }, (_, index) => prompts[(offset + index) % prompts.length]);
+}
 
 type WorkflowMode = "find-cases";
 type Phase = "idle" | "choice" | "transition" | "analyzing" | "results" | "scheduling";
@@ -347,9 +368,25 @@ export default function AISearchLab() {
   const [ragResponse, setRagResponse] = useState<RagQueryResponse | null>(null);
   const [isRagLoading, setIsRagLoading] = useState(false);
   const [ragError, setRagError] = useState<string | null>(null);
+  const [promptOffset, setPromptOffset] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const persistTimeoutRef = useRef<NodeJS.Timeout>();
+  const visibleQuickPrompts = useMemo(
+    () => getOrderedPromptWindow(QUICK_CASE_PROMPTS, promptOffset, QUICK_PROMPT_WINDOW),
+    [promptOffset]
+  );
+
+  useEffect(() => {
+    if (phase !== "idle") return;
+    if (QUICK_CASE_PROMPTS.length <= QUICK_PROMPT_WINDOW) return;
+
+    const intervalId = setInterval(() => {
+      setPromptOffset((previous) => (previous + 1) % QUICK_CASE_PROMPTS.length);
+    }, QUICK_PROMPT_ROTATE_MS);
+
+    return () => clearInterval(intervalId);
+  }, [phase]);
 
   // Debounced sync to context for persistence
   useEffect(() => {
@@ -496,10 +533,7 @@ export default function AISearchLab() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Background pattern */}
-      <div className="fixed inset-0 dot-grid opacity-50" />
-      <div className="fixed top-0 right-0 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px]" />
-      <div className="fixed bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-accent/5 blur-[100px]" />
+      <LiveMotionBackground />
 
       <AnimatePresence mode="wait">
         {/* IDLE STATE */}
@@ -517,48 +551,58 @@ export default function AISearchLab() {
               transition={{ type: "spring", damping: 20 }}
               className="text-center mb-10"
             >
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="w-8 h-8 text-primary" />
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1 text-[11px] font-semibold tracking-[0.14em] text-primary/90 mb-5">
+                <Sparkles className="w-3.5 h-3.5" /> NARRATIVE-FIRST LEGAL SEARCH
+              </span>
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-accent/20 flex items-center justify-center mx-auto mb-6 border border-primary/20 shadow-lg shadow-primary/10">
+                <Sparkles className="w-9 h-9 text-primary" />
               </div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold gradient-text mb-4">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold gradient-text mb-4 tracking-tight">
                 Case Lab
               </h1>
-              <p className="text-lg text-muted-foreground max-w-lg mx-auto">
-                Describe your case in plain English. Our AI understands legal meaning, not just keywords. Automatically check judge availability by district and case type.
+              <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                Turn raw facts into a courtroom-ready brief. Write the situation naturally, and Case Lab maps legal intent, finds similar precedents, and flags judge availability by district and case type.
               </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] text-muted-foreground">
+                <span className="rounded-full bg-muted/60 px-3 py-1">Context-aware matching</span>
+                <span className="rounded-full bg-muted/60 px-3 py-1">Priority-focused ranking</span>
+                <span className="rounded-full bg-muted/60 px-3 py-1">Bench availability signals</span>
+              </div>
             </motion.div>
 
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="w-full max-w-2xl relative floating-glow rounded-2xl"
+              className="w-full max-w-3xl relative floating-glow rounded-2xl"
             >
-              <div className="glass-panel rounded-2xl p-2">
+              <div className="glass-panel rounded-2xl p-2 border border-primary/15 shadow-xl shadow-primary/5">
                 <div className="flex items-center gap-3">
                   <div className="pl-4">
-                    <Search className="w-5 h-5 text-muted-foreground" />
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center">
+                      <Search className="w-5 h-5 text-primary" />
+                    </div>
                   </div>
                   <input
                     ref={inputRef}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                    placeholder="Describe your case in plain English…"
+                    placeholder="Example: Employer terminated me after reporting payroll fraud; what legal remedies are strongest?"
                     className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground outline-none py-4 text-base"
                   />
                   <button
                     onClick={handleSearch}
                     disabled={!query.trim()}
-                    className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40 cursor-pointer"
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-primary-foreground font-medium text-sm flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40 cursor-pointer"
                   >
                     <Zap className="w-4 h-4" />
-                    Search
+                    Run Analysis
                   </button>
                 </div>
               </div>
               <p className="text-center text-xs text-muted-foreground mt-3">
-                No keywords needed. Just explain the situation.
+                Write facts as a story: what happened, who is involved, and what relief you need.
               </p>
             </motion.div>
 
@@ -568,11 +612,7 @@ export default function AISearchLab() {
               transition={{ delay: 0.5 }}
               className="mt-12 flex flex-wrap justify-center gap-2"
             >
-              {[
-                "AI liability in automated decisions",
-                "Data privacy in healthcare AI",
-                "Autonomous vehicle negligence",
-              ].map((ex) => (
+              {visibleQuickPrompts.map((ex) => (
                 <button
                   key={ex}
                   onClick={() => {
