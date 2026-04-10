@@ -81,6 +81,24 @@ class HttpError extends Error {
   }
 }
 
+function buildHumanizedNarrative(caseItem) {
+  const title = `${caseItem.title || "This case"}`.trim();
+  const court = `${caseItem.court || "the court"}`.trim();
+  const year = caseItem.year || "recently";
+  const summary = `${caseItem.summary || ""}`.trim();
+  const decision = `${caseItem.finalVerdict || caseItem.judgment || ""}`.trim();
+
+  const intro = `${title} was heard in ${court} in ${year}.`;
+  const facts = summary
+    ? `In simple terms, the dispute was about ${summary.charAt(0).toLowerCase()}${summary.slice(1)}`
+    : "In simple terms, the court examined the core facts, legal rights, and applicable rules.";
+  const outcome = decision
+    ? `The final outcome was: ${decision}.`
+    : "The court issued a final ruling after reviewing arguments from all sides.";
+
+  return `${intro} ${facts} ${outcome}`.replace(/\s+/g, " ").trim();
+}
+
 async function loadCases() {
   if (caseCache) return caseCache;
 
@@ -244,17 +262,6 @@ function buildInsights(cases) {
   return { similarityDistribution, caseClusters, trendingTopics, monthlySearches };
 }
 
-function buildHistory(cases) {
-  const now = Date.now();
-  return cases.slice(0, 8).map((item, index) => ({
-    id: `hist-${item.id}`,
-    type: index % 3 === 0 ? "search" : index % 3 === 1 ? "view" : "upload",
-    title: item.title,
-    date: new Date(now - index * 86400000).toISOString(),
-    results: Math.max(1, Math.round(item.similarity / 10)),
-  }));
-}
-
 export async function createServer() {
   return http.createServer(async (req, res) => {
     const requestId = createRequestId();
@@ -283,6 +290,7 @@ export async function createServer() {
       requestPath = pathname;
       const allCases = await loadCases();
       const explainMatch = pathname.match(/^\/api\/cases\/([^/]+)\/explain$/);
+      const humanizeMatch = pathname.match(/^\/api\/cases\/([^/]+)\/humanize$/);
       const caseMatch = pathname.match(/^\/api\/cases\/([^/]+)$/);
       const judgeMatch = pathname.match(/^\/api\/judges\/([^/]+)$/);
       const hearingMatch = pathname.match(/^\/api\/hearings\/([^/]+)$/);
@@ -572,6 +580,51 @@ export async function createServer() {
         return;
       }
 
+      if (humanizeMatch && req.method === "GET") {
+        const id = decodeURIComponent(humanizeMatch[1]);
+        const match = allCases.find((item) => item.id === id) || null;
+        if (!match) {
+          sendJson(res, 404, { error: "Case not found" });
+          return;
+        }
+
+        const localNarrative = buildHumanizedNarrative(match);
+        const deepSeekNarrative = await generateDeepSeekGroundedAnswer({
+          query: "Create a plain-language, human-friendly case brief in 3-5 sentences.",
+          localAnswer: localNarrative,
+          sources: [
+            {
+              caseId: match.id,
+              title: match.title,
+              court: match.court,
+              year: match.year,
+              type: match.type,
+              finalVerdict: match.finalVerdict,
+              section: "Case Summary",
+              score: 1,
+              excerpt: `${match.summary || ""} ${match.judgment || ""}`.slice(0, 400),
+            },
+          ],
+          retrievedChunks: [
+            {
+              chunkId: `case-humanize-${match.id}`,
+              caseId: match.id,
+              score: 1,
+              section: "Case Summary",
+              text: `${match.summary || ""} ${match.judgment || ""}`.slice(0, 500),
+            },
+          ],
+          mode: "explain",
+          caseTitle: match.title,
+          localExplanation: localNarrative,
+        });
+
+        sendJson(res, 200, {
+          narrative: deepSeekNarrative || localNarrative,
+        });
+        return;
+      }
+
       if (caseMatch && req.method === "GET") {
         const id = decodeURIComponent(caseMatch[1]);
         const match = allCases.find((item) => item.id === id) || null;
@@ -611,7 +664,7 @@ export async function createServer() {
 
       if (pathname === "/api/history") {
         const persisted = await listHistory();
-        sendJson(res, 200, persisted.length > 0 ? persisted : buildHistory(allCases));
+        sendJson(res, 200, persisted);
         return;
       }
 
@@ -648,6 +701,24 @@ export async function createServer() {
           requestId,
           clientAddress,
           details: { fileName: `${payload.filename || ""}`.slice(0, 120) },
+        });
+        sendJson(res, 201, event);
+        return;
+      }
+
+      if (pathname === "/api/history/view" && req.method === "POST") {
+        const payload = await readJsonBody(req);
+        const event = await createHistoryEvent({
+          type: "view",
+          title: `${payload.caseTitle || "Case View"}`,
+          metadata: { caseId: payload.caseId || "" },
+        });
+        recordAuditEvent({
+          action: "create_history_view",
+          entity: "history",
+          requestId,
+          clientAddress,
+          details: { caseId: `${payload.caseId || ""}`.slice(0, 120) },
         });
         sendJson(res, 201, event);
         return;

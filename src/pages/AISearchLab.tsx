@@ -13,7 +13,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import { CaseResult, JudgeProfile } from "@/types";
+import { CaseResult, JudgeProfile, RagQueryResponse } from "@/types";
 import { dataService } from "@/services/dataService";
 import { useSearch } from "@/contexts/SearchContext";
 
@@ -343,6 +343,10 @@ export default function AISearchLab() {
   const [scheduleFeedback, setScheduleFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isScheduling, setIsScheduling] = useState(false);
   const [schedulingJudgeId, setSchedulingJudgeId] = useState<string | null>(null);
+  const [ragQuestion, setRagQuestion] = useState(state.aiSearchQuery || "");
+  const [ragResponse, setRagResponse] = useState<RagQueryResponse | null>(null);
+  const [isRagLoading, setIsRagLoading] = useState(false);
+  const [ragError, setRagError] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const persistTimeoutRef = useRef<NodeJS.Timeout>();
@@ -359,8 +363,29 @@ export default function AISearchLab() {
 
   const handleSearch = useCallback(() => {
     if (!query.trim()) return;
+    setRagQuestion(query.trim());
+    setRagResponse(null);
+    setRagError(null);
     setPhase("choice");
   }, [query]);
+
+  const handleRagAsk = useCallback(async () => {
+    const question = `${ragQuestion || query}`.trim();
+    if (!question) return;
+
+    setIsRagLoading(true);
+    setRagError(null);
+    try {
+      const response = await dataService.queryRag(question, 8);
+      setRagResponse(response);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to fetch RAG answer.";
+      setRagError(message);
+      setRagResponse(null);
+    } finally {
+      setIsRagLoading(false);
+    }
+  }, [query, ragQuestion]);
 
   const startAnalysis = useCallback(
     async (mode: WorkflowMode) => {
@@ -383,6 +408,7 @@ export default function AISearchLab() {
             const searchResults = await dataService.searchCases(query);
             setResults(searchResults);
             setAISearchData(query, searchResults);
+
             setIsLoading(false);
             setTimeout(() => setPhase("results"), 600);
           }
@@ -402,6 +428,9 @@ export default function AISearchLab() {
     setSchedulingDate("");
     setSchedulingTime("10:30");
     setScheduleFeedback(null);
+    setRagQuestion("");
+    setRagResponse(null);
+    setRagError(null);
   }, []);
 
   const normalizeDateDMY = useCallback((rawValue: string) => {
@@ -743,6 +772,94 @@ export default function AISearchLab() {
                   <span className="text-primary font-semibold">{results.length}</span>{" "}
                   matching precedents
                 </p>
+              </motion.div>
+
+              {/* RAG Answer Panel */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-8 glass-panel rounded-2xl p-6 border border-primary/20"
+              >
+                <h3 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-primary" /> Ask RAG (Grounded Answer)
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Ask a legal question to get an answer grounded in retrieved case chunks.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <input
+                    type="text"
+                    value={ragQuestion}
+                    onChange={(e) => setRagQuestion(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleRagAsk()}
+                    placeholder="Ask a legal question..."
+                    className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                  />
+                  <button
+                    onClick={handleRagAsk}
+                    disabled={isRagLoading || !`${ragQuestion || query}`.trim()}
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {isRagLoading ? "Getting Answer..." : "Get RAG Answer"}
+                  </button>
+                </div>
+
+                {ragError ? (
+                  <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{ragError}</span>
+                  </div>
+                ) : null}
+
+                {ragResponse ? (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-border bg-card/60 p-4">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            ragResponse.grounded
+                              ? "bg-green-500/15 text-green-700"
+                              : "bg-yellow-500/15 text-yellow-700"
+                          }`}
+                        >
+                          {ragResponse.grounded ? "Grounded" : "Low Grounding"}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
+                          Confidence {Math.round((ragResponse.confidence || 0) * 100)}%
+                        </span>
+                      </div>
+                      <p className="text-sm text-foreground leading-relaxed">{ragResponse.answer}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">SOURCES</p>
+                      {ragResponse.sources.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No sources returned for this question.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {ragResponse.sources.slice(0, 5).map((source, index) => (
+                            <div
+                              key={`${source.caseId}-${index}`}
+                              className="rounded-lg border border-border bg-background/60 p-3"
+                            >
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <p className="text-sm font-semibold text-foreground line-clamp-1">{source.title}</p>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+                                  Score {Math.round((source.score || 0) * 100)}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mb-1">
+                                {source.court} · {source.year} · {source.section}
+                              </p>
+                              <p className="text-xs text-foreground/80 line-clamp-2">{source.excerpt}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
               </motion.div>
 
               {/* Judge Availability & Scheduling Controls */}

@@ -27,9 +27,14 @@ export default function TopNav() {
         animate={{ y: 0, opacity: 1 }}
         className="glass-panel rounded-xl px-1.5 py-1 flex items-center gap-0.5"
       >
-        <div className="px-2.5 mr-0.5">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="px-2.5 mr-0.5 cursor-pointer"
+          aria-label="Go to home page"
+        >
           <span className="text-sm font-display font-bold gradient-text">CASE UPHOLDER</span>
-        </div>
+        </button>
         {navItems.map((item) => {
           const active = location.pathname === item.path;
           return (

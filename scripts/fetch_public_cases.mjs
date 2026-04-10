@@ -6,6 +6,7 @@ const PRIMARY_SOURCE_URL =
 const INDIANKANOON_BROWSE_URL = "https://indiankanoon.org/browse/supremecourt/";
 const CASES_TARGET = Number.parseInt(process.env.CASES_TARGET || "12000", 10);
 const MAX_PAGES_PER_MONTH = Number.parseInt(process.env.INDIANKANOON_MAX_PAGES_PER_MONTH || "80", 10);
+const FETCH_TIMEOUT_MS = Number.parseInt(process.env.LEXMATCH_FETCH_TIMEOUT_MS || "15000", 10);
 const USER_AGENT = "lexmatch-ai-data-fetch/1.0";
 
 function parseCsv(text) {
@@ -243,11 +244,15 @@ function makeKanoonCase(doc, index) {
 }
 
 async function fetchText(url) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   const response = await fetch(url, {
     headers: {
       "User-Agent": USER_AGENT,
     },
+    signal: controller.signal,
   });
+  clearTimeout(timeout);
   if (!response.ok) {
     throw new Error(`Failed to fetch URL (${response.status}): ${url}`);
   }
@@ -417,11 +422,15 @@ async function main() {
   await mkdir(publicDataDir, { recursive: true });
 
   console.log("Downloading base public legal dataset...");
+  const baseController = new AbortController();
+  const baseTimeout = setTimeout(() => baseController.abort(), FETCH_TIMEOUT_MS);
   const response = await fetch(PRIMARY_SOURCE_URL, {
     headers: {
       "User-Agent": USER_AGENT,
     },
+    signal: baseController.signal,
   });
+  clearTimeout(baseTimeout);
   if (!response.ok) {
     throw new Error(`Failed to download source CSV: HTTP ${response.status}`);
   }

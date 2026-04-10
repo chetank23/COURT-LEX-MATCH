@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Grid3X3, GitBranch, Filter, X, Scale, Calendar, Users, ShieldCheck, UserRoundCheck, Search, MapPin, Sparkles } from "lucide-react";
 import { CaseResult, FIRJudgeAssignment } from "@/types";
@@ -154,6 +154,28 @@ function toTitleCase(value: string): string {
     .join(" ");
 }
 
+function matchesCaseSearchQuery(caseItem: CaseResult, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const haystack = [
+    caseItem.title,
+    caseItem.summary,
+    caseItem.whyMatch,
+    caseItem.court,
+    caseItem.type,
+    `${caseItem.year}`,
+    caseItem.tags.join(" "),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return q
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((term) => haystack.includes(term));
+}
+
 function CaseCard({ c, aiReason, onClick }: { c: CaseResult; aiReason?: string; onClick: () => void }) {
   const courtLevel = getCourtLevel(c.court);
   const location = getCourtLocation(c.court);
@@ -272,6 +294,8 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
   const courtLevel = useMemo(() => getCourtLevel(c.court), [c.court]);
   const location = useMemo(() => getCourtLocation(c.court), [c.court]);
   const [rankedAssignment, setRankedAssignment] = useState(assignment);
+  const [humanizedNarrative, setHumanizedNarrative] = useState("");
+  const [isHumanizedLoading, setIsHumanizedLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -285,6 +309,22 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
       active = false;
     };
   }, [assignment, c]);
+
+  useEffect(() => {
+    let active = true;
+    setIsHumanizedLoading(true);
+    setHumanizedNarrative("");
+
+    void dataService.generateHumanizedCaseNarrative(c).then((narrative) => {
+      if (!active) return;
+      setHumanizedNarrative(narrative);
+      setIsHumanizedLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [c]);
 
   return (
     <motion.div
@@ -333,6 +373,14 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
       <div className="mb-6">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">AI Summary</p>
         <p className="text-sm text-foreground/80 leading-relaxed">{c.summary}</p>
+      </div>
+      <div className="mb-6">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Humanized Case Brief</p>
+        <div className="p-4 rounded-xl gradient-surface border border-primary/10">
+          <p className="text-sm text-foreground/80 leading-relaxed">
+            {isHumanizedLoading ? "Generating human-friendly brief..." : humanizedNarrative}
+          </p>
+        </div>
       </div>
       <div className="mb-6">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">AI Exact Match Reason</p>
@@ -428,6 +476,11 @@ export default function CaseExplorer() {
   const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH_SIZE);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
+  const handleSelectCase = useCallback((caseItem: CaseResult) => {
+    setSelected(caseItem);
+    void dataService.saveViewedCase(caseItem.id, caseItem.title);
+  }, []);
+
   // Determine if we should show matched cases or explore cases
   const showMatchedCases = searchState.hasUserData;
   const pageTitle = showMatchedCases ? "Case Explorer" : "Case Explorer";
@@ -480,7 +533,10 @@ export default function CaseExplorer() {
   }, [searchQuery, showMatchedCases, searchState.matchedCases]);
 
   const filtered = useMemo(() => {
+    const q = searchQuery.trim();
     return cases.filter((c) => {
+      if (q && !matchesCaseSearchQuery(c, q)) return false;
+
       if (courtFilter !== "All Courts") {
         if (
           (courtFilter === "Supreme Court" || courtFilter === "High Court" || courtFilter === "District Court") &&
@@ -502,7 +558,7 @@ export default function CaseExplorer() {
       if (locationFilter !== "All Locations" && getCourtLocation(c.court) !== locationFilter) return false;
       return true;
     });
-  }, [cases, courtFilter, typeFilter, locationFilter]);
+  }, [cases, courtFilter, typeFilter, locationFilter, searchQuery]);
 
   const visibleCases = useMemo(
     () => filtered.slice(0, visibleCount),
@@ -564,7 +620,8 @@ export default function CaseExplorer() {
       if (visibleCases.length === 0) return;
       if (!showMatchedCases) return; // Skip reasoning for explore mode
       setIsReasoning(true);
-      const reasons = await dataService.explainMatches(searchQuery || "legal case match", visibleCases);
+      const queryForReasoning = searchQuery.trim() || searchState.aiSearchQuery || "legal case match";
+      const reasons = await dataService.explainMatches(queryForReasoning, visibleCases);
       if (!active) return;
       setMatchReasons((previous) => ({ ...previous, ...reasons }));
       setIsReasoning(false);
@@ -574,7 +631,7 @@ export default function CaseExplorer() {
     return () => {
       active = false;
     };
-  }, [visibleCases, searchQuery, showMatchedCases]);
+  }, [visibleCases, searchQuery, showMatchedCases, searchState.aiSearchQuery]);
 
   return (
     <div className="min-h-screen relative">
@@ -758,7 +815,7 @@ export default function CaseExplorer() {
                 <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <AnimatePresence>
                     {group.items.map((c) => (
-                      <CaseCard key={c.id} c={c} aiReason={matchReasons[c.id]} onClick={() => setSelected(c)} />
+                      <CaseCard key={c.id} c={c} aiReason={matchReasons[c.id]} onClick={() => handleSelectCase(c)} />
                     ))}
                   </AnimatePresence>
                 </motion.div>
@@ -778,7 +835,7 @@ export default function CaseExplorer() {
             )}
           </div>
         ) : (
-          <GraphView cases={filtered.slice(0, MAX_GRAPH_NODES)} onSelect={setSelected} />
+          <GraphView cases={filtered.slice(0, MAX_GRAPH_NODES)} onSelect={handleSelectCase} />
         )}
 
         {filtered.length === 0 && (

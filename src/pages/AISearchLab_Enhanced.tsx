@@ -363,6 +363,7 @@ export default function AISearchLab() {
             const searchResults = await dataService.searchCases(query);
             setResults(searchResults);
             setAISearchData(query, searchResults);
+
             setIsLoading(false);
             setTimeout(() => setPhase("results"), 600);
           }

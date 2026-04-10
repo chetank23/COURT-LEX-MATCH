@@ -13,6 +13,7 @@ import { AlertTriangle, FileText, Gavel, Layers, Scale } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:4000";
 const MAX_PDF_UPLOAD_BYTES = 10 * 1024 * 1024;
+const LOCAL_HISTORY_KEY = "courtcaseai.activity.history.v1";
 
 const FIR_JUDGE_ROSTER: Record<"Criminal" | "Civil" | "Other", string[]> = {
   Criminal: ["Justice N. Rao", "Justice P. Mehta", "Justice S. Khan"],
@@ -55,6 +56,47 @@ type JudgeCandidate = {
 
 export const dataService = {
   _caseCache: null as CaseResult[] | null,
+
+  _getLocalHistory(): TimelineEvent[] {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(LOCAL_HISTORY_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((item) => item && typeof item.id === "string" && typeof item.type === "string" && typeof item.title === "string" && typeof item.date === "string")
+        .sort((a, b) => `${b.date}`.localeCompare(`${a.date}`));
+    } catch {
+      return [];
+    }
+  },
+
+  _setLocalHistory(events: TimelineEvent[]): void {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(events.slice(0, 100)));
+    } catch {
+      // Ignore local persistence failures and keep app flow intact.
+    }
+  },
+
+  _appendLocalHistory(input: {
+    type: TimelineEvent["type"];
+    title: string;
+    results?: number;
+  }): void {
+    if (!input.title.trim()) return;
+    const current = this._getLocalHistory();
+    const event: TimelineEvent = {
+      id: `hist-local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: input.type,
+      title: input.title,
+      date: new Date().toISOString(),
+      ...(typeof input.results === "number" ? { results: input.results } : {}),
+    };
+    this._setLocalHistory([event, ...current]);
+  },
 
   async _requestJson<T>(url: string, init?: RequestInit): Promise<T | null> {
     try {
@@ -180,7 +222,7 @@ export const dataService = {
         : null;
 
     if (apiResults) {
-      return apiResults.map((item) => {
+      const mapped = apiResults.map((item) => {
         const mappedJudgement = item.judgement || item.judgment || item.finalVerdict || item.final_verdict || "Judgement unavailable";
         return {
           ...item,
@@ -195,6 +237,10 @@ export const dataService = {
           tags: item.tags || [],
         };
       });
+      if (query.trim()) {
+        void this.saveSearch(query, mapped.length);
+      }
+      return mapped;
     }
 
     const allCases = await this._loadCaseData();
@@ -219,6 +265,9 @@ export const dataService = {
         matchedTerms: x.item.tags || [],
       }));
 
+    if (q) {
+      void this.saveSearch(query, scored.length);
+    }
     return scored;
   },
 
@@ -282,6 +331,15 @@ export const dataService = {
       acc[current.id] = current.reason;
       return acc;
     }, {});
+  },
+
+  async generateHumanizedCaseNarrative(item: CaseResult): Promise<string> {
+    const fromApi = (await this._fetchJson(
+      `/api/cases/${encodeURIComponent(item.id)}/humanize`
+    )) as { narrative?: string } | null;
+    if (fromApi?.narrative) return fromApi.narrative;
+
+    return buildLocalHumanizedNarrative(item);
   },
 
   async queryRag(query: string, topK = 8): Promise<RagQueryResponse> {
@@ -471,20 +529,10 @@ export const dataService = {
    */
   async getActivityHistory(): Promise<TimelineEvent[]> {
     const fromApi = (await this._fetchJson("/api/history")) as TimelineEvent[] | null;
-    if (fromApi && Array.isArray(fromApi)) {
+    if (fromApi && Array.isArray(fromApi) && fromApi.length > 0) {
       return fromApi;
     }
-
-    const allCases = await this._loadCaseData();
-    const now = new Date();
-
-    return allCases.slice(0, 8).map((item, index) => ({
-      id: `hist-${item.id}`,
-      type: index % 3 === 0 ? "search" : index % 3 === 1 ? "view" : "upload",
-      title: item.title,
-      date: new Date(now.getTime() - index * 24 * 60 * 60 * 1000).toISOString(),
-      results: Math.max(1, Math.round((item.similarity || 50) / 10)),
-    }));
+    return this._getLocalHistory();
   },
 
   /**
@@ -556,10 +604,21 @@ export const dataService = {
    * Save search query to history.
    */
   async saveSearch(query: string, results: number): Promise<void> {
-    await this._requestJson("/api/history/search", {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) return;
+
+    const response = await this._requestJson("/api/history/search", {
       method: "POST",
-      body: JSON.stringify({ query, results }),
+      body: JSON.stringify({ query: normalizedQuery, results }),
     });
+
+    if (!response) {
+      this._appendLocalHistory({
+        type: "search",
+        title: normalizedQuery,
+        results: Number.isFinite(results) ? Math.max(0, results) : 0,
+      });
+    }
   },
 
   /**
@@ -569,10 +628,41 @@ export const dataService = {
     filename: string,
     matchesFound: number
   ): Promise<void> {
-    await this._requestJson("/api/history/upload", {
+    const normalizedFilename = filename.trim();
+    if (!normalizedFilename) return;
+
+    const response = await this._requestJson("/api/history/upload", {
       method: "POST",
-      body: JSON.stringify({ filename, matchesFound }),
+      body: JSON.stringify({ filename: normalizedFilename, matchesFound }),
     });
+
+    if (!response) {
+      this._appendLocalHistory({
+        type: "upload",
+        title: normalizedFilename,
+        results: Number.isFinite(matchesFound) ? Math.max(0, matchesFound) : 0,
+      });
+    }
+  },
+
+  /**
+   * Save case view to history.
+   */
+  async saveViewedCase(caseId: string, caseTitle: string): Promise<void> {
+    const normalizedTitle = caseTitle.trim();
+    if (!normalizedTitle) return;
+
+    const response = await this._requestJson("/api/history/view", {
+      method: "POST",
+      body: JSON.stringify({ caseId, caseTitle }),
+    });
+
+    if (!response) {
+      this._appendLocalHistory({
+        type: "view",
+        title: normalizedTitle,
+      });
+    }
   },
 
   /**
@@ -1807,6 +1897,21 @@ function buildLocalAiReason(query: string, item: CaseResult) {
   const overlapText = overlaps.length > 0 ? `query terms (${overlaps.join(", ")})` : "legal context overlap";
 
   return `Matched because ${overlapText} aligns with ${item.type.toLowerCase()} issues in ${item.court}, supported by summary semantics and tag similarity.`;
+}
+
+function buildLocalHumanizedNarrative(item: CaseResult) {
+  const intro = `${item.title} was handled by ${item.court} in ${item.year}.`;
+  const summary = `${item.summary || ""}`.trim();
+  const decision = `${item.finalVerdict || item.judgment || item.judgement || ""}`.trim();
+
+  const facts = summary
+    ? `In plain language, the case was about ${summary.charAt(0).toLowerCase()}${summary.slice(1)}`
+    : "In plain language, the case focused on the main legal dispute and evidence presented by both sides.";
+  const outcome = decision
+    ? `The court's final outcome was: ${decision}.`
+    : "The court issued a final ruling after evaluating the legal record.";
+
+  return `${intro} ${facts} ${outcome}`.replace(/\s+/g, " ").trim();
 }
 
 function toQuerySpecificReason(query: string, item: CaseResult) {
