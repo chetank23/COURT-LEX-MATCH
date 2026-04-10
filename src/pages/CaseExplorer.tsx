@@ -292,7 +292,7 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 400, opacity: 0 }}
       transition={{ type: "spring", damping: 25 }}
-      className="fixed right-0 top-0 bottom-0 w-full max-w-md z-40 bg-card border-l border-border shadow-2xl p-6 overflow-y-auto"
+      className="fixed right-0 top-0 bottom-0 w-full max-w-md z-[70] bg-card border-l border-border shadow-2xl p-6 overflow-y-auto"
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
