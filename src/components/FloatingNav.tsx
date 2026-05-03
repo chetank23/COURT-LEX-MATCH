@@ -1,7 +1,8 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Layers, FileText, BarChart3, Clock, Users, Calendar, ShieldCheck, LogIn, LogOut, Gavel } from "lucide-react";
+import { Search, Layers, FileText, BarChart3, Clock, Users, Calendar, ShieldCheck, LogIn, LogOut, Gavel, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import DbStatusBadge from "@/components/DbStatusBadge";
 
 const navItems = [
   { path: "/", label: "Case Lab", icon: Search },
@@ -11,6 +12,7 @@ const navItems = [
   { path: "/judges", label: "Judges", icon: Users },
   { path: "/calendar", label: "Calendar", icon: Calendar },
   { path: "/insights", label: "Insights", icon: BarChart3 },
+  { path: "/priority", label: "Priority", icon: AlertTriangle },
   { path: "/history", label: "History", icon: Clock },
   { path: "/secure-cases", label: "Secure Cases", icon: ShieldCheck },
 ];
@@ -85,6 +87,7 @@ export default function TopNav() {
             </span>
           </button>
         )}
+        <DbStatusBadge />
       </motion.nav>
     </div>
   );

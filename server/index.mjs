@@ -3,6 +3,26 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PDFParse } from "pdf-parse";
+
+// ── Load .env file early (before any other imports use env vars) ──────────
+try {
+  const __envDir = path.dirname(fileURLToPath(import.meta.url));
+  const envPaths = [path.join(__envDir, ".env"), path.join(__envDir, "..", ".env")];
+  for (const envPath of envPaths) {
+    const raw = await readFile(envPath, "utf8").catch(() => null);
+    if (!raw) continue;
+    for (const line of raw.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx < 1) continue;
+      const key = trimmed.slice(0, eqIdx).trim();
+      const val = trimmed.slice(eqIdx + 1).trim();
+      if (key && !process.env[key]) process.env[key] = val;
+    }
+    break;
+  }
+} catch { /* .env is optional */ }
 import {
   listJudges,
   getJudgeById,
@@ -16,6 +36,13 @@ import {
   deleteHearing,
   listHistory,
   createHistoryEvent,
+  listManagedCases,
+  upsertManagedCase,
+  updateManagedCase,
+  deleteManagedCase,
+  createPriorityOverride,
+  listPriorityOverrides,
+  checkDbHealth,
 } from "./db/store.mjs";
 import { generateSummary } from "./services/summarizer.mjs";
 import { mapJudgement } from "./services/judgementMapper.mjs";
@@ -534,6 +561,30 @@ export async function createServer() {
         return;
       }
 
+      if (pathname === "/api/cases/priority-matrix") {
+        const matrix = {
+          bands: [
+            { band: "P0", label: "Critical", threshold: 85, count: allCases.filter((c) => (c.priorityBand || "P3") === "P0").length },
+            { band: "P1", label: "High",     threshold: 70, count: allCases.filter((c) => (c.priorityBand || "P3") === "P1").length },
+            { band: "P2", label: "Medium",   threshold: 50, count: allCases.filter((c) => (c.priorityBand || "P3") === "P2").length },
+            { band: "P3", label: "Low",      threshold: 0,  count: allCases.filter((c) => (c.priorityBand || "P3") === "P3").length },
+          ],
+          topCritical: allCases
+            .filter((c) => c.priorityBand === "P0")
+            .sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0))
+            .slice(0, 5)
+            .map((c) => ({ id: c.id, title: c.title, priorityScore: c.priorityScore, type: c.type })),
+          severitySignals: {
+            murderHomicide: allCases.filter((c) => /murder|homicide/i.test(c.title + c.summary)).length,
+            sexualOffences: allCases.filter((c) => /rape|sexual|pocso/i.test(c.title + c.summary)).length,
+            terrorism:      allCases.filter((c) => /terror|uapa|sedition/i.test(c.title + c.summary)).length,
+            fraud:          allCases.filter((c) => /fraud|laundering|corruption/i.test(c.title + c.summary)).length,
+          },
+        };
+        sendJson(res, 200, matrix);
+        return;
+      }
+
       if (explainMatch && req.method === "GET") {
         const id = decodeURIComponent(explainMatch[1]);
         const query = (url.searchParams.get("q") || "").trim();
@@ -897,6 +948,81 @@ export async function createServer() {
         const judges = await listJudges();
         const assignment = buildFirAssignment(assessment, judges, text);
         sendJson(res, 200, assignment);
+        return;
+      }
+
+      // ── DB health check ──────────────────────────────────────────────────
+      if (pathname === "/api/db/health" && req.method === "GET") {
+        const health = await checkDbHealth();
+        sendJson(res, health.ok ? 200 : 503, health);
+        return;
+      }
+
+      // ── Managed Cases ────────────────────────────────────────────────────
+      const managedCaseMatch = pathname.match(/^\/api\/managed-cases\/([^/]+)$/);
+
+      if (pathname === "/api/managed-cases" && req.method === "GET") {
+        const cases = await listManagedCases();
+        sendJson(res, 200, cases);
+        return;
+      }
+
+      if (pathname === "/api/managed-cases" && req.method === "POST") {
+        const payload = await readJsonBody(req);
+        if (!payload.title) throw new HttpError(400, "title is required");
+        const created = await upsertManagedCase(payload);
+        recordAuditEvent({ action: "create_managed_case", entity: "managed_case", requestId, clientAddress, details: { id: created.id } });
+        sendJson(res, 201, created);
+        return;
+      }
+
+      if (managedCaseMatch && req.method === "GET") {
+        const id = decodeURIComponent(managedCaseMatch[1]);
+        const all = await listManagedCases();
+        const found = all.find((c) => c.id === id);
+        if (!found) { sendJson(res, 404, { error: "Managed case not found" }); return; }
+        sendJson(res, 200, found);
+        return;
+      }
+
+      if (managedCaseMatch && req.method === "PUT") {
+        const id = decodeURIComponent(managedCaseMatch[1]);
+        const payload = await readJsonBody(req);
+        const updated = await updateManagedCase(id, payload);
+        if (!updated) { sendJson(res, 404, { error: "Managed case not found" }); return; }
+        recordAuditEvent({ action: "update_managed_case", entity: "managed_case", requestId, clientAddress, details: { id } });
+        sendJson(res, 200, updated);
+        return;
+      }
+
+      if (managedCaseMatch && req.method === "DELETE") {
+        const id = decodeURIComponent(managedCaseMatch[1]);
+        const removed = await deleteManagedCase(id);
+        if (!removed) { sendJson(res, 404, { error: "Managed case not found" }); return; }
+        recordAuditEvent({ action: "delete_managed_case", entity: "managed_case", requestId, clientAddress, details: { id } });
+        sendJson(res, 204, {});
+        return;
+      }
+
+      // ── Priority Overrides ───────────────────────────────────────────────
+      const priorityOverridesCaseMatch = pathname.match(/^\/api\/managed-cases\/([^/]+)\/priority-overrides$/);
+
+      if (priorityOverridesCaseMatch && req.method === "GET") {
+        const caseId = decodeURIComponent(priorityOverridesCaseMatch[1]);
+        const overrides = await listPriorityOverrides(caseId);
+        sendJson(res, 200, overrides);
+        return;
+      }
+
+      if (priorityOverridesCaseMatch && req.method === "POST") {
+        const caseId = decodeURIComponent(priorityOverridesCaseMatch[1]);
+        const payload = await readJsonBody(req);
+        if (!payload.overrideBand || !payload.reason) throw new HttpError(400, "overrideBand and reason are required");
+        const override = await createPriorityOverride({ ...payload, caseId });
+        // Also update the managed case's band
+        await updateManagedCase(caseId, { priorityBand: payload.overrideBand, priorityScore: payload.overrideScore });
+        recordAuditEvent({ action: "priority_override", entity: "managed_case", requestId, clientAddress, details: { caseId, overrideBand: payload.overrideBand } });
+        sendJson(res, 201, override);
         return;
       }
 
@@ -1814,6 +1940,16 @@ function computePriority(raw) {
   const similarityConfidence = 60 + Math.min(40, ((raw.citation || "").match(/AIR|SCC|SCR|CriLJ/gi) || []).length * 8);
   const complianceRisk = keywordScore(text, ["tax", "regulation", "penalty", "violation", "compliance"], 100);
 
+  // ── Crime severity boost ──────────────────────────────────────────────────
+  let severityBoost = 0;
+  if (/\b(murder|culpable homicide|attempt to murder|homicide)\b/.test(text)) severityBoost = 32;
+  else if (/\b(rape|sexual assault|acid attack|pocso)\b/.test(text)) severityBoost = 30;
+  else if (/\b(terror|uapa|blast|sedition|nsa)\b/.test(text)) severityBoost = 35;
+  else if (/\b(kidnap|abduction|ransom|trafficking)\b/.test(text)) severityBoost = 26;
+  else if (/\b(grievous|armed robbery|dacoity|extortion|rioting)\b/.test(text)) severityBoost = 18;
+  else if (/\b(fraud|money laundering|forgery|corruption|bribery)\b/.test(text)) severityBoost = 14;
+  else if (/\b(domestic violence|cheating|theft|burglary)\b/.test(text)) severityBoost = 8;
+
   const weighted =
     0.3 * urgency +
     0.25 * impact +
@@ -1824,7 +1960,7 @@ function computePriority(raw) {
   const year = Number.parseInt((raw.decision_date || "").slice(0, 4), 10);
   const recencyBoost = Number.isFinite(year) ? Math.max(0, year - 2000) * 0.15 : 0;
 
-  return Math.max(20, Math.min(99, Math.round(weighted + recencyBoost)));
+  return Math.max(20, Math.min(99, Math.round(weighted + recencyBoost + severityBoost)));
 }
 
 function toPriorityBand(score) {

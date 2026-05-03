@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# SQLite database
+data/lexmatch.db
+data/lexmatch.db-shm
+data/lexmatch.db-wal
+
+# PostgreSQL logs (legacy)
+pg_server.log
+pg_server.log.err
+
+# Environment variables
+.env
+.env.*
+!.env.example
+server/.env

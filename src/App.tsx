@@ -12,6 +12,7 @@ import CaseExplorer from "./pages/CaseExplorer";
 import PDFAnalyzer from "./pages/PDFAnalyzer";
 import JudgeAssignmentCenter from "./pages/JudgeAssignmentCenter";
 import InsightsDashboard from "./pages/InsightsDashboard";
+import CasePriorityDashboard from "./pages/CasePriorityDashboard";
 import HistoryTimeline from "./pages/HistoryTimeline";
 import JudgesManagement from "./pages/JudgesManagement";
 import HearingCalendar from "./pages/HearingCalendar";
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/judges" element={<JudgesManagement />} />
               <Route path="/calendar" element={<HearingCalendar />} />
               <Route path="/insights" element={<InsightsDashboard />} />
+              <Route path="/priority" element={<CasePriorityDashboard />} />
               <Route path="/history" element={<HistoryTimeline />} />
               <Route path="/login" element={<Login />} />
               <Route element={<ProtectedRoute />}>

@@ -15,6 +15,8 @@ import {
 import { useAuth, type ManagedCase } from "@/contexts/AuthContext";
 import { useSearch } from "@/contexts/SearchContext";
 import { dataService } from "@/services/dataService";
+import { JudgeAvailabilityWidget } from "@/components/JudgeAvailabilityWidget";
+import { JudgeProfile } from "@/types";
 
 type FilterMode = "all" | "unassigned" | "needs-reassign";
 
@@ -35,6 +37,13 @@ export default function JudgeAssignmentCenter() {
   const [suggestedJudge, setSuggestedJudge] = useState<string | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignmentMessage, setAssignmentMessage] = useState("");
+  
+  // Widget states
+  const [selectedDistrict, setSelectedDistrict] = useState("Bangalore");
+  const [selectedCaseType, setSelectedCaseType] = useState("Criminal");
+  const [schedulingDate, setSchedulingDate] = useState("");
+  const [schedulingTime, setSchedulingTime] = useState("10:30");
+  const [schedulingJudgeId, setSchedulingJudgeId] = useState<string | null>(null);
 
   // Filter and sort cases by priority
   const filteredCases = useMemo(() => {
@@ -87,14 +96,85 @@ export default function JudgeAssignmentCenter() {
     [getJudgeRecommendation]
   );
 
-  // Handle judge assignment
+  // Normalize date helper
+  const normalizeDateDMY = useCallback((rawValue: string) => {
+    const raw = `${rawValue || ""}`.trim();
+    if (!raw) return "";
+    if (raw.includes("-") && raw.split("-")[0].length === 4) {
+      const [y, m, d] = raw.split("-");
+      return `${d}-${m}-${y}`;
+    }
+    const normalized = raw.replace(/\//g, "-");
+    const parts = normalized.split("-");
+    if (parts.length !== 3) return "";
+    const [d, m, y] = parts;
+    if (d.length < 1 || m.length < 1 || y.length !== 4) return "";
+    return `${d.padStart(2, "0")}-${m.padStart(2, "0")}-${y}`;
+  }, []);
+
+  // Handle schedule from widget
+  const handleScheduleFromJudge = useCallback(
+    async (judge: JudgeProfile) => {
+      if (!selectedCase) return;
+
+      const normalizedDate = normalizeDateDMY(schedulingDate);
+      if (!normalizedDate) {
+        setAssignmentMessage("Enter a valid hearing date.");
+        return;
+      }
+
+      setIsAssigning(true);
+      setSchedulingJudgeId(judge.id);
+      setAssignmentMessage("");
+
+      try {
+        updateManagedCase(selectedCase.id, {
+          assignedJudge: judge.name,
+          status: "Assigned",
+          autoAssigned: true,
+          assignmentReason: `Assigned via availability widget in ${judge.district || selectedDistrict}`,
+        });
+
+        const selectedTime = `${schedulingTime || "10:30"}`.trim();
+        const hearing = await dataService.scheduleHearingForAssignment({
+          caseId: selectedCase.id,
+          caseTitle: selectedCase.title,
+          assignedJudgeId: judge.id,
+          assignedJudgeName: judge.name,
+          localCourtName: judge.courtName || `${selectedDistrict} District Court`,
+          courtRoom: "Court Room 1",
+          state: judge.state || "TBD",
+          district: judge.district || selectedDistrict,
+          hearingDate: normalizedDate,
+          hearingTime: selectedTime,
+          notes: `Scheduled from Judge Assignment Center. Priority: ${selectedCase.priorityBand}. Case type: ${selectedCaseType}.`,
+        });
+
+        addHearing(hearing);
+        setAssignmentMessage(`✓ Successfully scheduled with ${judge.name} on ${normalizedDate} at ${selectedTime}`);
+        
+        setTimeout(() => {
+          setSelectedCase(null);
+          setAssignmentMessage("");
+        }, 2000);
+      } catch (error) {
+        console.error("Error assigning judge:", error);
+        setAssignmentMessage("Error assigning judge. Please try again.");
+      } finally {
+        setIsAssigning(false);
+        setSchedulingJudgeId(null);
+      }
+    },
+    [selectedCase, updateManagedCase, addHearing, schedulingDate, schedulingTime, selectedDistrict, selectedCaseType, normalizeDateDMY]
+  );
+
+  // Handle manual judge assignment
   const handleAssignJudge = useCallback(
     async (judgeToAssign: string) => {
       if (!selectedCase) return;
 
       setIsAssigning(true);
       try {
-        // Update case with new judge assignment
         updateManagedCase(selectedCase.id, {
           assignedJudge: judgeToAssign,
           status: "Assigned",
@@ -102,7 +182,6 @@ export default function JudgeAssignmentCenter() {
           assignmentReason: assignmentMessage,
         });
 
-        // Auto-schedule hearing
         const hearing = await dataService.scheduleHearingForAssignment({
           caseId: selectedCase.id,
           caseTitle: selectedCase.title,
@@ -113,7 +192,6 @@ export default function JudgeAssignmentCenter() {
 
         addHearing(hearing);
 
-        // Show success feedback
         setAssignmentMessage(`✓ Successfully assigned to ${judgeToAssign}`);
         setTimeout(() => {
           setSelectedCase(null);
@@ -324,6 +402,81 @@ export default function JudgeAssignmentCenter() {
                           This case requires judge assignment
                         </p>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Judge Availability & Scheduling Controls */}
+                  <div className="mb-6 glass-panel rounded-2xl p-6 border border-primary/20">
+                    <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                      <Users className="w-5 h-5 text-primary" /> Check Judge Availability
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                      <div>
+                        <label className="text-sm font-semibold text-foreground block mb-2">
+                          District/Area
+                        </label>
+                        <select
+                          value={selectedDistrict}
+                          onChange={(e) => setSelectedDistrict(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                        >
+                          <option>Bangalore</option>
+                          <option>Mysore</option>
+                          <option>Belgaum</option>
+                          <option>Yadgir</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-semibold text-foreground block mb-2">
+                          Case Type
+                        </label>
+                        <select
+                          value={selectedCaseType}
+                          onChange={(e) => setSelectedCaseType(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                        >
+                          <option>Criminal</option>
+                          <option>Civil</option>
+                          <option>Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-semibold text-foreground block mb-2">
+                          Hearing Date
+                        </label>
+                        <input
+                          type="date"
+                          value={schedulingDate}
+                          onChange={(e) => setSchedulingDate(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-semibold text-foreground block mb-2">
+                          Hearing Time
+                        </label>
+                        <input
+                          type="text"
+                          value={schedulingTime}
+                          onChange={(e) => setSchedulingTime(e.target.value)}
+                          placeholder="HH:MM"
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Judge Availability Widget */}
+                    {selectedDistrict && selectedCaseType && schedulingDate && (
+                      <JudgeAvailabilityWidget
+                        district={selectedDistrict}
+                        caseType={selectedCaseType}
+                        hearingDate={normalizeDateDMY(schedulingDate)}
+                        hearingTime={schedulingTime}
+                        isScheduling={isAssigning}
+                        schedulingJudgeId={schedulingJudgeId}
+                        onSchedule={handleScheduleFromJudge}
+                      />
                     )}
                   </div>
 

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2, Clock, Users, MapPin } from "lucide-react";
 import { HearingSchedule, JudgeProfile } from "@/types";
 import { useSearch } from "@/contexts/SearchContext";
+import { dataService } from "@/services/dataService";
+import { useEffect, useCallback } from "react";
 
 type DialogMode = "add" | "edit" | null;
 
@@ -442,10 +444,28 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
 }
 
 export default function HearingCalendar() {
-  const { state, addHearing, updateHearing, deleteHearing } = useSearch();
-  
-  // Use persisted hearings from context
-  const hearings = state.hearings && state.hearings.length > 0 ? state.hearings : initialHearings;
+  const { addHearing, updateHearing, deleteHearing } = useSearch();
+  const [dbHearings, setDbHearings] = useState<HearingSchedule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchHearings = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await dataService.getAllHearings();
+      setDbHearings(data && data.length > 0 ? data : initialHearings);
+    } catch (error) {
+      console.error("Failed to fetch hearings", error);
+      setDbHearings(initialHearings);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHearings();
+  }, [fetchHearings]);
+
+  const hearings = dbHearings;
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
@@ -461,15 +481,28 @@ export default function HearingCalendar() {
     setDialogMode("edit");
   };
 
-  const handleDelete = (id: string) => {
-    deleteHearing(id);
+  const handleDelete = async (id: string) => {
+    try {
+      await dataService.removeHearing(id);
+      deleteHearing(id); // Keep context in sync just in case
+      fetchHearings();
+    } catch (error) {
+      console.error("Failed to delete hearing", error);
+    }
   };
 
-  const handleSave = (hearing: HearingSchedule) => {
-    if (dialogMode === "add") {
-      addHearing(hearing);
-    } else {
-      updateHearing(hearing);
+  const handleSave = async (hearing: HearingSchedule) => {
+    try {
+      if (dialogMode === "add") {
+        await dataService.addHearing(hearing);
+        addHearing(hearing);
+      } else {
+        await dataService.editHearing(hearing.id, hearing);
+        updateHearing(hearing);
+      }
+      fetchHearings();
+    } catch (error) {
+      console.error("Failed to save hearing", error);
     }
   };
 
