@@ -33,7 +33,7 @@ export const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
       setLoading(true);
       try {
         const normalizedCaseType: NonNullable<Parameters<typeof dataService.getAvailableJudgesByArea>[0]["caseType"]> =
-          caseType === "Criminal" || caseType === "Civil" || caseType === "Other" ? caseType as any : "Criminal";
+          caseType === "Criminal" || caseType === "Civil" || caseType === "Other" ? (caseType as typeof normalizedCaseType) : "Criminal";
 
         const [judgeList, judgeStats] = await Promise.all([
           dataService.getAvailableJudgesByArea({

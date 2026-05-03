@@ -243,7 +243,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       updateManagedCase,
       refreshManagedCases,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, managedCases, isManagedCasesLoading, upsertManagedCase, updateManagedCase, refreshManagedCases]
   );
 

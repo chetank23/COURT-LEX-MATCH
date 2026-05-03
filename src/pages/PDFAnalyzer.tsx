@@ -234,10 +234,10 @@ export default function PDFAnalyzer() {
 
           setTimeout(() => setPhase("results"), 500);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Analysis failed:", err);
         setPhase("upload");
-        setAnalysisError(err.message || "An unexpected error occurred during analysis.");
+        setAnalysisError((err as Error).message || "An unexpected error occurred during analysis.");
       }
     };
     setTimeout(advance, analysisSteps[0].duration);
