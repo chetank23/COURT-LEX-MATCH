@@ -2,7 +2,9 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PDFParse } from "pdf-parse";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 // ── Load .env file early (before any other imports use env vars) ──────────
 try {
@@ -1431,13 +1433,8 @@ async function extractPdfText({ contentBase64, extractedTextOverride }) {
 
 async function extractPdfTextFromDocument(pdfBuffer) {
   try {
-    const parser = new PDFParse({ data: pdfBuffer });
-    try {
-      const parsed = await parser.getText();
-      return normalizeText(parsed?.text || "");
-    } finally {
-      await parser.destroy();
-    }
+    const parsed = await pdfParse(pdfBuffer);
+    return normalizeText(parsed?.text || "");
   } catch {
     return "";
   }
@@ -1672,7 +1669,7 @@ function pruneExpiredRateLimitEntries(now) {
 }
 
 function normalizeText(text) {
-  return `${text || ""}`.replace(/\u0000/g, " ").replace(/\s+/g, " ").trim();
+  return `${text || ""}`.split("\u0000").join(" ").replace(/\s+/g, " ").trim();
 }
 
 function inferPdfCaseType(fileName, text) {
@@ -1987,5 +1984,9 @@ if (process.argv[1] === __filename) {
   const server = await createServer();
   server.listen(port, "127.0.0.1", () => {
     console.log(`LexMatch API running at http://127.0.0.1:${port}`);
+    // Boot-time indexing
+    void loadCases().then(() => {
+      console.log("✅ [System] Case corpus and RAG index initialized");
+    });
   });
 }
