@@ -130,6 +130,7 @@ function SectionCard({ section, lawyerMode }: { section: Section; lawyerMode: bo
 export default function PDFAnalyzer() {
   const { state, setPDFAnalysisData } = useSearch();
   const [phase, setPhase] = useState<Phase>("upload");
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [workflowMode, setWorkflowMode] = useState<WorkflowMode>("find-cases");
   const [currentStep, setCurrentStep] = useState(0);
   const [dragOver, setDragOver] = useState(false);
@@ -203,33 +204,40 @@ export default function PDFAnalyzer() {
     if (!selectedFile) return;
     setWorkflowMode(mode);
     setPhase("analyzing");
+    setAnalysisError(null);
     setCurrentStep(0);
     let step = 0;
     const advance = async () => {
-      step++;
-      if (step < analysisSteps.length) {
-        setCurrentStep(step);
-        setTimeout(advance, analysisSteps[step].duration);
-      } else {
-        // Analyze PDF using data service
-        const analyzedSections = await dataService.analyzePDF(selectedFile);
-        const assessedPriority = await dataService.assessFIRPriority(selectedFile, analyzedSections);
-        const assignedJudge = await dataService.assignJudgeForFIR(selectedFile, assessedPriority, analyzedSections);
-        setSections(analyzedSections);
-        setFirPriority(assessedPriority);
-        setFirJudgeAssignment(assignedJudge);
-        setOverrideCaseType(assessedPriority.caseType);
-        setOverrideSeverity(assessedPriority.severity);
-        if (analyzedSections.length > 0) {
-          await dataService.savePDFUpload(selectedFile.name, analyzedSections.length);
-          // Extract matches from sections and push to context
-          const matchResults = extractMatchesFromSections(analyzedSections);
-          if (matchResults.length > 0) {
-            setPDFAnalysisData(matchResults);
+      try {
+        step++;
+        if (step < analysisSteps.length) {
+          setCurrentStep(step);
+          setTimeout(advance, analysisSteps[step].duration);
+        } else {
+          // Analyze PDF using data service
+          const analyzedSections = await dataService.analyzePDF(selectedFile);
+          const assessedPriority = await dataService.assessFIRPriority(selectedFile, analyzedSections);
+          const assignedJudge = await dataService.assignJudgeForFIR(selectedFile, assessedPriority, analyzedSections);
+          setSections(analyzedSections);
+          setFirPriority(assessedPriority);
+          setFirJudgeAssignment(assignedJudge);
+          setOverrideCaseType(assessedPriority.caseType);
+          setOverrideSeverity(assessedPriority.severity);
+          if (analyzedSections.length > 0) {
+            await dataService.savePDFUpload(selectedFile.name, analyzedSections.length);
+            // Extract matches from sections and push to context
+            const matchResults = extractMatchesFromSections(analyzedSections);
+            if (matchResults.length > 0) {
+              setPDFAnalysisData(matchResults);
+            }
           }
-        }
 
-        setTimeout(() => setPhase("results"), 500);
+          setTimeout(() => setPhase("results"), 500);
+        }
+      } catch (err: any) {
+        console.error("Analysis failed:", err);
+        setPhase("upload");
+        setAnalysisError(err.message || "An unexpected error occurred during analysis.");
       }
     };
     setTimeout(advance, analysisSteps[0].duration);
@@ -279,6 +287,15 @@ export default function PDFAnalyzer() {
                   dragOver ? "border-primary bg-primary/5 glow-primary" : "border-border hover:border-primary/50"
                 }`}
               >
+                {analysisError && (
+                  <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-400 text-left">
+                    <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold">Analysis Failed</p>
+                      <p className="text-xs opacity-80">{analysisError}</p>
+                    </div>
+                  </div>
+                )}
                 <Upload className={`w-12 h-12 mx-auto mb-4 ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
                 <p className="font-medium text-foreground mb-1">Drop your PDF here</p>
                 <p className="text-sm text-muted-foreground">or click to browse files</p>

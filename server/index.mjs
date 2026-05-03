@@ -48,7 +48,7 @@ import { generateSummary } from "./services/summarizer.mjs";
 import { mapJudgement } from "./services/judgementMapper.mjs";
 import { buildMatchExplanation } from "./services/explanationGenerator.mjs";
 import { getMatchLevel } from "./services/similarity.mjs";
-import { buildRagIndex, queryRag } from "./services/ragService.mjs";
+import { buildRagIndex, queryRag, hydrateRagIndex } from "./services/ragService.mjs";
 import { generateDeepSeekGroundedAnswer } from "./services/deepseekClient.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,7 +59,7 @@ const DATA_PATH = path.join(ROOT, "public", "data", "cases_import.json");
 const DEFAULT_PDF_OCR_TIMEOUT_MS = 15000;
 const DEFAULT_PDF_OCR_MAX_BYTES = 8 * 1024 * 1024;
 const DEFAULT_PDF_OCR_WIDTH = 1400;
-const DEFAULT_MAX_JSON_BODY_BYTES = 12 * 1024 * 1024;
+const DEFAULT_MAX_JSON_BODY_BYTES = 28 * 1024 * 1024;
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const DEFAULT_RATE_LIMIT_SEARCH_MAX = 120;
 const DEFAULT_RATE_LIMIT_ANALYZE_MAX = 20;
@@ -176,7 +176,20 @@ async function loadCases() {
   });
   caseSearchIndex = buildCaseSearchIndex(caseCache);
   caseSearchIndexMap = new Map(caseSearchIndex.map((item) => [item.id, item]));
-  ragIndexCache = buildRagIndex(caseCache);
+
+  const ragIndexPath = path.join(ROOT, "public", "data", "rag_index.json");
+  try {
+    const rawIndex = await readFile(ragIndexPath, "utf8").catch(() => null);
+    if (rawIndex) {
+      ragIndexCache = hydrateRagIndex(JSON.parse(rawIndex));
+    }
+  } catch (err) {
+    console.error("Failed to hydrate RAG index, rebuilding...", err);
+  }
+
+  if (!ragIndexCache) {
+    ragIndexCache = buildRagIndex(caseCache);
+  }
 
   return caseCache;
 }
@@ -291,6 +304,16 @@ function buildInsights(cases) {
 
 export async function createServer() {
   return http.createServer(async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
     const requestId = createRequestId();
     const startedAt = process.hrtime.bigint();
     let requestPath = req.url || "/";
@@ -305,11 +328,6 @@ export async function createServer() {
         clientAddress,
       });
     });
-
-    if (req.method === "OPTIONS") {
-      sendJson(res, 204, {});
-      return;
-    }
 
     try {
       const url = parseUrl(req.url);
@@ -1426,37 +1444,17 @@ async function extractPdfTextFromDocument(pdfBuffer) {
 }
 
 async function extractPdfTextViaOcr(pdfBuffer) {
-  // Can be disabled for constrained environments where OCR dependencies are unavailable.
   if (process.env.LEXMATCH_ENABLE_PDF_OCR === "0") return "";
-
   try {
-    const screenshotWidth = readEnvInt("LEXMATCH_PDF_OCR_WIDTH", DEFAULT_PDF_OCR_WIDTH);
-    const parser = new PDFParse({ data: pdfBuffer });
-    let screenshot;
-    try {
-      screenshot = await parser.getScreenshot({
-        first: 1,
-        desiredWidth: screenshotWidth,
-        imageDataUrl: false,
-        imageBuffer: true,
-      });
-    } finally {
-      await parser.destroy();
-    }
-
-    const firstPage = screenshot?.pages?.[0];
-    if (!firstPage?.data || firstPage.data.length === 0) return "";
-
-    const { recognize } = await import("tesseract.js");
-    const ocrTimeout = readEnvInt("LEXMATCH_PDF_OCR_TIMEOUT_MS", DEFAULT_PDF_OCR_TIMEOUT_MS);
-    const recognized = await withTimeout(
-      recognize(Buffer.from(firstPage.data), "eng", {
-        logger: () => {},
-      }),
-      ocrTimeout
-    );
-
-    return normalizeText(recognized?.data?.text || "");
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs")
+      .catch(() => null);
+    if (!pdfjsLib) return "";
+    const pdf = await pdfjsLib.getDocument({ 
+      data: new Uint8Array(pdfBuffer) 
+    }).promise;
+    const page = await pdf.getPage(1);
+    const content = await page.getTextContent();
+    return normalizeText(content.items.map(i => i.str).join(" "));
   } catch {
     return "";
   }

@@ -702,7 +702,7 @@ export default function AISearchLab() {
                           {ragResponse.grounded ? "Grounded" : "Low Grounding"}
                         </span>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
-                          Confidence {Math.round((ragResponse.confidence || 0) * 100)}%
+                          Confidence {ragResponse.confidence}%
                         </span>
                       </div>
                       <p className="text-sm text-foreground leading-relaxed">{ragResponse.answer}</p>
