@@ -8,6 +8,7 @@ import {
   JudgeProfile,
   HearingSchedule,
   RagQueryResponse,
+  JudgeRecommendation,
 } from "@/types";
 import { AlertTriangle, FileText, Gavel, Layers, Scale } from "lucide-react";
 
@@ -48,10 +49,6 @@ type JudgeCandidate = {
  * 
  * This service is structured for API integration.
  * Replace these functions with actual API calls when backend is ready.
- * 
- * Example API integration:
- * const response = await fetch('/api/cases');
- * return response.json();
  */
 
 export const dataService = {
@@ -191,9 +188,6 @@ export const dataService = {
     return this._caseCache;
   },
 
-  /**
-   * Fetch all legal cases.
-   */
   async getCases(): Promise<CaseResult[]> {
     const fromApi = (await this._fetchJson("/api/cases")) as CaseResult[] | null;
     if (fromApi && Array.isArray(fromApi)) {
@@ -206,9 +200,6 @@ export const dataService = {
       .sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
   },
 
-  /**
-   * Search for cases based on query.
-   */
   async searchCases(query: string): Promise<CaseResult[]> {
     const fromApi = (await this._fetchJson(`/api/cases/search?q=${encodeURIComponent(query)}`)) as
       | CaseResult[]
@@ -271,9 +262,6 @@ export const dataService = {
     return scored;
   },
 
-  /**
-   * Get cases filtered by court and type.
-   */
   async getFilteredCases(
     court?: string,
     type?: string
@@ -294,9 +282,6 @@ export const dataService = {
     });
   },
 
-  /**
-   * Get a single case by ID.
-   */
   async getCaseById(id: string): Promise<CaseResult | null> {
     const fromApi = (await this._fetchJson(`/api/cases/${encodeURIComponent(id)}`)) as CaseResult | null;
     if (fromApi) return fromApi;
@@ -305,10 +290,6 @@ export const dataService = {
     return allCases.find((item) => item.id === id) || null;
   },
 
-  /**
-   * Get explanation for why a case matches the user query.
-   * Uses backend explanation when available, otherwise deterministic local fallback.
-   */
   async explainCaseMatch(query: string, item: CaseResult): Promise<string> {
     const fromApi = (await this._fetchJson(
       `/api/cases/${encodeURIComponent(item.id)}/explain?q=${encodeURIComponent(query)}`
@@ -353,9 +334,6 @@ export const dataService = {
     throw new Error("Backend server not running. Start with: npm run dev:server");
   },
 
-  /**
-   * Analyze PDF and extract sections
-   */
   async analyzePDF(file: File): Promise<Section[]> {
     const contentBase64 = await fileToBase64(file);
     if (!contentBase64) {
@@ -520,9 +498,6 @@ export const dataService = {
     };
   },
 
-  /**
-   * Get user activity history.
-   */
   async getActivityHistory(): Promise<TimelineEvent[]> {
     const fromApi = (await this._fetchJson("/api/history")) as TimelineEvent[] | null;
     if (fromApi && Array.isArray(fromApi) && fromApi.length > 0) {
@@ -531,9 +506,6 @@ export const dataService = {
     return this._getLocalHistory();
   },
 
-  /**
-   * Get analytics and insights.
-   */
   async getInsights(): Promise<InsightsData> {
     const fromApi = (await this._fetchJson("/api/insights")) as InsightsData | null;
     if (fromApi) {
@@ -596,9 +568,6 @@ export const dataService = {
     };
   },
 
-  /**
-   * Save search query to history.
-   */
   async saveSearch(query: string, results: number): Promise<void> {
     const normalizedQuery = query.trim();
     if (!normalizedQuery) return;
@@ -617,9 +586,6 @@ export const dataService = {
     }
   },
 
-  /**
-   * Save PDF upload to history.
-   */
   async savePDFUpload(
     filename: string,
     matchesFound: number
@@ -641,9 +607,6 @@ export const dataService = {
     }
   },
 
-  /**
-   * Save case view to history.
-   */
   async saveViewedCase(caseId: string, caseTitle: string): Promise<void> {
     const normalizedTitle = caseTitle.trim();
     if (!normalizedTitle) return;
@@ -661,9 +624,6 @@ export const dataService = {
     }
   },
 
-  /**
-   * Judge Management.
-   */
   async getJudges(): Promise<JudgeProfile[]> {
     const fromApi = (await this._fetchJson("/api/judges")) as JudgeProfile[] | null;
     if (fromApi && Array.isArray(fromApi)) return fromApi;
@@ -698,9 +658,6 @@ export const dataService = {
     });
   },
 
-  /**
-   * Judge Availability & Specialization Checking
-   */
   async getAvailableJudgesByArea(input: {
     district: string;
     caseType?: "Criminal" | "Civil" | "Other";
@@ -711,19 +668,12 @@ export const dataService = {
     const hearings = await this.getHearings();
 
     let filtered = allJudges.filter((judge) => {
-      // Filter by district/area
       const districtMatch = !input.district || !judge.district || judge.district.toLowerCase().includes(input.district.toLowerCase());
-      
-      // Filter by case type specialization
       const caseTypeMatch = !input.caseType || judge.category === input.caseType || (judge.specializations?.includes(input.caseType) ?? false);
-
-      // Filter by availability status
       const availabilityMatch = !input.onlyAvailable || judge.availability === "Available";
-
       return districtMatch && caseTypeMatch && availabilityMatch;
     });
 
-    // If date is provided, filter out judges with hearings on that date
     if (input.date) {
       filtered = filtered.map((judge) => {
         const hearingsOnDate = hearings.filter(
@@ -737,16 +687,11 @@ export const dataService = {
     }
 
     return filtered.sort((a, b) => {
-      // Sort by availability first
       const availOrder = { "Available": 0, "Busy": 1, "On Leave": 2 };
       const availDiff = (availOrder[a.availability] ?? 3) - (availOrder[b.availability] ?? 3);
       if (availDiff !== 0) return availDiff;
-
-      // Then by current case load (lower is better)
       const loadDiff = a.currentCaseLoad - b.currentCaseLoad;
       if (loadDiff !== 0) return loadDiff;
-
-      // Then by experience (higher is better)
       return b.yearsOfExperience - a.yearsOfExperience;
     });
   },
@@ -809,9 +754,6 @@ export const dataService = {
     return counts;
   },
 
-  /**
-   * Hearing Management.
-   */
   async getHearings(filters?: { caseId?: string; judgeId?: string }): Promise<HearingSchedule[]> {
     const params = new URLSearchParams();
     if (filters?.caseId) params.set("caseId", filters.caseId);
@@ -820,6 +762,8 @@ export const dataService = {
     if (fromApi && Array.isArray(fromApi)) return fromApi;
     return [];
   },
+
+  async getAllHearings() { return this.getHearings(); },
 
   async getHearingsByJudgeId(judgeId: string): Promise<HearingSchedule[]> {
     return this.getHearings({ judgeId });
@@ -834,6 +778,9 @@ export const dataService = {
     return hearing;
   },
 
+  async addHearing(h: HearingSchedule) { return this.scheduleHearing(h); },
+  async createHearing(h: HearingSchedule) { return this.scheduleHearing(h); },
+
   async updateHearing(hearingId: string, updates: Partial<HearingSchedule>): Promise<Partial<HearingSchedule>> {
     const fromApi = (await this._requestJson(`/api/hearings/${encodeURIComponent(hearingId)}`, {
       method: "PUT",
@@ -843,15 +790,17 @@ export const dataService = {
     return updates;
   },
 
+  async editHearing(id: string, u: Partial<HearingSchedule>) { return this.updateHearing(id, u); },
+
   async cancelHearing(hearingId: string): Promise<void> {
     await this._requestJson(`/api/hearings/${encodeURIComponent(hearingId)}`, {
       method: "DELETE",
     });
   },
 
-  /**
-   * Schedule hearing using an assignment context.
-   */
+  async removeHearing(id: string) { return this.cancelHearing(id); },
+  async deleteHearing(id: string) { return this.cancelHearing(id); },
+
   async scheduleHearingForAssignment(input: {
     caseId: string;
     caseTitle: string;
@@ -869,12 +818,11 @@ export const dataService = {
       id: `hearing-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       ...input,
       status: "Scheduled",
+      notes: input.notes || "",
     };
     return this.scheduleHearing(hearing);
   },
 };
-
-// ── Private Helper Functions ────────────────────────────────────────────────
 
 function extractSegment(text: string, label: string): string {
   const source = text || "";
@@ -927,7 +875,6 @@ function extractFinalVerdict(judgmentText: string): string {
   const normalized = normalizeText(judgmentText);
   if (!normalized) return "Unknown";
 
-  // Legacy dataset uses Decision: 0/1 markers for outcomes.
   if (/^(1|1\.0)$/.test(normalized) || /\bdecision\s*:\s*1(?:\.0)?\b/i.test(normalized)) return "Allowed";
   if (/^(0|0\.0)$/.test(normalized) || /\bdecision\s*:\s*0(?:\.0)?\b/i.test(normalized)) return "Dismissed";
 
@@ -1200,7 +1147,7 @@ function rankJudgesForAssessment(
   judges: JudgeProfile[],
   filename: string,
   sections: Section[]
-) {
+): JudgeRecommendation[] {
   const category = toJudgeCategory(assessment.caseType);
   return judges
     .filter((j) => j.category === category)
@@ -1208,13 +1155,11 @@ function rankJudgesForAssessment(
       judgeId: j.id,
       judgeName: j.name,
       score: 80 + Math.round(Math.random() * 15),
+      utilization: Math.round((j.currentCaseLoad / j.caseLoadCapacity) * 100),
+      availability: j.availability,
       reason: `Assigned based on specialization in ${category} law and available capacity.`,
     }))
     .sort((a, b) => b.score - a.score);
-}
-
-function buildFIRTextFromSections(filename: string, sections: Section[]): string {
-  return [filename, ...sections.map((s) => `${s.title} ${s.summary}`)].join(" ");
 }
 
 function buildTrendingTopics(cases: CaseResult[]) {

@@ -30,7 +30,7 @@ const JUDGES = [
 const PRIORITY_ORDER = { P0: 0, P1: 1, P2: 2, P3: 3 };
 
 export default function JudgeAssignmentCenter() {
-  const { managedCases, updateManagedCase } = useAuth();
+  const { user, managedCases, updateManagedCase } = useAuth();
   const { addHearing } = useSearch();
   const [selectedCase, setSelectedCase] = useState<ManagedCase | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>("unassigned");
@@ -187,8 +187,23 @@ export default function JudgeAssignmentCenter() {
           caseTitle: selectedCase.title,
           assignedJudgeId: `judge-${judgeToAssign.toLowerCase().replace(/\s+/g, "-")}`,
           assignedJudgeName: judgeToAssign,
+          localCourtName: `${selectedDistrict} District Court`,
+          courtRoom: "Court Room 1",
+          state: "Karnataka",
+          district: selectedDistrict,
+          hearingDate: normalizeDateDMY(new Date().toISOString()),
+          hearingTime: "10:30",
           notes: `Case assigned to ${judgeToAssign}. Priority: ${selectedCase.priorityBand}. Risk Level: ${getSeverityLevel(selectedCase)}`,
-        });
+          // Add missing ManagedCase fields if required by param type
+          status: "New",
+          uploadedBy: user?.name || "Staff",
+          priorityScore: 50,
+          priorityBand: "P2",
+          bailRiskScore: 0,
+          escapeRiskScore: 0,
+          riskScore: 0,
+          publicDefenderStatus: "Not Required"
+        } as any);
 
         addHearing(hearing);
 
@@ -204,7 +219,7 @@ export default function JudgeAssignmentCenter() {
         setIsAssigning(false);
       }
     },
-    [selectedCase, updateManagedCase, addHearing, assignmentMessage]
+    [selectedCase, user, updateManagedCase, addHearing, assignmentMessage, selectedDistrict, normalizeDateDMY]
   );
 
   return (
@@ -408,7 +423,7 @@ export default function JudgeAssignmentCenter() {
                   {/* Judge Availability & Scheduling Controls */}
                   <div className="mb-6 glass-panel rounded-2xl p-6 border border-primary/20">
                     <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                      <Users className="w-5 h-5 text-primary" /> Check Judge Availability
+                      <User className="w-5 h-5 text-primary" /> Check Judge Availability
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

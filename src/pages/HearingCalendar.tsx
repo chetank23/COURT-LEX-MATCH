@@ -484,7 +484,7 @@ export default function HearingCalendar() {
   const handleDelete = async (id: string) => {
     try {
       await dataService.removeHearing(id);
-      deleteHearing(id); // Keep context in sync just in case
+      deleteHearing(id); 
       fetchHearings();
     } catch (error) {
       console.error("Failed to delete hearing", error);
@@ -523,7 +523,6 @@ export default function HearingCalendar() {
     <div className="min-h-screen relative">
       <div className="fixed inset-0 dot-grid opacity-30" />
       <div className="relative z-10 pt-24 pb-12 px-6 max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-display font-bold gradient-text">Hearing Calendar</h1>
@@ -538,7 +537,6 @@ export default function HearingCalendar() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Calendar Section */}
           <div className="lg:col-span-2">
             <div className="glass-panel rounded-2xl p-6">
               <div className="flex items-center justify-between mb-6">
@@ -567,7 +565,6 @@ export default function HearingCalendar() {
                 </div>
               </div>
 
-              {/* Month Hearings */}
               <div className="space-y-3">
                 {monthHearings.length > 0 ? (
                   monthHearings
@@ -582,7 +579,6 @@ export default function HearingCalendar() {
             </div>
           </div>
 
-          {/* Upcoming Sidebar */}
           <div>
             <div className="glass-panel rounded-2xl p-6">
               <h3 className="text-lg font-display font-bold text-foreground mb-4">Upcoming Hearings</h3>
@@ -622,7 +618,6 @@ export default function HearingCalendar() {
               </div>
             </div>
 
-            {/* Stats */}
             <div className="glass-panel rounded-2xl p-6 mt-4">
               <h3 className="text-sm font-display font-bold text-foreground mb-4">Statistics</h3>
               <div className="space-y-2">

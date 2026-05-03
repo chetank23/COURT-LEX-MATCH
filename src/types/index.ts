@@ -84,8 +84,8 @@ export interface JudgeRecommendation {
   judgeId?: string;
   judgeName: string;
   score: number;
-  utilization: number;
-  availability: JudgeProfile["availability"];
+  utilization?: number;
+  availability?: JudgeProfile["availability"];
   reason: string;
 }
 
@@ -131,7 +131,7 @@ export interface HearingSchedule {
   district: string;
   localCourtName: string;
   status: "Scheduled" | "Ongoing" | "Completed" | "Postponed";
-  notes: string;
+  notes?: string;
 }
 
 export interface RagSource {
