@@ -12,6 +12,9 @@ import {
   Users,
   AlertCircle,
   CheckCircle,
+  ChevronDown,
+  Gavel,
+  BookOpen,
 } from "lucide-react";
 import { CaseResult, JudgeProfile, RagQueryResponse } from "@/types";
 import { dataService } from "@/services/dataService";
@@ -169,6 +172,153 @@ const ResultCard = memo(function ResultCard({
                   <p>{result.whyMatch || result.whyMatched}</p>
                 </div>
               ) : null}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+});
+
+// ── SourceCard: click-to-expand RAG source with full case details ───────────
+const SourceCard = memo(function SourceCard({
+  source,
+  index,
+}: {
+  source: {
+    caseId: string;
+    title: string;
+    court?: string;
+    year?: number;
+    type?: string;
+    finalVerdict?: string;
+    section?: string;
+    score?: number;
+    excerpt?: string;
+  };
+  index: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const scoreInt = Math.round((source.score || 0) * 100);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.07 }}
+      className="rounded-xl border border-border bg-background/60 overflow-hidden"
+    >
+      {/* Header row — always visible, click to expand */}
+      <button
+        id={`source-card-${source.caseId}-${index}`}
+        onClick={() => setOpen((o) => !o)}
+        className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-muted/30 transition-colors cursor-pointer group"
+      >
+        {/* Rank badge */}
+        <span className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center">
+          {index + 1}
+        </span>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">
+            {source.title || "Untitled Case"}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {[source.court, source.year, source.type].filter(Boolean).join(" · ")}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+            {scoreInt}% match
+          </span>
+          <motion.div
+            animate={{ rotate: open ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          </motion.div>
+        </div>
+      </button>
+
+      {/* Expandable detail panel */}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="detail"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-1 border-t border-border/60 space-y-3">
+
+              {/* Judgment / Decision */}
+              {source.finalVerdict ? (
+                <div className="rounded-lg bg-primary/5 border border-primary/15 p-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Gavel className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
+                      Judgment / Decision
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    {source.finalVerdict}
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-muted/30 border border-border p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Gavel className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Judgment / Decision
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    Judgment text not available for this case.
+                  </p>
+                </div>
+              )}
+
+              {/* Excerpt / Chunk text */}
+              {source.excerpt && source.excerpt.length > 10 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Retrieved Passage
+                    </span>
+                  </div>
+                  <p className="text-xs text-foreground/80 leading-relaxed bg-muted/20 rounded-lg p-3 border border-border">
+                    {source.excerpt}
+                  </p>
+                </div>
+              )}
+
+              {/* Meta row */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {source.section && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
+                    Section: {source.section}
+                  </span>
+                )}
+                {source.type && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/20 text-accent-foreground">
+                    {source.type}
+                  </span>
+                )}
+                {source.court && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
+                    {source.court}
+                  </span>
+                )}
+                {source.year && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
+                    {source.year}
+                  </span>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -715,21 +865,11 @@ export default function AISearchLab() {
                       ) : (
                         <div className="space-y-2">
                           {ragResponse.sources.slice(0, 5).map((source, index) => (
-                            <div
+                            <SourceCard
                               key={`${source.caseId}-${index}`}
-                              className="rounded-lg border border-border bg-background/60 p-3"
-                            >
-                              <div className="flex items-center justify-between gap-2 mb-1">
-                                <p className="text-sm font-semibold text-foreground line-clamp-1">{source.title}</p>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
-                                  Score {Math.round((source.score || 0) * 100)}
-                                </span>
-                              </div>
-                              <p className="text-xs text-muted-foreground mb-1">
-                                {source.court} · {source.year} · {source.section}
-                              </p>
-                              <p className="text-xs text-foreground/80 line-clamp-2">{source.excerpt}</p>
-                            </div>
+                              source={source}
+                              index={index}
+                            />
                           ))}
                         </div>
                       )}

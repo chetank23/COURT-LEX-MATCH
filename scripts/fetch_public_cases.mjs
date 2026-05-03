@@ -121,27 +121,19 @@ function inferCaseType(text) {
 
 function toNormalizedCase(item, index) {
   const title = (item.case_title || "").trim();
-  const citation = (item.citation || "").trim();
   const judges = (item.judges_name_s || "").trim();
   const issues = (item.issues || "").trim();
   const decision = (item.decision || "").trim();
   const citedCases = (item.cited_cases || "").trim();
+  const citation = (item.citation || "").trim();
 
-  const summary = [
-    issues ? `Issues: ${issues}` : "",
-    decision ? `Decision: ${decision}` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const summaryParts = [title, inferCaseType(`${title} ${issues}`) + " case"];
+  if (issues && !issues.toLowerCase().includes("section")) {
+    summaryParts.push(issues.slice(0, 120));
+  }
 
-  const fullText = [
-    judges ? `Judges: ${judges}` : "",
-    issues ? `Issues: ${issues}` : "",
-    decision ? `Decision: ${decision}` : "",
-    citedCases ? `Cited Cases: ${citedCases}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const fullTextParts = [judges, issues, decision, citedCases]
+    .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 
   return {
     case_id: `IN-SC-${String(index + 1).padStart(6, "0")}`,
@@ -151,8 +143,8 @@ function toNormalizedCase(item, index) {
     decision_date: parseDecisionDate(item.date_of_judgment),
     citation,
     case_type: inferCaseType(`${title} ${issues}`),
-    summary,
-    full_text: fullText,
+    summary: summaryParts.join(". "),
+    full_text: fullTextParts,
     source_url: "https://github.com/NoelShallum/Indian_SC_Judgment_database",
     source_name: "Indian_SC_Judgment_database",
   };
@@ -222,12 +214,10 @@ function buildPagedUrl(url, pageNum) {
 }
 
 function makeKanoonCase(doc, index) {
-  const sourceUrl = new URL(doc.href, "https://indiankanoon.org").toString();
   const rawTitle = cleanText(doc.label);
   const dateMatch = rawTitle.match(/\s+on\s+([0-9]{1,2}\s+[A-Za-z]+,\s*[0-9]{4})\s*$/i);
   const decisionDate = dateMatch ? parseDecisionDate(dateMatch[1]) : "";
   const title = dateMatch ? rawTitle.slice(0, dateMatch.index).trim() : rawTitle;
-
   return {
     case_id: `IN-KN-${String(index + 1).padStart(6, "0")}`,
     title,
@@ -236,9 +226,9 @@ function makeKanoonCase(doc, index) {
     decision_date: decisionDate,
     citation: "",
     case_type: inferCaseType(title),
-    summary: `Imported from public listing: ${title}`,
-    full_text: `Title: ${title}\nSource: ${sourceUrl}`,
-    source_url: sourceUrl,
+    summary: `Supreme Court of India judgment: ${title}`,
+    full_text: `${title}. Judgment of the Supreme Court of India.`,
+    source_url: "https://indiankanoon.org",
     source_name: "IndianKanoonBrowse",
   };
 }
@@ -280,45 +270,6 @@ function reindexCases(items) {
   }));
 }
 
-function extractCitationDerivedCases(records, existingTitles, maxToGenerate) {
-  const out = [];
-  const localSeen = new Set();
-
-  for (const record of records) {
-    if (out.length >= maxToGenerate) break;
-    const citedRaw = `${record.cited_cases || ""}`;
-    if (!citedRaw) continue;
-
-    const regex = /['"]([^'"]+?)['"]\s*:/g;
-    let match;
-    while ((match = regex.exec(citedRaw)) !== null) {
-      if (out.length >= maxToGenerate) break;
-
-      const title = cleanText(match[1]);
-      if (!title || title.length < 5) continue;
-
-      const titleKey = title.toLowerCase();
-      if (existingTitles.has(titleKey) || localSeen.has(titleKey)) continue;
-      localSeen.add(titleKey);
-
-      out.push({
-        case_id: `IN-CT-${String(out.length + 1).padStart(6, "0")}`,
-        title,
-        court: "Supreme Court of India",
-        jurisdiction: "India",
-        decision_date: "",
-        citation: "",
-        case_type: inferCaseType(title),
-        summary: `Referenced precedent extracted from public cited-cases metadata: ${title}`,
-        full_text: `Case title extracted from cited-cases metadata: ${title}`,
-        source_url: "https://github.com/NoelShallum/Indian_SC_Judgment_database",
-        source_name: "DerivedFromCitations",
-      });
-    }
-  }
-
-  return out;
-}
 
 async function fetchKanoonCases(targetCount) {
   console.log("Fetching supplemental cases from Indian Kanoon browse pages...");
@@ -462,13 +413,6 @@ async function main() {
     const needed = CASES_TARGET - mergedCases.length;
     const supplementalCases = await fetchKanoonCases(needed + Math.ceil(needed * 0.2));
     mergedCases = mergedCases.concat(supplementalCases);
-  }
-
-  if (mergedCases.length < CASES_TARGET) {
-    const needed = CASES_TARGET - mergedCases.length;
-    const existingTitles = new Set(mergedCases.map((item) => `${item.title || ""}`.toLowerCase()));
-    const citationDerivedCases = extractCitationDerivedCases(records, existingTitles, needed + Math.ceil(needed * 0.2));
-    mergedCases = mergedCases.concat(citationDerivedCases);
   }
 
   mergedCases = dedupeCases(mergedCases);

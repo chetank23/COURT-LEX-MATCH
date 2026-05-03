@@ -44,6 +44,14 @@ async function main() {
   const ragIndex = buildRagIndex(mappedCases);
   const serialized = serializeRagIndex(ragIndex);
 
+  serialized.chunks = serialized.chunks.filter(chunk => {
+    const t = (chunk.text || "").toLowerCase();
+    return !t.includes("case title extracted") &&
+           !t.includes("cited-cases metadata") &&
+           !/https?:\/\//.test(t) &&
+           chunk.text.replace(/[^a-zA-Z]/g, "").length > 80;
+  });
+
   await mkdir(path.dirname(OUTPUT_PROCESSED), { recursive: true });
   await mkdir(path.dirname(OUTPUT_PUBLIC), { recursive: true });
   await writeFile(OUTPUT_PROCESSED, `${JSON.stringify(serialized)}\n`, "utf8");
