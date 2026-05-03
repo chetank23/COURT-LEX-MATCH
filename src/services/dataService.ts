@@ -908,7 +908,7 @@ function extractJudgmentText(fullText: string, decisionSegment: string, summary:
 }
 
 function normalizeText(text: string): string {
-  return `${text || ""}`.replace(/\u0000/g, " ").replace(/\s+/g, " ").trim();
+  return `${text || ""}`.split("\u0000").join(" ").replace(/\s+/g, " ").trim();
 }
 
 const VERDICT_RULES = [

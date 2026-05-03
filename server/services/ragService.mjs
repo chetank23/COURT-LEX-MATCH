@@ -108,7 +108,7 @@ const LEGAL_SYNONYMS = {
 };
 
 function normalizeText(text) {
-  return `${text || ""}`.replace(/\u0000/g, " ").replace(/\s+/g, " ").trim();
+  return `${text || ""}`.split("\u0000").join(" ").replace(/\s+/g, " ").trim();
 }
 
 function cleanTitle(title) {
