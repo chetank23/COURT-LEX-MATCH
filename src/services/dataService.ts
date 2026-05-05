@@ -9,6 +9,7 @@ import {
   HearingSchedule,
   RagQueryResponse,
   JudgeRecommendation,
+  CaseAnalysisReport,
 } from "@/types";
 import { AlertTriangle, FileText, Gavel, Layers, Scale } from "lucide-react";
 
@@ -800,6 +801,17 @@ export const dataService = {
 
   async removeHearing(id: string) { return this.cancelHearing(id); },
   async deleteHearing(id: string) { return this.cancelHearing(id); },
+
+  async analyzeCaseContext(context: string): Promise<CaseAnalysisReport> {
+    const fromApi = (await this._requestJson("/api/case-analysis", {
+      method: "POST",
+      body: JSON.stringify({ context }),
+    })) as CaseAnalysisReport | null;
+
+    if (fromApi) return fromApi;
+
+    throw new Error("Backend server not running. Start with: npm run dev:server");
+  },
 
   async scheduleHearingForAssignment(input: {
     caseId: string;

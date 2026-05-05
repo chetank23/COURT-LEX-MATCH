@@ -18,6 +18,7 @@ import JudgesManagement from "./pages/JudgesManagement";
 import HearingCalendar from "./pages/HearingCalendar";
 import Login from "./pages/Login";
 import SecureCaseWorkspace from "./pages/SecureCaseWorkspace";
+import CaseAnalysis from "./pages/CaseAnalysis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/calendar" element={<HearingCalendar />} />
               <Route path="/insights" element={<InsightsDashboard />} />
               <Route path="/priority" element={<CasePriorityDashboard />} />
+              <Route path="/analysis" element={<CaseAnalysis />} />
               <Route path="/history" element={<HistoryTimeline />} />
               <Route path="/login" element={<Login />} />
               <Route element={<ProtectedRoute />}>

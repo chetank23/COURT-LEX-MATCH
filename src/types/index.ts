@@ -162,3 +162,31 @@ export interface RagQueryResponse {
   sources: RagSource[];
   retrievedChunks: RagRetrievedChunk[];
 }
+
+export interface CaseAnalysisReport {
+  caseTitle: string;
+  caseType: string;
+  expandedScenario?: string;
+  keyFacts: string[];
+  legalIssues: string[];
+  relevantLaws: string[];
+  similarCaseReferences: Array<{
+    title: string;
+    court: string;
+    year: number;
+    similarity: number;
+    excerpt: string;
+  }>;
+  arguments: {
+    plaintiff: string;
+    defendant: string;
+  };
+  predictedOutcome: string;
+  reasoning: string;
+  priorityLevel: "HIGH" | "MEDIUM" | "LOW";
+  priorityScore: number;
+  priorityJustification: string;
+  confidenceScore: number;
+  grounded: boolean;
+  generativeNote?: string;
+}

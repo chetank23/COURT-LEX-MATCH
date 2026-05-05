@@ -516,9 +516,8 @@ export default function CaseExplorer() {
           loadedCases = searchState.matchedCases;
         }
       } else {
-        // Load all cases for exploration
-        const q = searchQuery.trim();
-        loadedCases = q ? await dataService.searchCases(q) : await dataService.getCases();
+        // Load all cases for exploration — local search filter handles text matching
+        loadedCases = await dataService.getCases();
       }
 
       if (!active) return;
@@ -530,7 +529,7 @@ export default function CaseExplorer() {
       active = false;
       clearTimeout(timeout);
     };
-  }, [searchQuery, showMatchedCases, searchState.matchedCases]);
+  }, [showMatchedCases, searchState.matchedCases]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim();

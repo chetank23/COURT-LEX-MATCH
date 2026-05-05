@@ -12,11 +12,9 @@ import {
   Users,
   AlertCircle,
   CheckCircle,
-  ChevronDown,
   Gavel,
-  BookOpen,
 } from "lucide-react";
-import { CaseResult, JudgeProfile, RagQueryResponse } from "@/types";
+import { CaseResult, JudgeProfile } from "@/types";
 import { dataService } from "@/services/dataService";
 import { useSearch } from "@/contexts/SearchContext";
 import LiveMotionBackground from "@/components/LiveMotionBackground";
@@ -180,152 +178,6 @@ const ResultCard = memo(function ResultCard({
   );
 });
 
-// ── SourceCard: click-to-expand RAG source with full case details ───────────
-const SourceCard = memo(function SourceCard({
-  source,
-  index,
-}: {
-  source: {
-    caseId: string;
-    title: string;
-    court?: string;
-    year?: number;
-    type?: string;
-    finalVerdict?: string;
-    section?: string;
-    score?: number;
-    excerpt?: string;
-  };
-  index: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const scoreInt = Math.round((source.score || 0) * 100);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.07 }}
-      className="rounded-xl border border-border bg-background/60 overflow-hidden"
-    >
-      {/* Header row — always visible, click to expand */}
-      <button
-        id={`source-card-${source.caseId}-${index}`}
-        onClick={() => setOpen((o) => !o)}
-        className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-muted/30 transition-colors cursor-pointer group"
-      >
-        {/* Rank badge */}
-        <span className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center">
-          {index + 1}
-        </span>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">
-            {source.title || "Untitled Case"}
-          </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {[source.court, source.year, source.type].filter(Boolean).join(" · ")}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
-            {scoreInt}% match
-          </span>
-          <motion.div
-            animate={{ rotate: open ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          </motion.div>
-        </div>
-      </button>
-
-      {/* Expandable detail panel */}
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="detail"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <div className="px-4 pb-4 pt-1 border-t border-border/60 space-y-3">
-
-              {/* Judgment / Decision */}
-              {source.finalVerdict ? (
-                <div className="rounded-lg bg-primary/5 border border-primary/15 p-3">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Gavel className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
-                      Judgment / Decision
-                    </span>
-                  </div>
-                  <p className="text-sm text-foreground leading-relaxed">
-                    {source.finalVerdict}
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-lg bg-muted/30 border border-border p-3">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Gavel className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Judgment / Decision
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground italic">
-                    Judgment text not available for this case.
-                  </p>
-                </div>
-              )}
-
-              {/* Excerpt / Chunk text */}
-              {source.excerpt && source.excerpt.length > 10 && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Retrieved Passage
-                    </span>
-                  </div>
-                  <p className="text-xs text-foreground/80 leading-relaxed bg-muted/20 rounded-lg p-3 border border-border">
-                    {source.excerpt}
-                  </p>
-                </div>
-              )}
-
-              {/* Meta row */}
-              <div className="flex flex-wrap gap-2 pt-1">
-                {source.section && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
-                    Section: {source.section}
-                  </span>
-                )}
-                {source.type && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/20 text-accent-foreground">
-                    {source.type}
-                  </span>
-                )}
-                {source.court && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
-                    {source.court}
-                  </span>
-                )}
-                {source.year && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
-                    {source.year}
-                  </span>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-});
 
 export default function AISearchLab() {
   const { state, setAISearchData, addHearing } = useSearch();
@@ -346,10 +198,7 @@ export default function AISearchLab() {
   const [scheduleFeedback, setScheduleFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isScheduling, setIsScheduling] = useState(false);
   const [schedulingJudgeId, setSchedulingJudgeId] = useState<string | null>(null);
-  const [ragQuestion, setRagQuestion] = useState(state.aiSearchQuery || "");
-  const [ragResponse, setRagResponse] = useState<RagQueryResponse | null>(null);
-  const [isRagLoading, setIsRagLoading] = useState(false);
-  const [ragError, setRagError] = useState<string | null>(null);
+
   const [promptOffset, setPromptOffset] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -382,29 +231,10 @@ export default function AISearchLab() {
 
   const handleSearch = useCallback(() => {
     if (!query.trim()) return;
-    setRagQuestion(query.trim());
-    setRagResponse(null);
-    setRagError(null);
     setPhase("choice");
   }, [query]);
 
-  const handleRagAsk = useCallback(async () => {
-    const question = `${ragQuestion || query}`.trim();
-    if (!question) return;
 
-    setIsRagLoading(true);
-    setRagError(null);
-    try {
-      const response = await dataService.queryRag(question, 8);
-      setRagResponse(response);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to fetch RAG answer.";
-      setRagError(message);
-      setRagResponse(null);
-    } finally {
-      setIsRagLoading(false);
-    }
-  }, [query, ragQuestion]);
 
   const startAnalysis = useCallback(
     async (mode: WorkflowMode) => {
@@ -447,9 +277,6 @@ export default function AISearchLab() {
     setSchedulingDate("");
     setSchedulingTime("10:30");
     setScheduleFeedback(null);
-    setRagQuestion("");
-    setRagResponse(null);
-    setRagError(null);
   }, []);
 
   const normalizeDateDMY = useCallback((rawValue: string) => {
@@ -800,83 +627,6 @@ export default function AISearchLab() {
                 </p>
               </motion.div>
 
-              {/* RAG Answer Panel */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-8 glass-panel rounded-2xl p-6 border border-primary/20"
-              >
-                <h3 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-primary" /> Ask RAG (Grounded Answer)
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Ask a legal question to get an answer grounded in retrieved case chunks.
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                  <input
-                    type="text"
-                    value={ragQuestion}
-                    onChange={(e) => setRagQuestion(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleRagAsk()}
-                    placeholder="Ask a legal question..."
-                    className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
-                  />
-                  <button
-                    onClick={handleRagAsk}
-                    disabled={isRagLoading || !`${ragQuestion || query}`.trim()}
-                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-                  >
-                    {isRagLoading ? "Getting Answer..." : "Get RAG Answer"}
-                  </button>
-                </div>
-
-                {ragError ? (
-                  <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>{ragError}</span>
-                  </div>
-                ) : null}
-
-                {ragResponse ? (
-                  <div className="space-y-4">
-                    <div className="rounded-lg border border-border bg-card/60 p-4">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            ragResponse.grounded
-                              ? "bg-green-500/15 text-green-700"
-                              : "bg-yellow-500/15 text-yellow-700"
-                          }`}
-                        >
-                          {ragResponse.grounded ? "Grounded" : "Low Grounding"}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
-                          Confidence {ragResponse.confidence}%
-                        </span>
-                      </div>
-                      <p className="text-sm text-foreground leading-relaxed">{ragResponse.answer}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-2">SOURCES</p>
-                      {ragResponse.sources.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No sources returned for this question.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {ragResponse.sources.slice(0, 5).map((source, index) => (
-                            <SourceCard
-                              key={`${source.caseId}-${index}`}
-                              source={source}
-                              index={index}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-              </motion.div>
 
               {/* Judge Availability & Scheduling Controls */}
               <motion.div
