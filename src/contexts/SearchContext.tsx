@@ -10,13 +10,13 @@ interface SearchState {
   // Case Lab data
   aiSearchQuery: string | null;
   aiSearchResults: CaseResult[];
-  
+
   // PDF Analyzer data
   pdfAnalysisResults: CaseResult[];
-  
+
   // Combined matched cases
   matchedCases: CaseResult[];
-  
+
   // Flag to determine if there's any user-generated data
   hasUserData: boolean;
 
@@ -58,7 +58,8 @@ interface SearchContextType {
 const SearchContext = createContext<SearchContextType | undefined>(undefined);
 
 // Generate unique session ID
-const generateSessionId = () => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const generateSessionId = () =>
+  `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 // Default state
 const defaultState: SearchState = {
@@ -139,9 +140,12 @@ export const SearchProvider = ({ children }: { children: ReactNode }) => {
         (item) =>
           item.caseId !== hearing.caseId &&
           item.hearingDate === hearing.hearingDate &&
-          normalizeHearingTime(item.hearingTime) === normalizeHearingTime(hearing.hearingTime) &&
-          normalizeHearingTime(item.localCourtName) === normalizeHearingTime(hearing.localCourtName) &&
-          normalizeHearingTime(item.courtRoom) === normalizeHearingTime(hearing.courtRoom)
+          normalizeHearingTime(item.hearingTime) ===
+            normalizeHearingTime(hearing.hearingTime) &&
+          normalizeHearingTime(item.localCourtName) ===
+            normalizeHearingTime(hearing.localCourtName) &&
+          normalizeHearingTime(item.courtRoom) ===
+            normalizeHearingTime(hearing.courtRoom),
       );
 
       if (placeTimeConflict) {
@@ -152,7 +156,8 @@ export const SearchProvider = ({ children }: { children: ReactNode }) => {
         (item) =>
           item.caseId === hearing.caseId &&
           item.hearingDate === hearing.hearingDate &&
-          normalizeHearingTime(item.hearingTime) === normalizeHearingTime(hearing.hearingTime)
+          normalizeHearingTime(item.hearingTime) ===
+            normalizeHearingTime(hearing.hearingTime),
       );
 
       if (!duplicate) {
@@ -174,7 +179,7 @@ export const SearchProvider = ({ children }: { children: ReactNode }) => {
                 hearingDate: duplicate.hearingDate,
                 hearingTime: duplicate.hearingTime,
               }
-            : item
+            : item,
         ),
       };
     });

@@ -1,6 +1,17 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Layers, FileText, Users, ShieldCheck, LogIn, LogOut, Gavel, AlertTriangle, Brain } from "lucide-react";
+import {
+  Search,
+  Layers,
+  FileText,
+  Users,
+  ShieldCheck,
+  LogIn,
+  LogOut,
+  Gavel,
+  AlertTriangle,
+  Brain,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
@@ -32,7 +43,9 @@ export default function TopNav() {
           className="px-2.5 mr-0.5 cursor-pointer"
           aria-label="Go to home page"
         >
-          <span className="text-sm font-display font-bold gradient-text">CASE UPHOLDER</span>
+          <span className="text-sm font-display font-bold gradient-text">
+            CASE UPHOLDER
+          </span>
         </button>
         {navItems.map((item) => {
           const active = location.pathname === item.path;
@@ -41,7 +54,9 @@ export default function TopNav() {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                active
+                  ? "text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {active && (
@@ -84,7 +99,6 @@ export default function TopNav() {
             </span>
           </button>
         )}
-
       </motion.nav>
     </div>
   );

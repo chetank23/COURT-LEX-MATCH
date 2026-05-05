@@ -75,7 +75,12 @@ const SEVERITY_MATRIX = [
     category: "Violent Crimes",
     color: "hsl(0,72%,51%)",
     crimes: [
-      { name: "Murder / Culpable Homicide", band: "P0", score: 96, ipc: "302/304" },
+      {
+        name: "Murder / Culpable Homicide",
+        band: "P0",
+        score: 96,
+        ipc: "302/304",
+      },
       { name: "Rape / Sexual Assault", band: "P0", score: 95, ipc: "376" },
       { name: "Acid Attack", band: "P0", score: 94, ipc: "326A" },
       { name: "Attempt to Murder", band: "P0", score: 90, ipc: "307" },
@@ -87,7 +92,12 @@ const SEVERITY_MATRIX = [
     category: "Serious Offences",
     color: "hsl(25,95%,53%)",
     crimes: [
-      { name: "Grievous Hurt / Armed Assault", band: "P1", score: 78, ipc: "326" },
+      {
+        name: "Grievous Hurt / Armed Assault",
+        band: "P1",
+        score: 78,
+        ipc: "326",
+      },
       { name: "Extortion / Dacoity", band: "P1", score: 76, ipc: "383/395" },
       { name: "Rioting with Weapons", band: "P1", score: 74, ipc: "148" },
       { name: "Major Financial Fraud", band: "P1", score: 72, ipc: "420/467" },
@@ -98,7 +108,12 @@ const SEVERITY_MATRIX = [
     category: "Moderate Offences",
     color: "hsl(45,93%,47%)",
     crimes: [
-      { name: "Cheating / Breach of Trust", band: "P2", score: 58, ipc: "406/420" },
+      {
+        name: "Cheating / Breach of Trust",
+        band: "P2",
+        score: 58,
+        ipc: "406/420",
+      },
       { name: "Domestic Violence", band: "P2", score: 62, ipc: "498A" },
       { name: "Threatening / Intimidation", band: "P2", score: 55, ipc: "506" },
       { name: "Theft / Burglary", band: "P2", score: 52, ipc: "379/457" },
@@ -110,9 +125,24 @@ const SEVERITY_MATRIX = [
     color: "hsl(142,71%,45%)",
     crimes: [
       { name: "Contractual Disputes", band: "P3", score: 35, ipc: "Civil" },
-      { name: "Property Boundary Disputes", band: "P3", score: 30, ipc: "Civil" },
-      { name: "Family / Matrimonial Matters", band: "P3", score: 38, ipc: "Hindu MA" },
-      { name: "Minor Traffic Violations", band: "P3", score: 22, ipc: "MV Act" },
+      {
+        name: "Property Boundary Disputes",
+        band: "P3",
+        score: 30,
+        ipc: "Civil",
+      },
+      {
+        name: "Family / Matrimonial Matters",
+        band: "P3",
+        score: 38,
+        ipc: "Hindu MA",
+      },
+      {
+        name: "Minor Traffic Violations",
+        band: "P3",
+        score: 22,
+        ipc: "MV Act",
+      },
     ],
   },
 ];
@@ -130,12 +160,24 @@ function getPriorityColor(score: number): string {
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────
-function ScoreBar({ value, color, label }: { value: number; color: string; label: string }) {
+function ScoreBar({
+  value,
+  color,
+  label,
+}: {
+  value: number;
+  color: string;
+  label: string;
+}) {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
-        <span className="text-xs font-bold" style={{ color }}>{value}/100</span>
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+          {label}
+        </span>
+        <span className="text-xs font-bold" style={{ color }}>
+          {value}/100
+        </span>
       </div>
       <div className="h-2 rounded-full bg-muted overflow-hidden">
         <motion.div
@@ -174,16 +216,26 @@ function PriorityBandCard({
       }`}
     >
       <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${config.bg}`}>
+        <div
+          className={`w-10 h-10 rounded-xl flex items-center justify-center ${config.bg}`}
+        >
           <Icon className={`w-5 h-5 ${config.text}`} />
         </div>
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full text-white ${config.badgeBg}`}>
+        <span
+          className={`text-xs font-bold px-2 py-0.5 rounded-full text-white ${config.badgeBg}`}
+        >
           {config.band}
         </span>
       </div>
-      <p className={`text-2xl font-display font-bold ${config.text}`}>{count}</p>
-      <p className="text-sm font-semibold text-foreground mt-0.5">{config.label} Priority</p>
-      <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{config.description}</p>
+      <p className={`text-2xl font-display font-bold ${config.text}`}>
+        {count}
+      </p>
+      <p className="text-sm font-semibold text-foreground mt-0.5">
+        {config.label} Priority
+      </p>
+      <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+        {config.description}
+      </p>
     </motion.button>
   );
 }
@@ -203,17 +255,26 @@ function SeverityMatrixRow({
     >
       <Icon className={`w-4 h-4 flex-shrink-0 ${bandConfig.text}`} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">{crime.name}</p>
-        <p className="text-[11px] text-muted-foreground">IPC / Act: {crime.ipc}</p>
+        <p className="text-sm font-medium text-foreground truncate">
+          {crime.name}
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          IPC / Act: {crime.ipc}
+        </p>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
           <div
             className="h-full rounded-full"
-            style={{ width: `${crime.score}%`, background: getPriorityColor(crime.score) }}
+            style={{
+              width: `${crime.score}%`,
+              background: getPriorityColor(crime.score),
+            }}
           />
         </div>
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${bandConfig.bg} ${bandConfig.text}`}>
+        <span
+          className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${bandConfig.bg} ${bandConfig.text}`}
+        >
           {crime.band}
         </span>
       </div>
@@ -227,7 +288,9 @@ export default function CasePriorityDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBand, setSelectedBand] = useState<string | null>(null);
   const [selectedCase, setSelectedCase] = useState<CaseResult | null>(null);
-  const [expandedCategory, setExpandedCategory] = useState<string | null>("Violent Crimes");
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(
+    "Violent Crimes",
+  );
 
   useEffect(() => {
     dataService.getCases().then((data) => {
@@ -250,7 +313,7 @@ export default function CasePriorityDashboard() {
       ? cases.filter((c) => (c.priorityBand ?? "P3") === selectedBand)
       : cases;
     return [...list].sort(
-      (a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0)
+      (a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0),
     );
   }, [cases, selectedBand]);
 
@@ -261,18 +324,26 @@ export default function CasePriorityDashboard() {
     <div className="min-h-screen relative">
       <div className="fixed inset-0 dot-grid opacity-30" />
       <div className="relative z-10 pt-24 pb-16 px-4 max-w-7xl mx-auto">
-
         {/* ── Header ── */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="glass-panel rounded-2xl p-6 md:p-8 mb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-panel rounded-2xl p-6 md:p-8 mb-8"
+        >
           <div className="flex items-center gap-3 mb-1">
             <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center">
               <SlidersHorizontal className="w-6 h-6 text-red-500" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-red-500">Priority System</p>
-              <h1 className="text-3xl font-display font-bold text-foreground">Case Priority Dashboard</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-red-500">
+                Priority System
+              </p>
+              <h1 className="text-3xl font-display font-bold text-foreground">
+                Case Priority Dashboard
+              </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Crime severity–based priority assignment for efficient judicial resource allocation
+                Crime severity–based priority assignment for efficient judicial
+                resource allocation
               </p>
             </div>
           </div>
@@ -285,10 +356,15 @@ export default function CasePriorityDashboard() {
               { label: "High (P1)", value: bandCounts.P1, icon: ShieldAlert },
               { label: "Critical Share", value: `${p0Pct}%`, icon: TrendingUp },
             ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted/40">
+              <div
+                key={label}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted/40"
+              >
                 <Icon className="w-4 h-4 text-primary" />
                 <span className="text-xs text-muted-foreground">{label}:</span>
-                <span className="text-sm font-bold text-foreground">{value}</span>
+                <span className="text-sm font-bold text-foreground">
+                  {value}
+                </span>
               </div>
             ))}
           </div>
@@ -308,7 +384,9 @@ export default function CasePriorityDashboard() {
                 count={bandCounts[config.band] ?? 0}
                 isSelected={selectedBand === config.band}
                 onClick={() =>
-                  setSelectedBand((prev) => (prev === config.band ? null : config.band))
+                  setSelectedBand((prev) =>
+                    prev === config.band ? null : config.band,
+                  )
                 }
               />
             </motion.div>
@@ -325,7 +403,9 @@ export default function CasePriorityDashboard() {
           >
             <div className="flex items-center gap-2 mb-5">
               <AlertTriangle className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-display font-bold text-foreground">Crime Severity Matrix</h2>
+              <h2 className="text-lg font-display font-bold text-foreground">
+                Crime Severity Matrix
+              </h2>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
               Priority bands assigned by crime type and severity level
@@ -335,14 +415,23 @@ export default function CasePriorityDashboard() {
                 <div key={cat.category}>
                   <button
                     onClick={() =>
-                      setExpandedCategory((p) => (p === cat.category ? null : cat.category))
+                      setExpandedCategory((p) =>
+                        p === cat.category ? null : cat.category,
+                      )
                     }
                     className="w-full flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/40 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ background: cat.color }} />
-                      <span className="text-sm font-semibold text-foreground">{cat.category}</span>
-                      <span className="text-[10px] text-muted-foreground">({cat.crimes.length})</span>
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: cat.color }}
+                      />
+                      <span className="text-sm font-semibold text-foreground">
+                        {cat.category}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        ({cat.crimes.length})
+                      </span>
                     </div>
                     {expandedCategory === cat.category ? (
                       <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -387,7 +476,9 @@ export default function CasePriorityDashboard() {
               <div className="flex items-center gap-2">
                 <Gavel className="w-5 h-5 text-primary" />
                 <h2 className="text-lg font-display font-bold text-foreground">
-                  {selectedBand ? `${selectedBand} Case Queue` : "All Cases by Priority"}
+                  {selectedBand
+                    ? `${selectedBand} Case Queue`
+                    : "All Cases by Priority"}
                 </h2>
               </div>
               {selectedBand && (
@@ -425,23 +516,39 @@ export default function CasePriorityDashboard() {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${bc.bg}`}>
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${bc.bg}`}
+                        >
                           <Icon className={`w-4 h-4 ${bc.text}`} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{c.title}</p>
+                          <p className="text-sm font-semibold text-foreground truncate">
+                            {c.title}
+                          </p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-muted-foreground">{c.type}</span>
-                            <span className="text-[10px] text-muted-foreground">·</span>
-                            <span className="text-[10px] text-muted-foreground">{c.court}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {c.type}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              ·
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {c.court}
+                            </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <div className="text-right">
-                            <p className={`text-sm font-bold ${bc.text}`}>{c.priorityScore ?? 0}</p>
-                            <p className="text-[10px] text-muted-foreground">score</p>
+                            <p className={`text-sm font-bold ${bc.text}`}>
+                              {c.priorityScore ?? 0}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              score
+                            </p>
                           </div>
-                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${bc.bg} ${bc.text}`}>
+                          <span
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${bc.bg} ${bc.text}`}
+                          >
                             {band}
                           </span>
                         </div>
@@ -457,7 +564,9 @@ export default function CasePriorityDashboard() {
                             className="overflow-hidden"
                           >
                             <div className="mt-3 pt-3 border-t border-border space-y-2">
-                              <p className="text-xs text-muted-foreground leading-relaxed">{c.summary}</p>
+                              <p className="text-xs text-muted-foreground leading-relaxed">
+                                {c.summary}
+                              </p>
                               <ScoreBar
                                 value={c.priorityScore ?? 0}
                                 color={getPriorityColor(c.priorityScore ?? 0)}
@@ -511,7 +620,9 @@ export default function CasePriorityDashboard() {
         >
           <div className="flex items-center gap-2 mb-5">
             <Activity className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-display font-bold text-foreground">How Priority Scoring Works</h2>
+            <h2 className="text-lg font-display font-bold text-foreground">
+              How Priority Scoring Works
+            </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
@@ -540,9 +651,14 @@ export default function CasePriorityDashboard() {
                 desc: "Citation strength, tax / regulatory penalty signals",
               },
             ].map((item) => (
-              <div key={item.label} className="rounded-xl bg-muted/30 p-4 border border-border">
+              <div
+                key={item.label}
+                className="rounded-xl bg-muted/30 p-4 border border-border"
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-foreground">{item.label}</span>
+                  <span className="text-sm font-semibold text-foreground">
+                    {item.label}
+                  </span>
                   <span
                     className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
                     style={{ background: item.color }}
@@ -550,7 +666,9 @@ export default function CasePriorityDashboard() {
                     {item.weight}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {item.desc}
+                </p>
                 <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full rounded-full"
@@ -565,7 +683,17 @@ export default function CasePriorityDashboard() {
           </div>
           <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/10 text-xs text-muted-foreground leading-relaxed">
             <strong className="text-primary">Priority Band Thresholds: </strong>
-            Score ≥85 → <span className="text-red-500 font-semibold">P0 Critical</span> · Score ≥70 → <span className="text-orange-500 font-semibold">P1 High</span> · Score ≥50 → <span className="text-yellow-500 font-semibold">P2 Medium</span> · Below 50 → <span className="text-emerald-500 font-semibold">P3 Low</span>. FIR severity further modulates scores using crime-type classification (Criminal → +42pts base, Specialized → +34pts, Civil → +26pts) plus bail risk and escape risk sub-scores.
+            Score ≥85 →{" "}
+            <span className="text-red-500 font-semibold">P0 Critical</span> ·
+            Score ≥70 →{" "}
+            <span className="text-orange-500 font-semibold">P1 High</span> ·
+            Score ≥50 →{" "}
+            <span className="text-yellow-500 font-semibold">P2 Medium</span> ·
+            Below 50 →{" "}
+            <span className="text-emerald-500 font-semibold">P3 Low</span>. FIR
+            severity further modulates scores using crime-type classification
+            (Criminal → +42pts base, Specialized → +34pts, Civil → +26pts) plus
+            bail risk and escape risk sub-scores.
           </div>
         </motion.div>
       </div>

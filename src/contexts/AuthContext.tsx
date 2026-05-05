@@ -51,8 +51,13 @@ interface AuthContextType {
   logout: () => void;
   managedCases: ManagedCase[];
   isManagedCasesLoading: boolean;
-  upsertManagedCase: (caseItem: Omit<ManagedCase, "updatedAt">) => Promise<void>;
-  updateManagedCase: (id: string, updates: Partial<ManagedCase>) => Promise<void>;
+  upsertManagedCase: (
+    caseItem: Omit<ManagedCase, "updatedAt">,
+  ) => Promise<void>;
+  updateManagedCase: (
+    id: string,
+    updates: Partial<ManagedCase>,
+  ) => Promise<void>;
   refreshManagedCases: () => Promise<void>;
 }
 
@@ -117,7 +122,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 async function apiFetch<T>(
   path: string,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<T | null> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
@@ -136,7 +141,9 @@ async function apiFetch<T>(
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [managedCases, setManagedCases] = useState<ManagedCase[]>(FALLBACK_MANAGED_CASES);
+  const [managedCases, setManagedCases] = useState<ManagedCase[]>(
+    FALLBACK_MANAGED_CASES,
+  );
   const [isManagedCasesLoading, setIsManagedCasesLoading] = useState(false);
   const fetchedRef = useRef(false);
 
@@ -165,12 +172,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const foundUser = DEMO_USERS.find(
       (c) =>
         c.email.toLowerCase() === email.trim().toLowerCase() &&
-        c.password === password
+        c.password === password,
     );
     if (!foundUser) {
       return {
         ok: false,
-        error: "Invalid credentials. Use judge@court.ai / judge123 or staff@court.ai / staff123",
+        error:
+          "Invalid credentials. Use judge@court.ai / judge123 or staff@court.ai / staff123",
       };
     }
     const { password: _ignored, ...safeUser } = foundUser;
@@ -189,9 +197,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setManagedCases((prev) => {
         const exists = prev.find((e) => e.id === caseItem.id);
         if (exists) {
-          return prev.map((e) =>
-            e.id === caseItem.id ? full : e
-          );
+          return prev.map((e) => (e.id === caseItem.id ? full : e));
         }
         return [full, ...prev];
       });
@@ -199,10 +205,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Persist to API
       const existing = managedCases.find((c) => c.id === caseItem.id);
       if (existing) {
-        await apiFetch(`/api/managed-cases/${encodeURIComponent(caseItem.id)}`, {
-          method: "PUT",
-          body: JSON.stringify(caseItem),
-        });
+        await apiFetch(
+          `/api/managed-cases/${encodeURIComponent(caseItem.id)}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(caseItem),
+          },
+        );
       } else {
         await apiFetch("/api/managed-cases", {
           method: "POST",
@@ -210,7 +219,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
     },
-    [managedCases]
+    [managedCases],
   );
 
   const updateManagedCase = useCallback(
@@ -218,8 +227,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Optimistic update
       setManagedCases((prev) =>
         prev.map((e) =>
-          e.id === id ? { ...e, ...updates, updatedAt: Date.now() } : e
-        )
+          e.id === id ? { ...e, ...updates, updatedAt: Date.now() } : e,
+        ),
       );
 
       // Persist to API
@@ -228,7 +237,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         body: JSON.stringify(updates),
       });
     },
-    []
+    [],
   );
 
   const value = useMemo(
@@ -243,7 +252,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       updateManagedCase,
       refreshManagedCases,
     }),
-    [user, managedCases, isManagedCasesLoading, upsertManagedCase, updateManagedCase, refreshManagedCases]
+    [
+      user,
+      managedCases,
+      isManagedCasesLoading,
+      upsertManagedCase,
+      updateManagedCase,
+      refreshManagedCases,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -46,7 +46,10 @@ const App = () => (
               <Route path="/history" element={<HistoryTimeline />} />
               <Route path="/login" element={<Login />} />
               <Route element={<ProtectedRoute />}>
-                <Route path="/assign-judges" element={<JudgeAssignmentCenter />} />
+                <Route
+                  path="/assign-judges"
+                  element={<JudgeAssignmentCenter />}
+                />
                 <Route path="/secure-cases" element={<SecureCaseWorkspace />} />
               </Route>
               <Route path="*" element={<NotFound />} />

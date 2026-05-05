@@ -20,9 +20,16 @@ function readDeepSeekConfig() {
 
   return {
     apiKey,
-    baseUrl: `${process.env.DEEPSEEK_BASE_URL || DEFAULT_BASE_URL}`.replace(/\/+$/, ""),
+    baseUrl: `${process.env.DEEPSEEK_BASE_URL || DEFAULT_BASE_URL}`.replace(
+      /\/+$/,
+      "",
+    ),
     model: `${process.env.DEEPSEEK_MODEL || DEFAULT_MODEL}`.trim(),
-    timeoutMs: Number.parseInt(process.env.DEEPSEEK_TIMEOUT_MS || `${DEFAULT_TIMEOUT_MS}`, 10) || DEFAULT_TIMEOUT_MS,
+    timeoutMs:
+      Number.parseInt(
+        process.env.DEEPSEEK_TIMEOUT_MS || `${DEFAULT_TIMEOUT_MS}`,
+        10,
+      ) || DEFAULT_TIMEOUT_MS,
   };
 }
 
@@ -46,15 +53,27 @@ function buildSystemPrompt(mode) {
   ].join(" ");
 }
 
-function buildUserPrompt({ query, localAnswer, sources, retrievedChunks, mode, caseTitle, localExplanation }) {
+function buildUserPrompt({
+  query,
+  localAnswer,
+  sources,
+  retrievedChunks,
+  mode,
+  caseTitle,
+  localExplanation,
+}) {
   const sourceLines = sources
-    .map((source, index) =>
-      `${index + 1}. ${source.title} | ${source.court} | ${source.year} | ${source.section} | score=${source.score} | ${truncate(source.excerpt, 350)}`
+    .map(
+      (source, index) =>
+        `${index + 1}. ${source.title} | ${source.court} | ${source.year} | ${source.section} | score=${source.score} | ${truncate(source.excerpt, 200)}`,
     )
     .join("\n");
 
   const chunkLines = retrievedChunks
-    .map((chunk, index) => `${index + 1}. ${chunk.section} | ${chunk.caseId} | score=${chunk.score} | ${truncate(chunk.text, 350)}`)
+    .map(
+      (chunk, index) =>
+        `${index + 1}. ${chunk.section} | ${chunk.caseId} | score=${chunk.score} | ${truncate(chunk.text, 200)}`,
+    )
     .join("\n");
 
   if (mode === "explain") {
@@ -132,15 +151,26 @@ export async function generateDeepSeekGroundedAnswer({
         { role: "system", content: buildSystemPrompt(mode) },
         {
           role: "user",
-          content: buildUserPrompt({ query, localAnswer, sources, retrievedChunks, mode, caseTitle, localExplanation }),
+          content: buildUserPrompt({
+            query,
+            localAnswer,
+            sources,
+            retrievedChunks,
+            mode,
+            caseTitle,
+            localExplanation,
+          }),
         },
       ],
-      config
+      config,
     );
 
     return content || null;
   } catch (error) {
-    console.warn("DeepSeek generation unavailable, falling back to local answer:", error?.message || error);
+    console.warn(
+      "DeepSeek generation unavailable, falling back to local answer:",
+      error?.message || error,
+    );
     return null;
   }
 }

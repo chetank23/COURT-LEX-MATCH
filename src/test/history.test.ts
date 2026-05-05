@@ -79,9 +79,26 @@ describe("Activity History", () => {
 
   test("History should handle array operations", () => {
     const events = [
-      { id: "1", type: "search", title: "Test 1", date: new Date().toISOString(), results: 5 },
-      { id: "2", type: "upload", title: "Test 2", date: new Date().toISOString(), results: 3 },
-      { id: "3", type: "view", title: "Test 3", date: new Date().toISOString() },
+      {
+        id: "1",
+        type: "search",
+        title: "Test 1",
+        date: new Date().toISOString(),
+        results: 5,
+      },
+      {
+        id: "2",
+        type: "upload",
+        title: "Test 2",
+        date: new Date().toISOString(),
+        results: 3,
+      },
+      {
+        id: "3",
+        type: "view",
+        title: "Test 3",
+        date: new Date().toISOString(),
+      },
     ];
 
     expect(events.length).toBe(3);
@@ -93,9 +110,26 @@ describe("Activity History", () => {
   test("History should properly group by date", () => {
     const now = new Date();
     const events = [
-      { id: "1", type: "search", title: "Event 1", date: now.toISOString(), results: 5 },
-      { id: "2", type: "upload", title: "Event 2", date: now.toISOString(), results: 3 },
-      { id: "3", type: "view", title: "Event 3", date: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString() },
+      {
+        id: "1",
+        type: "search",
+        title: "Event 1",
+        date: now.toISOString(),
+        results: 5,
+      },
+      {
+        id: "2",
+        type: "upload",
+        title: "Event 2",
+        date: now.toISOString(),
+        results: 3,
+      },
+      {
+        id: "3",
+        type: "view",
+        title: "Event 3",
+        date: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+      },
     ];
 
     const grouped = events.reduce(
@@ -105,7 +139,7 @@ describe("Activity History", () => {
         acc[dateStr].push(ev);
         return acc;
       },
-      {} as Record<string, typeof events>
+      {} as Record<string, typeof events>,
     );
 
     expect(Object.keys(grouped).length).toBe(2); // Two different dates

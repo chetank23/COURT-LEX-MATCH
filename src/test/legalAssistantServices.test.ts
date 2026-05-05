@@ -4,7 +4,8 @@ import { mapJudgement } from "../../server/services/judgementMapper.mjs";
 
 describe("summarizer", () => {
   test("creates concise plain-English summary", () => {
-    const input = "Issues: Section 4 in the Inter-State Water Disputes Act, 1956. Decision: The court held that ownership rights must be decided using statutory interpretation and family inheritance rules. The petition was allowed.";
+    const input =
+      "Issues: Section 4 in the Inter-State Water Disputes Act, 1956. Decision: The court held that ownership rights must be decided using statutory interpretation and family inheritance rules. The petition was allowed.";
     const result = generateSummary(input);
 
     expect(result.length).toBeGreaterThan(40);

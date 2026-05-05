@@ -7,7 +7,7 @@ import { dataService } from "@/services/dataService";
 interface JudgeAvailabilityWidgetProps {
   district: string;
   caseType: string;
-  hearingDate: string;
+  hearingDate: string; // may be empty string when no date yet selected
   hearingTime: string;
   isScheduling: boolean;
   schedulingJudgeId: string | null;
@@ -24,7 +24,9 @@ export const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
   onSchedule,
 }: JudgeAvailabilityWidgetProps) {
   const [judges, setJudges] = useState<JudgeProfile[]>([]);
-  const [counts, setCounts] = useState<Awaited<ReturnType<typeof dataService.getJudgesCountByArea>> | null>(null);
+  const [counts, setCounts] = useState<Awaited<
+    ReturnType<typeof dataService.getJudgesCountByArea>
+  > | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -32,8 +34,14 @@ export const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
     const loadData = async () => {
       setLoading(true);
       try {
-        const normalizedCaseType: NonNullable<Parameters<typeof dataService.getAvailableJudgesByArea>[0]["caseType"]> =
-          caseType === "Criminal" || caseType === "Civil" || caseType === "Other" ? (caseType as typeof normalizedCaseType) : "Criminal";
+        const normalizedCaseType: NonNullable<
+          Parameters<typeof dataService.getAvailableJudgesByArea>[0]["caseType"]
+        > =
+          caseType === "Criminal" ||
+          caseType === "Civil" ||
+          caseType === "Other"
+            ? (caseType as typeof normalizedCaseType)
+            : "Criminal";
 
         const [judgeList, judgeStats] = await Promise.all([
           dataService.getAvailableJudgesByArea({
@@ -71,7 +79,11 @@ export const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
         <h4 className="text-sm font-bold text-blue-700 flex items-center gap-2">
           <Users className="w-4 h-4" /> Judge Availability in {district}
         </h4>
-        {loading && <span className="text-xs text-blue-600 animate-pulse">Loading...</span>}
+        {loading && (
+          <span className="text-xs text-blue-600 animate-pulse">
+            Loading...
+          </span>
+        )}
       </div>
 
       {counts ? (
@@ -82,7 +94,9 @@ export const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
           </div>
           <div className="text-center p-2 rounded bg-green-500/20">
             <p className="text-xs text-green-700 font-semibold">Available</p>
-            <p className="text-lg font-bold text-green-700">{counts.available}</p>
+            <p className="text-lg font-bold text-green-700">
+              {counts.available}
+            </p>
           </div>
           <div className="text-center p-2 rounded bg-yellow-500/20">
             <p className="text-xs text-yellow-700 font-semibold">Busy</p>
@@ -120,9 +134,12 @@ export const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
                 className="flex items-start justify-between p-2 rounded bg-white/40"
               >
                 <div className="flex-1">
-                  <p className="text-xs font-semibold text-foreground">{judge.name}</p>
+                  <p className="text-xs font-semibold text-foreground">
+                    {judge.name}
+                  </p>
                   <p className="text-xs text-blue-700 mt-0.5">
-                    {judge.courtLevel} • {judge.currentCaseLoad}/{judge.caseLoadCapacity} cases
+                    {judge.courtLevel} • {judge.currentCaseLoad}/
+                    {judge.caseLoadCapacity} cases
                   </p>
                   {judge.yearsOfExperience && (
                     <p className="text-xs text-blue-600">
@@ -131,16 +148,28 @@ export const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
                   )}
                   {judge.specializations && judge.specializations.length > 0 ? (
                     <p className="text-xs text-blue-600 mt-1">
-                      Specializations: {judge.specializations.slice(0, 2).join(", ")}
+                      Specializations:{" "}
+                      {judge.specializations.slice(0, 2).join(", ")}
                     </p>
                   ) : null}
                   <button
                     type="button"
                     onClick={() => onSchedule(judge)}
-                    disabled={isScheduling}
-                    className="mt-2 inline-flex items-center gap-1 rounded-md bg-primary/90 px-2 py-1 text-[11px] font-semibold text-primary-foreground hover:bg-primary disabled:opacity-60 cursor-pointer"
+                    disabled={isScheduling || !hearingDate}
+                    title={
+                      !hearingDate ? "Select a hearing date first" : undefined
+                    }
+                    className={`mt-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-all ${
+                      !hearingDate
+                        ? "bg-muted text-muted-foreground cursor-not-allowed border border-dashed border-border"
+                        : "bg-primary/90 text-primary-foreground hover:bg-primary cursor-pointer"
+                    } disabled:opacity-60`}
                   >
-                    {isScheduling && schedulingJudgeId === judge.id ? "Scheduling..." : `Schedule ${hearingTime || "10:30"}`}
+                    {isScheduling && schedulingJudgeId === judge.id
+                      ? "Scheduling..."
+                      : !hearingDate
+                        ? "Pick a date first"
+                        : `Schedule ${hearingTime || "10:00"}`}
                   </button>
                 </div>
                 <span
@@ -168,7 +197,9 @@ export const JudgeAvailabilityWidget = memo(function JudgeAvailabilityWidget({
           <AlertCircle className="w-3 h-3" />
           {loading
             ? "Loading judge availability..."
-            : "No available judges for selected date and case type"}
+            : hearingDate
+              ? "No available judges for the selected criteria"
+              : "No judges found for this district and case type"}
         </div>
       )}
     </motion.div>

@@ -1,7 +1,17 @@
 const VERDICT_RULES = [
-  { label: "Case Allowed / In Favor", pattern: /\b(allowed|granted|in favor|successful|petition allowed|appeal allowed)\b/i },
-  { label: "Case Dismissed / Rejected", pattern: /\b(dismissed|rejected|declined|denied|failed)\b/i },
-  { label: "Conviction Recorded", pattern: /\b(convicted|found guilty|sentenced)\b/i },
+  {
+    label: "Case Allowed / In Favor",
+    pattern:
+      /\b(allowed|granted|in favor|successful|petition allowed|appeal allowed)\b/i,
+  },
+  {
+    label: "Case Dismissed / Rejected",
+    pattern: /\b(dismissed|rejected|declined|denied|failed)\b/i,
+  },
+  {
+    label: "Conviction Recorded",
+    pattern: /\b(convicted|found guilty|sentenced)\b/i,
+  },
   { label: "Acquittal Recorded", pattern: /\b(acquitted|not guilty)\b/i },
 ];
 
@@ -28,7 +38,8 @@ export function mapJudgement(rawJudgment, summary = "") {
   }
 
   if (/\ballowed|granted\b/i.test(summary)) return "Case Allowed / In Favor";
-  if (/\bdismissed|rejected\b/i.test(summary)) return "Case Dismissed / Rejected";
+  if (/\bdismissed|rejected\b/i.test(summary))
+    return "Case Dismissed / Rejected";
 
   return "Judgement reserved / Mixed outcome";
 }

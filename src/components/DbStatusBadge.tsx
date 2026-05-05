@@ -29,7 +29,11 @@ export default function DbStatusBadge() {
         if (!cancelled) setHealth(data);
       } catch {
         if (!cancelled)
-          setHealth({ ok: false, mode: "memory", message: "Server unreachable" });
+          setHealth({
+            ok: false,
+            mode: "memory",
+            message: "Server unreachable",
+          });
       }
     };
 

@@ -1,7 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildRagIndex, serializeRagIndex } from "../server/services/ragService.mjs";
+import {
+  buildRagIndex,
+  serializeRagIndex,
+} from "../server/services/ragService.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,12 +47,14 @@ async function main() {
   const ragIndex = buildRagIndex(mappedCases);
   const serialized = serializeRagIndex(ragIndex);
 
-  serialized.chunks = serialized.chunks.filter(chunk => {
+  serialized.chunks = serialized.chunks.filter((chunk) => {
     const t = (chunk.text || "").toLowerCase();
-    return !t.includes("case title extracted") &&
-           !t.includes("cited-cases metadata") &&
-           !/https?:\/\//.test(t) &&
-           chunk.text.replace(/[^a-zA-Z]/g, "").length > 80;
+    return (
+      !t.includes("case title extracted") &&
+      !t.includes("cited-cases metadata") &&
+      !/https?:\/\//.test(t) &&
+      chunk.text.replace(/[^a-zA-Z]/g, "").length > 80
+    );
   });
 
   await mkdir(path.dirname(OUTPUT_PROCESSED), { recursive: true });

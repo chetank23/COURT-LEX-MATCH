@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2, Clock, Users, MapPin } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  X,
+  Edit2,
+  Trash2,
+  Clock,
+  Users,
+  MapPin,
+} from "lucide-react";
 import { HearingSchedule, JudgeProfile } from "@/types";
 import { useSearch } from "@/contexts/SearchContext";
 import { dataService } from "@/services/dataService";
@@ -9,8 +19,18 @@ import { useEffect, useCallback } from "react";
 type DialogMode = "add" | "edit" | null;
 
 const monthNames = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const initialHearings: HearingSchedule[] = [
@@ -101,13 +121,21 @@ function parseHearingDate(value: string) {
   const dmyMatch = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
   if (dmyMatch) {
     const [, day, month, year] = dmyMatch;
-    return new Date(Number.parseInt(year, 10), Number.parseInt(month, 10) - 1, Number.parseInt(day, 10));
+    return new Date(
+      Number.parseInt(year, 10),
+      Number.parseInt(month, 10) - 1,
+      Number.parseInt(day, 10),
+    );
   }
 
   const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (isoMatch) {
     const [, year, month, day] = isoMatch;
-    return new Date(Number.parseInt(year, 10), Number.parseInt(month, 10) - 1, Number.parseInt(day, 10));
+    return new Date(
+      Number.parseInt(year, 10),
+      Number.parseInt(month, 10) - 1,
+      Number.parseInt(day, 10),
+    );
   }
 
   const parsed = new Date(trimmed);
@@ -153,10 +181,24 @@ function normalizeHearingTime(value: string) {
   return "10:00";
 }
 
-function HearingCard({ hearing, onEdit, onDelete }: { hearing: HearingSchedule; onEdit: (h: HearingSchedule) => void; onDelete: (id: string) => void }) {
+function HearingCard({
+  hearing,
+  onEdit,
+  onDelete,
+}: {
+  hearing: HearingSchedule;
+  onEdit: (h: HearingSchedule) => void;
+  onDelete: (id: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const date = parseHearingDate(hearing.hearingDate);
-  const dateStr = date ? date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : hearing.hearingDate;
+  const dateStr = date
+    ? date.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      })
+    : hearing.hearingDate;
 
   const statusColors = {
     Scheduled: "bg-blue-500/15 text-blue-700",
@@ -176,12 +218,16 @@ function HearingCard({ hearing, onEdit, onDelete }: { hearing: HearingSchedule; 
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <h3 className="font-display font-semibold text-foreground">{hearing.caseTitle}</h3>
+          <h3 className="font-display font-semibold text-foreground">
+            {hearing.caseTitle}
+          </h3>
           <p className="text-xs text-muted-foreground mt-2">
             {dateStr} · {hearing.hearingTime}
           </p>
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${statusColors[hearing.status]}`}>
+            <span
+              className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${statusColors[hearing.status]}`}
+            >
               {hearing.status}
             </span>
             <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-700">
@@ -203,26 +249,38 @@ function HearingCard({ hearing, onEdit, onDelete }: { hearing: HearingSchedule; 
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">{hearing.hearingTime}</span>
+                  <span className="text-sm text-foreground">
+                    {hearing.hearingTime}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-muted-foreground" />
                   <div className="text-sm text-foreground">
                     <p>{hearing.courtRoom}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{hearing.localCourtName}</p>
-                    <p className="text-xs text-muted-foreground">{hearing.district}, {hearing.state}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {hearing.localCourtName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {hearing.district}, {hearing.state}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">{hearing.assignedJudgeName}</span>
+                  <span className="text-sm text-foreground">
+                    {hearing.assignedJudgeName}
+                  </span>
                 </div>
               </div>
 
               {hearing.notes && (
                 <div>
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Notes</p>
-                  <p className="text-xs text-foreground mt-1">{hearing.notes}</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Notes
+                  </p>
+                  <p className="text-xs text-foreground mt-1">
+                    {hearing.notes}
+                  </p>
                 </div>
               )}
 
@@ -254,7 +312,17 @@ function HearingCard({ hearing, onEdit, onDelete }: { hearing: HearingSchedule; 
   );
 }
 
-function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSchedule | null; mode: DialogMode; onClose: () => void; onSave: (h: HearingSchedule) => void }) {
+function HearingDialog({
+  hearing,
+  mode,
+  onClose,
+  onSave,
+}: {
+  hearing: HearingSchedule | null;
+  mode: DialogMode;
+  onClose: () => void;
+  onSave: (h: HearingSchedule) => void;
+}) {
   const [formData, setFormData] = useState<HearingSchedule>(
     hearing || {
       id: `hearing-${Date.now()}`,
@@ -270,7 +338,7 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
       localCourtName: "",
       status: "Scheduled",
       notes: "",
-    }
+    },
   );
 
   return (
@@ -294,17 +362,24 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
               <h2 className="text-xl font-display font-bold text-foreground">
                 {mode === "add" ? "Schedule Hearing" : "Edit Hearing"}
               </h2>
-              <button onClick={onClose} className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80">
+              <button
+                onClick={onClose}
+                className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Case Title</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Case Title
+                </label>
                 <input
                   value={formData.caseTitle}
-                  onChange={(e) => setFormData({ ...formData, caseTitle: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, caseTitle: e.target.value })
+                  }
                   placeholder="e.g., State vs. Ram Kumar"
                   className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                 />
@@ -312,20 +387,36 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hearing Date</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Hearing Date
+                  </label>
                   <input
                     type="date"
                     value={formatDateForInput(formData.hearingDate)}
-                    onChange={(e) => setFormData({ ...formData, hearingDate: e.target.value ? formatHearingDate(e.target.value) : "" })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        hearingDate: e.target.value
+                          ? formatHearingDate(e.target.value)
+                          : "",
+                      })
+                    }
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hearing Time</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Hearing Time
+                  </label>
                   <input
                     type="time"
                     value={formData.hearingTime}
-                    onChange={(e) => setFormData({ ...formData, hearingTime: normalizeHearingTime(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        hearingTime: normalizeHearingTime(e.target.value),
+                      })
+                    }
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
                 </div>
@@ -333,13 +424,21 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Judge</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Judge
+                  </label>
                   <select
                     value={formData.assignedJudgeId}
                     onChange={(e) => {
-                      const judge = mockJudges.find((j) => j.id === e.target.value);
+                      const judge = mockJudges.find(
+                        (j) => j.id === e.target.value,
+                      );
                       if (judge) {
-                        setFormData({ ...formData, assignedJudgeId: judge.id, assignedJudgeName: judge.name });
+                        setFormData({
+                          ...formData,
+                          assignedJudgeId: judge.id,
+                          assignedJudgeName: judge.name,
+                        });
                       }
                     }}
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
@@ -353,10 +452,14 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Court Room</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Court Room
+                  </label>
                   <input
                     value={formData.courtRoom}
-                    onChange={(e) => setFormData({ ...formData, courtRoom: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, courtRoom: e.target.value })
+                    }
                     placeholder="e.g., Court Room 1"
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
@@ -365,28 +468,43 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">State</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    State
+                  </label>
                   <input
                     value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, state: e.target.value })
+                    }
                     placeholder="e.g., Delhi"
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">District</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    District
+                  </label>
                   <input
                     value={formData.district}
-                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, district: e.target.value })
+                    }
                     placeholder="e.g., New Delhi"
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Local Court Name</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Local Court Name
+                  </label>
                   <input
                     value={formData.localCourtName}
-                    onChange={(e) => setFormData({ ...formData, localCourtName: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        localCourtName: e.target.value,
+                      })
+                    }
                     placeholder="e.g., Delhi High Court"
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
@@ -394,10 +512,17 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Status
+                </label>
                 <select
                   value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as HearingSchedule["status"] })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      status: e.target.value as HearingSchedule["status"],
+                    })
+                  }
                   className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                 >
                   <option>Scheduled</option>
@@ -408,10 +533,14 @@ function HearingDialog({ hearing, mode, onClose, onSave }: { hearing: HearingSch
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notes</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Notes
+                </label>
                 <textarea
                   value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
                   placeholder="Additional details about this hearing"
                   rows={3}
                   className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none resize-none"
@@ -466,10 +595,11 @@ export default function HearingCalendar() {
   }, [fetchHearings]);
 
   const hearings = dbHearings;
-  
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
-  const [selectedHearing, setSelectedHearing] = useState<HearingSchedule | null>(null);
+  const [selectedHearing, setSelectedHearing] =
+    useState<HearingSchedule | null>(null);
 
   const handleAdd = () => {
     setSelectedHearing(null);
@@ -484,7 +614,7 @@ export default function HearingCalendar() {
   const handleDelete = async (id: string) => {
     try {
       await dataService.removeHearing(id);
-      deleteHearing(id); 
+      deleteHearing(id);
       fetchHearings();
     } catch (error) {
       console.error("Failed to delete hearing", error);
@@ -508,7 +638,10 @@ export default function HearingCalendar() {
 
   const monthHearings = hearings.filter((h) => {
     const hDate = parseHearingDate(h.hearingDate);
-    return hDate ? hDate.getMonth() === currentMonth.getMonth() && hDate.getFullYear() === currentMonth.getFullYear() : false;
+    return hDate
+      ? hDate.getMonth() === currentMonth.getMonth() &&
+          hDate.getFullYear() === currentMonth.getFullYear()
+      : false;
   });
 
   const upcomingHearings = hearings
@@ -516,7 +649,11 @@ export default function HearingCalendar() {
       const parsed = parseHearingDate(h.hearingDate);
       return parsed ? parsed >= new Date() : false;
     })
-    .sort((a, b) => (parseHearingDate(a.hearingDate)?.getTime() || 0) - (parseHearingDate(b.hearingDate)?.getTime() || 0))
+    .sort(
+      (a, b) =>
+        (parseHearingDate(a.hearingDate)?.getTime() || 0) -
+        (parseHearingDate(b.hearingDate)?.getTime() || 0),
+    )
     .slice(0, 5);
 
   return (
@@ -525,8 +662,12 @@ export default function HearingCalendar() {
       <div className="relative z-10 pt-24 pb-12 px-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-display font-bold gradient-text">Hearing Calendar</h1>
-            <p className="text-sm text-muted-foreground mt-1">Schedule and track case hearings</p>
+            <h1 className="text-3xl font-display font-bold gradient-text">
+              Hearing Calendar
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Schedule and track case hearings
+            </p>
           </div>
           <button
             onClick={handleAdd}
@@ -541,11 +682,19 @@ export default function HearingCalendar() {
             <div className="glass-panel rounded-2xl p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-display font-bold text-foreground">
-                  {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                  {monthNames[currentMonth.getMonth()]}{" "}
+                  {currentMonth.getFullYear()}
                 </h2>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                    onClick={() =>
+                      setCurrentMonth(
+                        new Date(
+                          currentMonth.getFullYear(),
+                          currentMonth.getMonth() - 1,
+                        ),
+                      )
+                    }
                     className="p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer"
                   >
                     <ChevronLeft className="w-5 h-5" />
@@ -557,7 +706,14 @@ export default function HearingCalendar() {
                     Today
                   </button>
                   <button
-                    onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                    onClick={() =>
+                      setCurrentMonth(
+                        new Date(
+                          currentMonth.getFullYear(),
+                          currentMonth.getMonth() + 1,
+                        ),
+                      )
+                    }
                     className="p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -568,11 +724,24 @@ export default function HearingCalendar() {
               <div className="space-y-3">
                 {monthHearings.length > 0 ? (
                   monthHearings
-                    .sort((a, b) => (parseHearingDate(a.hearingDate)?.getTime() || 0) - (parseHearingDate(b.hearingDate)?.getTime() || 0))
-                    .map((hearing) => <HearingCard key={hearing.id} hearing={hearing} onEdit={handleEdit} onDelete={handleDelete} />)
+                    .sort(
+                      (a, b) =>
+                        (parseHearingDate(a.hearingDate)?.getTime() || 0) -
+                        (parseHearingDate(b.hearingDate)?.getTime() || 0),
+                    )
+                    .map((hearing) => (
+                      <HearingCard
+                        key={hearing.id}
+                        hearing={hearing}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                      />
+                    ))
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground text-sm">No hearings scheduled for this month</p>
+                    <p className="text-muted-foreground text-sm">
+                      No hearings scheduled for this month
+                    </p>
                   </div>
                 )}
               </div>
@@ -581,12 +750,19 @@ export default function HearingCalendar() {
 
           <div>
             <div className="glass-panel rounded-2xl p-6">
-              <h3 className="text-lg font-display font-bold text-foreground mb-4">Upcoming Hearings</h3>
+              <h3 className="text-lg font-display font-bold text-foreground mb-4">
+                Upcoming Hearings
+              </h3>
               <div className="space-y-3">
                 {upcomingHearings.length > 0 ? (
                   upcomingHearings.map((hearing) => {
                     const date = parseHearingDate(hearing.hearingDate);
-                    const dateStr = date ? date.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : hearing.hearingDate;
+                    const dateStr = date
+                      ? date.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : hearing.hearingDate;
 
                     return (
                       <motion.div
@@ -597,15 +773,25 @@ export default function HearingCalendar() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-primary">{dateStr}</p>
-                            <p className="text-sm font-medium text-foreground truncate mt-0.5">{hearing.caseTitle}</p>
-                            <p className="text-[11px] text-muted-foreground mt-1">{hearing.hearingTime}</p>
+                            <p className="text-xs font-semibold text-primary">
+                              {dateStr}
+                            </p>
+                            <p className="text-sm font-medium text-foreground truncate mt-0.5">
+                              {hearing.caseTitle}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              {hearing.hearingTime}
+                            </p>
                           </div>
-                          <span className={`px-2 py-1 rounded text-[10px] font-semibold whitespace-nowrap ${
-                            hearing.status === "Scheduled" ? "bg-blue-500/15 text-blue-700" :
-                            hearing.status === "Ongoing" ? "bg-yellow-500/15 text-yellow-700" :
-                            "bg-green-500/15 text-green-700"
-                          }`}>
+                          <span
+                            className={`px-2 py-1 rounded text-[10px] font-semibold whitespace-nowrap ${
+                              hearing.status === "Scheduled"
+                                ? "bg-blue-500/15 text-blue-700"
+                                : hearing.status === "Ongoing"
+                                  ? "bg-yellow-500/15 text-yellow-700"
+                                  : "bg-green-500/15 text-green-700"
+                            }`}
+                          >
                             {hearing.status}
                           </span>
                         </div>
@@ -613,29 +799,49 @@ export default function HearingCalendar() {
                     );
                   })
                 ) : (
-                  <p className="text-xs text-muted-foreground text-center py-4">No upcoming hearings</p>
+                  <p className="text-xs text-muted-foreground text-center py-4">
+                    No upcoming hearings
+                  </p>
                 )}
               </div>
             </div>
 
             <div className="glass-panel rounded-2xl p-6 mt-4">
-              <h3 className="text-sm font-display font-bold text-foreground mb-4">Statistics</h3>
+              <h3 className="text-sm font-display font-bold text-foreground mb-4">
+                Statistics
+              </h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Total Hearings</span>
-                  <span className="text-sm font-bold text-foreground">{hearings.length}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Total Hearings
+                  </span>
+                  <span className="text-sm font-bold text-foreground">
+                    {hearings.length}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Scheduled</span>
-                  <span className="text-sm font-bold text-blue-600">{hearings.filter((h) => h.status === "Scheduled").length}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Scheduled
+                  </span>
+                  <span className="text-sm font-bold text-blue-600">
+                    {hearings.filter((h) => h.status === "Scheduled").length}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Completed</span>
-                  <span className="text-sm font-bold text-green-600">{hearings.filter((h) => h.status === "Completed").length}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Completed
+                  </span>
+                  <span className="text-sm font-bold text-green-600">
+                    {hearings.filter((h) => h.status === "Completed").length}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Postponed</span>
-                  <span className="text-sm font-bold text-red-600">{hearings.filter((h) => h.status === "Postponed").length}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Postponed
+                  </span>
+                  <span className="text-sm font-bold text-red-600">
+                    {hearings.filter((h) => h.status === "Postponed").length}
+                  </span>
                 </div>
               </div>
             </div>
@@ -643,7 +849,12 @@ export default function HearingCalendar() {
         </div>
       </div>
 
-      <HearingDialog hearing={selectedHearing} mode={dialogMode} onClose={() => setDialogMode(null)} onSave={handleSave} />
+      <HearingDialog
+        hearing={selectedHearing}
+        mode={dialogMode}
+        onClose={() => setDialogMode(null)}
+        onSave={handleSave}
+      />
     </div>
   );
 }

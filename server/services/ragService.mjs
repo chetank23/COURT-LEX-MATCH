@@ -137,13 +137,18 @@ function cleanChunkText(text) {
       .filter(
         (p) =>
           p.length > 40 &&
-          /\b(court|held|ruled|judgment|plaintiff|defendant|appeal|petition|order|relief|tribunal|bench|decision|convicted|acquitted|dismissed|allowed)\b/i.test(p)
+          /\b(court|held|ruled|judgment|plaintiff|defendant|appeal|petition|order|relief|tribunal|bench|decision|convicted|acquitted|dismissed|allowed)\b/i.test(
+            p,
+          ),
       );
     t = parts.join(". ");
   }
 
   // Step 3 — Remove bare section references with no surrounding prose context
-  t = t.replace(/\bsection\s+\d+[a-z]?\s+(?:of\s+)?[\w\s]{0,30}(?:act|code|cpc|crpc)\s*[;,]?/gi, "");
+  t = t.replace(
+    /\bsection\s+\d+[a-z]?\s+(?:of\s+)?[\w\s]{0,30}(?:act|code|cpc|crpc)\s*[;,]?/gi,
+    "",
+  );
 
   // Step 4 — Remove "Order [roman/arabic] Rule [number]" patterns
   t = t.replace(/\border\s+[ivxlcdm\d]+\s+rule\s+\d+/gi, "");
@@ -289,14 +294,21 @@ function cosineSimilarity(a, b, aNorm, bNorm) {
   return dot / (aNorm * bNorm);
 }
 
-function chunkWords(text, chunkSize = DEFAULT_CHUNK_WORDS, overlap = DEFAULT_CHUNK_OVERLAP) {
+function chunkWords(
+  text,
+  chunkSize = DEFAULT_CHUNK_WORDS,
+  overlap = DEFAULT_CHUNK_OVERLAP,
+) {
   const words = normalizeText(text).split(" ").filter(Boolean);
   if (words.length === 0) return [];
 
   const chunks = [];
   const step = Math.max(1, chunkSize - overlap);
   for (let i = 0; i < words.length; i += step) {
-    const chunk = words.slice(i, i + chunkSize).join(" ").trim();
+    const chunk = words
+      .slice(i, i + chunkSize)
+      .join(" ")
+      .trim();
     if (chunk.length >= 60) {
       chunks.push(chunk);
     }
@@ -308,7 +320,11 @@ function chunkWords(text, chunkSize = DEFAULT_CHUNK_WORDS, overlap = DEFAULT_CHU
 function isLegalLikeQuery(query) {
   const normalized = normalizeText(query).toLowerCase();
   if (!normalized) return false;
-  if (/\b(vs\.?|versus|article\s+\d+|section\s+\d+|fir|ipc|crpc|writ|appeal|petition)\b/.test(normalized)) {
+  if (
+    /\b(vs\.?|versus|article\s+\d+|section\s+\d+|fir|ipc|crpc|writ|appeal|petition)\b/.test(
+      normalized,
+    )
+  ) {
     return true;
   }
   const tokens = extractTokens(normalized);
@@ -344,7 +360,11 @@ function computePhraseBoost(query, text) {
 
   let phraseHits = 0;
   const maxPhrases = Math.min(3, queryTerms.length - 1);
-  for (let i = 0; i < queryTerms.length - 1 && phraseHits < maxPhrases; i += 1) {
+  for (
+    let i = 0;
+    i < queryTerms.length - 1 && phraseHits < maxPhrases;
+    i += 1
+  ) {
     const phrase = `${queryTerms[i]} ${queryTerms[i + 1]}`;
     if (t.includes(phrase)) phraseHits += 1;
   }
@@ -352,7 +372,13 @@ function computePhraseBoost(query, text) {
   return Math.min(0.14, phraseHits * 0.05);
 }
 
-function bm25TokenScore(queryToken, chunk, idfMap, avgChunkLength, totalChunks) {
+function bm25TokenScore(
+  queryToken,
+  chunk,
+  idfMap,
+  avgChunkLength,
+  totalChunks,
+) {
   const tf = chunk.tokenFreq?.[queryToken] || 0;
   if (!tf) return 0;
 
@@ -360,7 +386,10 @@ function bm25TokenScore(queryToken, chunk, idfMap, avgChunkLength, totalChunks) 
   const df = Number.isFinite(rawIdf) ? rawIdf : 0;
   const safeIdf = Math.log(1 + (totalChunks - df + 0.5) / (df + 0.5));
   const chunkLength = Math.max(1, chunk.length || 1);
-  const normDenom = tf + BM25_K1 * (1 - BM25_B + BM25_B * (chunkLength / Math.max(1, avgChunkLength || 1)));
+  const normDenom =
+    tf +
+    BM25_K1 *
+      (1 - BM25_B + BM25_B * (chunkLength / Math.max(1, avgChunkLength || 1)));
 
   return safeIdf * ((tf * (BM25_K1 + 1)) / Math.max(normDenom, 1e-6));
 }
@@ -404,7 +433,10 @@ function mmrSelect(candidates, limit) {
       const candidate = remaining[i];
       let maxSimilarity = 0;
       for (const chosen of selected) {
-        maxSimilarity = Math.max(maxSimilarity, tokenJaccardSimilarity(candidate.tokens, chosen.tokens));
+        maxSimilarity = Math.max(
+          maxSimilarity,
+          tokenJaccardSimilarity(candidate.tokens, chosen.tokens),
+        );
       }
       const mmr = lambda * candidate.score - (1 - lambda) * maxSimilarity;
       if (mmr > bestScore) {
@@ -421,7 +453,9 @@ function mmrSelect(candidates, limit) {
 }
 
 export function buildRagIndex(cases, options = {}) {
-  const dims = Number.isFinite(options.dims) ? options.dims : DEFAULT_EMBED_DIMS;
+  const dims = Number.isFinite(options.dims)
+    ? options.dims
+    : DEFAULT_EMBED_DIMS;
   const chunks = [];
   const tokenDocFreq = Object.create(null);
   let totalChunkLength = 0;
@@ -430,7 +464,10 @@ export function buildRagIndex(cases, options = {}) {
     const sections = [
       { name: "Summary", text: item.summary || "" },
       { name: "Judgment", text: item.judgment || "" },
-      { name: "Context", text: `${item.whyMatch || ""} ${(item.tags || []).join(" ")}` },
+      {
+        name: "Context",
+        text: `${item.whyMatch || ""} ${(item.tags || []).join(" ")}`,
+      },
     ];
 
     for (const section of sections) {
@@ -469,7 +506,8 @@ export function buildRagIndex(cases, options = {}) {
     }
   }
 
-  const avgChunkLength = chunks.length > 0 ? totalChunkLength / chunks.length : 1;
+  const avgChunkLength =
+    chunks.length > 0 ? totalChunkLength / chunks.length : 1;
 
   return {
     dims,
@@ -496,15 +534,21 @@ export function serializeRagIndex(index) {
 }
 
 export function hydrateRagIndex(payload) {
-  const dims = Number.isFinite(payload?.dims) ? payload.dims : DEFAULT_EMBED_DIMS;
+  const dims = Number.isFinite(payload?.dims)
+    ? payload.dims
+    : DEFAULT_EMBED_DIMS;
   const chunks = (payload?.chunks || []).map((chunk) => {
-    const vector = new Float32Array(Array.isArray(chunk.vector) ? chunk.vector : []);
+    const vector = new Float32Array(
+      Array.isArray(chunk.vector) ? chunk.vector : [],
+    );
     const norm = Number.isFinite(chunk.norm) ? chunk.norm : vectorNorm(vector);
     return {
       ...chunk,
       vector,
       norm,
-      tokens: Array.isArray(chunk.tokens) ? chunk.tokens : extractTokens(chunk.text || ""),
+      tokens: Array.isArray(chunk.tokens)
+        ? chunk.tokens
+        : extractTokens(chunk.text || ""),
       tokenFreq:
         chunk.tokenFreq && typeof chunk.tokenFreq === "object"
           ? chunk.tokenFreq
@@ -515,16 +559,20 @@ export function hydrateRagIndex(payload) {
           : Object.values(
               chunk.tokenFreq && typeof chunk.tokenFreq === "object"
                 ? chunk.tokenFreq
-                : extractTokenFrequencies(chunk.text || "")
+                : extractTokenFrequencies(chunk.text || ""),
             ).reduce((acc, n) => acc + Number(n || 0), 0),
     };
   });
 
-  const tokenDocFreq = payload?.tokenDocFreq && typeof payload.tokenDocFreq === "object" ? payload.tokenDocFreq : {};
+  const tokenDocFreq =
+    payload?.tokenDocFreq && typeof payload.tokenDocFreq === "object"
+      ? payload.tokenDocFreq
+      : {};
   const avgChunkLength =
     Number.isFinite(payload?.avgChunkLength) && payload.avgChunkLength > 0
       ? payload.avgChunkLength
-      : chunks.reduce((acc, chunk) => acc + Math.max(1, chunk.length || 1), 0) / Math.max(1, chunks.length);
+      : chunks.reduce((acc, chunk) => acc + Math.max(1, chunk.length || 1), 0) /
+        Math.max(1, chunks.length);
 
   return {
     dims,
@@ -550,9 +598,11 @@ function toSentence(text, maxLen = 180) {
 }
 
 function dedupeByTitle(chunks) {
-  return [...new Map((chunks || []).map((c) => [cleanTitle(c.title || ""), c])).values()].filter(
-    (item) => cleanTitle(item.title || "")
-  );
+  return [
+    ...new Map(
+      (chunks || []).map((c) => [cleanTitle(c.title || ""), c]),
+    ).values(),
+  ].filter((item) => cleanTitle(item.title || ""));
 }
 
 // ── Helpers for structured legal analysis ────────────────────────────────
@@ -562,15 +612,31 @@ function dedupeByTitle(chunks) {
  */
 function detectCaseType(query, chunkTexts) {
   const source = `${query} ${chunkTexts.join(" ")}`.toLowerCase();
-  if (/murder|ipc|bail|fir|arrest|crpc|criminal|ndps|sentenc|convict|acquit|accused/.test(source))
+  if (
+    /murder|ipc|bail|fir|arrest|crpc|criminal|ndps|sentenc|convict|acquit|accused/.test(
+      source,
+    )
+  )
     return "Criminal";
-  if (/article\s+\d+|fundamental rights|writ|habeas|mandamus|constitution|directive/.test(source))
+  if (
+    /article\s+\d+|fundamental rights|writ|habeas|mandamus|constitution|directive/.test(
+      source,
+    )
+  )
     return "Constitutional";
   if (/tax|gst|income.?tax|vat|excise|customs|revenue|assessment/.test(source))
     return "Tax";
-  if (/labour|labor|employment|industrial|workmen|wages|service matter|termination/.test(source))
+  if (
+    /labour|labor|employment|industrial|workmen|wages|service matter|termination/.test(
+      source,
+    )
+  )
     return "Service/Labour";
-  if (/property|contract|rent|land|tenancy|lease|ownership|eviction|succession|partition/.test(source))
+  if (
+    /property|contract|rent|land|tenancy|lease|ownership|eviction|succession|partition/.test(
+      source,
+    )
+  )
     return "Civil";
   return "General Legal Matter";
 }
@@ -590,18 +656,45 @@ function extractKeyFacts(query, caseType) {
   const segment3 = words.slice(third * 2).join(" ");
 
   const FALLBACK = {
-    Criminal:   ["Party involved in an alleged criminal offence.", "An FIR or complaint has been filed before the competent court.", "Liberty and legal rights of the accused are at stake."],
-    Civil:      ["Dispute over property, contract, or civil rights.", "One party claims wrongful deprivation of a civil entitlement.", "Financial interest or property rights are at stake."],
-    Constitutional: ["Allegation of violation of fundamental rights under the Constitution.", "A writ petition has been filed before the High Court or Supreme Court.", "Constitutional rights and state authority are at stake."],
-    Tax:        ["A tax demand or assessment has been challenged.", "The taxpayer disputes the computation or jurisdiction.", "Financial liability and compliance are at stake."],
-    "Service/Labour": ["An employee disputes termination or service conditions.", "The employer has taken adverse action against the employee.", "Livelihood and statutory service rights are at stake."],
-    "General Legal Matter": ["Parties are engaged in a legal dispute.", "The matter requires determination of rights and obligations.", "Legal entitlements and remedies are at stake."],
+    Criminal: [
+      "Party involved in an alleged criminal offence.",
+      "An FIR or complaint has been filed before the competent court.",
+      "Liberty and legal rights of the accused are at stake.",
+    ],
+    Civil: [
+      "Dispute over property, contract, or civil rights.",
+      "One party claims wrongful deprivation of a civil entitlement.",
+      "Financial interest or property rights are at stake.",
+    ],
+    Constitutional: [
+      "Allegation of violation of fundamental rights under the Constitution.",
+      "A writ petition has been filed before the High Court or Supreme Court.",
+      "Constitutional rights and state authority are at stake.",
+    ],
+    Tax: [
+      "A tax demand or assessment has been challenged.",
+      "The taxpayer disputes the computation or jurisdiction.",
+      "Financial liability and compliance are at stake.",
+    ],
+    "Service/Labour": [
+      "An employee disputes termination or service conditions.",
+      "The employer has taken adverse action against the employee.",
+      "Livelihood and statutory service rights are at stake.",
+    ],
+    "General Legal Matter": [
+      "Parties are engaged in a legal dispute.",
+      "The matter requires determination of rights and obligations.",
+      "Legal entitlements and remedies are at stake.",
+    ],
   };
 
   const facts = [];
-  if (segment1 && segment1.length > 4) facts.push(`${segment1.charAt(0).toUpperCase()}${segment1.slice(1)}.`);
-  if (segment2 && segment2.length > 4) facts.push(`${segment2.charAt(0).toUpperCase()}${segment2.slice(1)}.`);
-  if (segment3 && segment3.length > 4) facts.push(`${segment3.charAt(0).toUpperCase()}${segment3.slice(1)}.`);
+  if (segment1 && segment1.length > 4)
+    facts.push(`${segment1.charAt(0).toUpperCase()}${segment1.slice(1)}.`);
+  if (segment2 && segment2.length > 4)
+    facts.push(`${segment2.charAt(0).toUpperCase()}${segment2.slice(1)}.`);
+  if (segment3 && segment3.length > 4)
+    facts.push(`${segment3.charAt(0).toUpperCase()}${segment3.slice(1)}.`);
 
   const fallbacks = FALLBACK[caseType] || FALLBACK["General Legal Matter"];
   while (facts.length < 3) facts.push(fallbacks[facts.length]);
@@ -626,12 +719,30 @@ function extractLegalIssues(chunkTexts, caseType) {
   if (whetherMatches.length >= 2) return whetherMatches.slice(0, 2);
 
   const INFERRED = {
-    Criminal:             ["Whether the offence has been proven beyond reasonable doubt.", "Whether the accused is entitled to bail or statutory protection under the relevant act."],
-    Civil:                ["Whether the plaintiff has a valid legal title or right over the disputed property or contract.", "Whether the defendant's actions constitute a breach giving rise to legal remedies."],
-    Constitutional:       ["Whether the action of the State violates the fundamental rights of the petitioner.", "Whether the impugned order or legislation is constitutionally valid."],
-    Tax:                  ["Whether the tax assessment or demand raised by the authority is legally sustainable.", "Whether the taxpayer qualifies for the claimed exemption or deduction under the applicable act."],
-    "Service/Labour":     ["Whether the termination or adverse action against the employee is in accordance with service rules.", "Whether the employee is entitled to reinstatement, back wages, or statutory relief."],
-    "General Legal Matter": ["Whether the legal rights and obligations of the parties have been correctly identified.", "To be determined based on full case documents."],
+    Criminal: [
+      "Whether the offence has been proven beyond reasonable doubt.",
+      "Whether the accused is entitled to bail or statutory protection under the relevant act.",
+    ],
+    Civil: [
+      "Whether the plaintiff has a valid legal title or right over the disputed property or contract.",
+      "Whether the defendant's actions constitute a breach giving rise to legal remedies.",
+    ],
+    Constitutional: [
+      "Whether the action of the State violates the fundamental rights of the petitioner.",
+      "Whether the impugned order or legislation is constitutionally valid.",
+    ],
+    Tax: [
+      "Whether the tax assessment or demand raised by the authority is legally sustainable.",
+      "Whether the taxpayer qualifies for the claimed exemption or deduction under the applicable act.",
+    ],
+    "Service/Labour": [
+      "Whether the termination or adverse action against the employee is in accordance with service rules.",
+      "Whether the employee is entitled to reinstatement, back wages, or statutory relief.",
+    ],
+    "General Legal Matter": [
+      "Whether the legal rights and obligations of the parties have been correctly identified.",
+      "To be determined based on full case documents.",
+    ],
   };
 
   const fallback = INFERRED[caseType] || INFERRED["General Legal Matter"];
@@ -682,12 +793,24 @@ function extractRelevantLaws(chunkTexts, caseType) {
 
   // Fallback per case type
   const FALLBACKS = {
-    Criminal:             ["Indian Penal Code (IPC), applicable sections", "Code of Criminal Procedure (CrPC)"],
-    Civil:                ["Transfer of Property Act, 1882", "Indian Evidence Act, 1872"],
-    Constitutional:       ["Constitution of India, applicable Article(s)", "The Supreme Court Rules"],
-    Tax:                  ["Income Tax Act, 1961", "Goods and Services Tax Act, 2017"],
-    "Service/Labour":     ["Industrial Disputes Act, 1947", "Payment of Wages Act, 1936"],
-    "General Legal Matter": ["Applicable statutory provisions", "To be determined based on full case documents"],
+    Criminal: [
+      "Indian Penal Code (IPC), applicable sections",
+      "Code of Criminal Procedure (CrPC)",
+    ],
+    Civil: ["Transfer of Property Act, 1882", "Indian Evidence Act, 1872"],
+    Constitutional: [
+      "Constitution of India, applicable Article(s)",
+      "The Supreme Court Rules",
+    ],
+    Tax: ["Income Tax Act, 1961", "Goods and Services Tax Act, 2017"],
+    "Service/Labour": [
+      "Industrial Disputes Act, 1947",
+      "Payment of Wages Act, 1936",
+    ],
+    "General Legal Matter": [
+      "Applicable statutory provisions",
+      "To be determined based on full case documents",
+    ],
   };
 
   const base = Array.from(found);
@@ -701,12 +824,24 @@ function extractRelevantLaws(chunkTexts, caseType) {
  */
 function inferPredictedOutcome(sources, chunkTexts, caseType) {
   const topVerdict = (sources[0]?.finalVerdict || "").trim();
-  if (topVerdict && topVerdict.length > 4 && !/to be determined/i.test(topVerdict)) {
-    return topVerdict.charAt(0).toUpperCase() + topVerdict.slice(1) + (topVerdict.endsWith(".") ? "" : ".");
+  if (
+    topVerdict &&
+    topVerdict.length > 4 &&
+    !/to be determined/i.test(topVerdict)
+  ) {
+    return (
+      topVerdict.charAt(0).toUpperCase() +
+      topVerdict.slice(1) +
+      (topVerdict.endsWith(".") ? "" : ".")
+    );
   }
 
   const combined = chunkTexts.join(" ").toLowerCase();
-  if (/strong\s+evidence|beyond\s+reasonable\s+doubt|conclusively\s+proved/.test(combined)) {
+  if (
+    /strong\s+evidence|beyond\s+reasonable\s+doubt|conclusively\s+proved/.test(
+      combined,
+    )
+  ) {
     return caseType === "Criminal"
       ? "Likely conviction, as evidence on record appears to establish guilt beyond reasonable doubt."
       : "Likely ruling in favour of the plaintiff, given the strength of documentary evidence.";
@@ -722,12 +857,17 @@ function inferPredictedOutcome(sources, chunkTexts, caseType) {
   }
 
   const OUTCOME_DEFAULTS = {
-    Criminal:             "Outcome depends on the weight of evidence and credibility of witnesses; bail or acquittal possible if evidence is weak.",
-    Civil:                "If the plaintiff establishes clear title and prior possession, the court is likely to grant the relief sought.",
-    Constitutional:       "The court will examine proportionality of State action; relief likely if fundamental rights violation is established.",
-    Tax:                  "The tribunal is expected to rule in favour of the taxpayer if procedural and substantive compliance is demonstrated.",
-    "Service/Labour":     "Reinstatement with back wages is a probable outcome if the termination is found to be without just cause.",
-    "General Legal Matter": "To be determined based on full case documents and arguments of counsel.",
+    Criminal:
+      "Outcome depends on the weight of evidence and credibility of witnesses; bail or acquittal possible if evidence is weak.",
+    Civil:
+      "If the plaintiff establishes clear title and prior possession, the court is likely to grant the relief sought.",
+    Constitutional:
+      "The court will examine proportionality of State action; relief likely if fundamental rights violation is established.",
+    Tax: "The tribunal is expected to rule in favour of the taxpayer if procedural and substantive compliance is demonstrated.",
+    "Service/Labour":
+      "Reinstatement with back wages is a probable outcome if the termination is found to be without just cause.",
+    "General Legal Matter":
+      "To be determined based on full case documents and arguments of counsel.",
   };
 
   return OUTCOME_DEFAULTS[caseType] || OUTCOME_DEFAULTS["General Legal Matter"];
@@ -736,7 +876,13 @@ function inferPredictedOutcome(sources, chunkTexts, caseType) {
 /**
  * FIX 3: Rewritten summarizeGroundedAnswer() — strict structured legal analysis.
  */
-function summarizeGroundedAnswer(query, topChunks, sources, cleanContext, confidenceInt) {
+function summarizeGroundedAnswer(
+  query,
+  topChunks,
+  sources,
+  cleanContext,
+  confidenceInt,
+) {
   const FALLBACK_LINE = "To be determined based on full case documents.";
 
   if ((topChunks || []).length === 0 || !cleanContext) {
@@ -783,12 +929,14 @@ function summarizeGroundedAnswer(query, topChunks, sources, cleanContext, confid
   const plaintiffArg = qWords.slice(0, half).join(" ").trim();
   const defendantArg = qWords.slice(half).join(" ").trim();
 
-  const plaintiffLine = plaintiffArg.length > 6
-    ? `The affected party contends that ${plaintiffArg.charAt(0).toLowerCase()}${plaintiffArg.slice(1)}, and therefore seeks appropriate legal remedy.`
-    : FALLBACK_LINE;
-  const defendantLine = defendantArg.length > 6
-    ? `The opposing party argues that ${defendantArg.charAt(0).toLowerCase()}${defendantArg.slice(1)}, and that no liability or breach has occurred.`
-    : FALLBACK_LINE;
+  const plaintiffLine =
+    plaintiffArg.length > 6
+      ? `The affected party contends that ${plaintiffArg.charAt(0).toLowerCase()}${plaintiffArg.slice(1)}, and therefore seeks appropriate legal remedy.`
+      : FALLBACK_LINE;
+  const defendantLine =
+    defendantArg.length > 6
+      ? `The opposing party argues that ${defendantArg.charAt(0).toLowerCase()}${defendantArg.slice(1)}, and that no liability or breach has occurred.`
+      : FALLBACK_LINE;
 
   // ── Field 7: Predicted Outcome ───────────────────────────────────────────
   const predictedOutcome = inferPredictedOutcome(sources, chunkTexts, caseType);
@@ -809,7 +957,9 @@ function summarizeGroundedAnswer(query, topChunks, sources, cleanContext, confid
 
   // ── Field 9: Confidence Score ────────────────────────────────────────────
   const safeConf = Number.isFinite(confidenceInt) ? confidenceInt : 55;
-  const confidenceDecimal = (Math.min(99, Math.max(0, safeConf)) / 100).toFixed(2);
+  const confidenceDecimal = (Math.min(99, Math.max(0, safeConf)) / 100).toFixed(
+    2,
+  );
 
   // ── Assemble output ──────────────────────────────────────────────────────
   const lines = [
@@ -841,14 +991,15 @@ function summarizeGroundedAnswer(query, topChunks, sources, cleanContext, confid
   return lines.join("\n");
 }
 
-export function queryRag({ query, index, topK = 8, minScore = 0.22 }) {
+export function queryRag({ query, index, topK = 4, minScore = 0.22 }) {
   const cleanQuery = normalizeText(query);
-  const safeTopK = Number.isFinite(topK) ? Math.min(Math.max(topK, 1), 12) : 8;
+  const safeTopK = Number.isFinite(topK) ? Math.min(Math.max(topK, 1), 12) : 4;
 
   if (!cleanQuery) {
     return {
       query: "",
-      answer: "Please provide a legal question to run retrieval-augmented analysis.",
+      answer:
+        "Please provide a legal question to run retrieval-augmented analysis.",
       grounded: false,
       confidence: 0,
       sources: [],
@@ -867,7 +1018,12 @@ export function queryRag({ query, index, topK = 8, minScore = 0.22 }) {
     };
   }
 
-  const ragIndex = index || { chunks: [], dims: DEFAULT_EMBED_DIMS, tokenDocFreq: {}, avgChunkLength: 1 };
+  const ragIndex = index || {
+    chunks: [],
+    dims: DEFAULT_EMBED_DIMS,
+    tokenDocFreq: {},
+    avgChunkLength: 1,
+  };
   const queryVec = embedText(cleanQuery, ragIndex.dims || DEFAULT_EMBED_DIMS);
   const queryNorm = vectorNorm(queryVec);
   const queryTokens = extractTokens(cleanQuery);
@@ -875,32 +1031,49 @@ export function queryRag({ query, index, topK = 8, minScore = 0.22 }) {
   const queryReferenceSet = new Set(extractLegalReferences(cleanQuery));
   const expandedTokenList = Array.from(expandedTokens);
 
-  const safeMinScore = Number.isFinite(minScore) ? Math.max(0.12, Math.min(0.6, minScore)) : 0.22;
+  const safeMinScore = Number.isFinite(minScore)
+    ? Math.max(0.12, Math.min(0.6, minScore))
+    : 0.22;
   const totalChunks = Math.max(1, (ragIndex.chunks || []).length);
 
   const candidatePool = (ragIndex.chunks || [])
     .map((chunk) => {
-      const cosine = Math.max(0, cosineSimilarity(queryVec, chunk.vector, queryNorm, chunk.norm));
-      const tokens = chunk.tokens || [];
-      const overlapCount = tokens.reduce((acc, token) => (expandedTokens.has(token) ? acc + 1 : acc), 0);
-      const keywordOverlap = expandedTokens.size > 0 ? overlapCount / expandedTokens.size : 0;
-      const exactQueryHits = queryTokens.reduce((acc, token) => (tokens.includes(token) ? acc + 1 : acc), 0);
-      const exactCoverage = queryTokens.length > 0 ? exactQueryHits / queryTokens.length : 0;
-      const titleOverlap = queryTokens.reduce(
-        (acc, token) => (`${chunk.title || ""}`.toLowerCase().includes(token) ? acc + 1 : acc),
-        0
+      const cosine = Math.max(
+        0,
+        cosineSimilarity(queryVec, chunk.vector, queryNorm, chunk.norm),
       );
-      const titleBoost = queryTokens.length > 0 ? titleOverlap / queryTokens.length : 0;
+      const tokens = chunk.tokens || [];
+      const overlapCount = tokens.reduce(
+        (acc, token) => (expandedTokens.has(token) ? acc + 1 : acc),
+        0,
+      );
+      const keywordOverlap =
+        expandedTokens.size > 0 ? overlapCount / expandedTokens.size : 0;
+      const exactQueryHits = queryTokens.reduce(
+        (acc, token) => (tokens.includes(token) ? acc + 1 : acc),
+        0,
+      );
+      const exactCoverage =
+        queryTokens.length > 0 ? exactQueryHits / queryTokens.length : 0;
+      const titleOverlap = queryTokens.reduce(
+        (acc, token) =>
+          `${chunk.title || ""}`.toLowerCase().includes(token) ? acc + 1 : acc,
+        0,
+      );
+      const titleBoost =
+        queryTokens.length > 0 ? titleOverlap / queryTokens.length : 0;
       const lexicalBm25 = bm25Score(
         expandedTokenList,
         chunk,
         ragIndex.tokenDocFreq || {},
         ragIndex.avgChunkLength || 1,
-        totalChunks
+        totalChunks,
       );
       const bm25Normalized = lexicalBm25 / (lexicalBm25 + 6);
       const phraseBoost = computePhraseBoost(cleanQuery, chunk.text || "");
-      const chunkRefSet = new Set(extractLegalReferences(`${chunk.title || ""} ${chunk.text || ""}`));
+      const chunkRefSet = new Set(
+        extractLegalReferences(`${chunk.title || ""} ${chunk.text || ""}`),
+      );
       let legalRefBoost = 0;
       if (queryReferenceSet.size > 0 && chunkRefSet.size > 0) {
         let matches = 0;
@@ -909,10 +1082,23 @@ export function queryRag({ query, index, topK = 8, minScore = 0.22 }) {
         }
         legalRefBoost = Math.min(0.12, matches * 0.06);
       }
-      const blendedCore = cosine * 0.5 + bm25Normalized * 0.32 + keywordOverlap * 0.1 + titleBoost * 0.03;
+      const blendedCore =
+        cosine * 0.5 +
+        bm25Normalized * 0.32 +
+        keywordOverlap * 0.1 +
+        titleBoost * 0.03;
       const calibratedCore = scoreCalibration(blendedCore);
-      const sectionWeight = chunk.section === "Judgment" ? 1 : chunk.section === "Summary" ? 0.92 : 0.85;
-      const score = Math.min(0.995, (calibratedCore + exactCoverage * 0.22 + phraseBoost + legalRefBoost) * sectionWeight);
+      const sectionWeight =
+        chunk.section === "Judgment"
+          ? 1
+          : chunk.section === "Summary"
+            ? 0.92
+            : 0.85;
+      const score = Math.min(
+        0.995,
+        (calibratedCore + exactCoverage * 0.22 + phraseBoost + legalRefBoost) *
+          sectionWeight,
+      );
       return {
         ...chunk,
         cosine,
@@ -1009,14 +1195,29 @@ export function queryRag({ query, index, topK = 8, minScore = 0.22 }) {
     .filter(Boolean)
     .join("\n\n");
 
-  const topScores = scored.slice(0, Math.min(3, scored.length)).map((item) => item.score);
-  const averageTop = topScores.reduce((acc, n) => acc + n, 0) / Math.max(1, topScores.length);
-  const sourceCoverage = Math.min(1, sources.length / Math.max(1, Math.min(5, safeTopK)));
-  const confidence = Math.min(99, Math.max(40, Math.round((averageTop * 0.9 + sourceCoverage * 0.1) * 100)));
+  const topScores = scored
+    .slice(0, Math.min(3, scored.length))
+    .map((item) => item.score);
+  const averageTop =
+    topScores.reduce((acc, n) => acc + n, 0) / Math.max(1, topScores.length);
+  const sourceCoverage = Math.min(
+    1,
+    sources.length / Math.max(1, Math.min(5, safeTopK)),
+  );
+  const confidence = Math.min(
+    99,
+    Math.max(40, Math.round((averageTop * 0.9 + sourceCoverage * 0.1) * 100)),
+  );
 
   return {
     query: cleanQuery,
-    answer: summarizeGroundedAnswer(cleanQuery, scored, sources, cleanContext, confidence),
+    answer: summarizeGroundedAnswer(
+      cleanQuery,
+      scored,
+      sources,
+      cleanContext,
+      confidence,
+    ),
     grounded: true,
     confidence,
     sources,

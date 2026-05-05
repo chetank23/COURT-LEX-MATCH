@@ -9,7 +9,10 @@ const pdfParse = require("pdf-parse");
 // ── Load .env file early (before any other imports use env vars) ──────────
 try {
   const __envDir = path.dirname(fileURLToPath(import.meta.url));
-  const envPaths = [path.join(__envDir, ".env"), path.join(__envDir, "..", ".env")];
+  const envPaths = [
+    path.join(__envDir, ".env"),
+    path.join(__envDir, "..", ".env"),
+  ];
   for (const envPath of envPaths) {
     const raw = await readFile(envPath, "utf8").catch(() => null);
     if (!raw) continue;
@@ -24,7 +27,9 @@ try {
     }
     break;
   }
-} catch { /* .env is optional */ }
+} catch {
+  /* .env is optional */
+}
 import {
   listJudges,
   getJudgeById,
@@ -50,7 +55,11 @@ import { generateSummary } from "./services/summarizer.mjs";
 import { mapJudgement } from "./services/judgementMapper.mjs";
 import { buildMatchExplanation } from "./services/explanationGenerator.mjs";
 import { getMatchLevel } from "./services/similarity.mjs";
-import { buildRagIndex, queryRag, hydrateRagIndex } from "./services/ragService.mjs";
+import {
+  buildRagIndex,
+  queryRag,
+  hydrateRagIndex,
+} from "./services/ragService.mjs";
 import { generateDeepSeekGroundedAnswer } from "./services/deepseekClient.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -69,15 +78,29 @@ const DEFAULT_ENABLE_REQUEST_LOGS = true;
 const DEFAULT_AUDIT_MAX_EVENTS = 3000;
 const LOCAL_EMBEDDING_DIMS = 192;
 const VERDICT_RULES = [
-  { label: "Convicted", pattern: /\b(convicted|guilty|found guilty|sentenced)\b/i },
+  {
+    label: "Convicted",
+    pattern: /\b(convicted|guilty|found guilty|sentenced)\b/i,
+  },
   { label: "Acquitted", pattern: /\b(acquitted|not guilty|acquittal)\b/i },
   { label: "Dismissed", pattern: /\b(dismissed|rejected|declined)\b/i },
-  { label: "Allowed", pattern: /\b(allowed|granted|relief granted|petition allowed|appeal allowed)\b/i },
-  { label: "Partly Allowed", pattern: /\b(partly allowed|partially allowed|allowed in part|partly granted)\b/i },
+  {
+    label: "Allowed",
+    pattern:
+      /\b(allowed|granted|relief granted|petition allowed|appeal allowed)\b/i,
+  },
+  {
+    label: "Partly Allowed",
+    pattern:
+      /\b(partly allowed|partially allowed|allowed in part|partly granted)\b/i,
+  },
   { label: "Disposed", pattern: /\b(disposed(?: of)?|closed)\b/i },
   { label: "Remanded", pattern: /\b(remanded|remand)\b/i },
   { label: "Bail Granted", pattern: /\b(bail granted|released on bail)\b/i },
-  { label: "Bail Rejected", pattern: /\b(bail (?:rejected|denied|dismissed))\b/i },
+  {
+    label: "Bail Rejected",
+    pattern: /\b(bail (?:rejected|denied|dismissed))\b/i,
+  },
 ];
 
 const DEFAULT_FIR_ROSTER = {
@@ -138,10 +161,13 @@ async function loadCases() {
     const issues = extractSegment(raw.full_text, "Issues:");
     const decision = extractSegment(raw.full_text, "Decision:");
     const judgment = extractJudgmentText(raw.full_text, decision, raw.summary);
-    const cleanedSummary = generateSummary(raw.full_text || raw.summary || raw.title || "");
+    const cleanedSummary = generateSummary(
+      raw.full_text || raw.summary || raw.title || "",
+    );
     const mappedJudgement = mapJudgement(judgment, cleanedSummary);
     const finalVerdict = toClearFinalJudgment(mappedJudgement, raw.title || "");
-    const year = Number.parseInt((raw.decision_date || "").slice(0, 4), 10) || 2000;
+    const year =
+      Number.parseInt((raw.decision_date || "").slice(0, 4), 10) || 2000;
 
     const similarity = computeSimilarity({
       title: raw.title,
@@ -173,7 +199,11 @@ async function loadCases() {
       final_verdict: finalVerdict,
       whyMatch: deriveWhyMatch({ issues, decision, citation: raw.citation }),
       type: raw.case_type || "General",
-      tags: buildTags({ issues, citation: raw.citation, jurisdiction: raw.jurisdiction }),
+      tags: buildTags({
+        issues,
+        citation: raw.citation,
+        jurisdiction: raw.jurisdiction,
+      }),
     };
   });
   caseSearchIndex = buildCaseSearchIndex(caseCache);
@@ -212,14 +242,20 @@ function sendJson(res, code, body) {
 }
 
 async function readJsonBody(req) {
-  const maxBytes = readEnvInt("LEXMATCH_MAX_JSON_BODY_BYTES", DEFAULT_MAX_JSON_BODY_BYTES);
+  const maxBytes = readEnvInt(
+    "LEXMATCH_MAX_JSON_BODY_BYTES",
+    DEFAULT_MAX_JSON_BODY_BYTES,
+  );
   const chunks = [];
   let totalBytes = 0;
 
   for await (const chunk of req) {
     totalBytes += chunk.length;
     if (totalBytes > maxBytes) {
-      throw new HttpError(413, `Request body exceeds limit (${maxBytes} bytes)`);
+      throw new HttpError(
+        413,
+        `Request body exceeds limit (${maxBytes} bytes)`,
+      );
     }
     chunks.push(chunk);
   }
@@ -296,18 +332,28 @@ function buildInsights(cases) {
       searches,
     }));
 
-  const monthlySearches = ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"].map((month, i) => ({
-    month,
-    searches: 120 + i * 45 + Math.round((cases.length / 5127) * 60),
-  }));
+  const monthlySearches = ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"].map(
+    (month, i) => ({
+      month,
+      searches: 120 + i * 45 + Math.round((cases.length / 5127) * 60),
+    }),
+  );
 
-  return { similarityDistribution, caseClusters, trendingTopics, monthlySearches };
+  return {
+    similarityDistribution,
+    caseClusters,
+    trendingTopics,
+    monthlySearches,
+  };
 }
 
 export async function createServer() {
   return http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS",
+    );
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     if (req.method === "OPTIONS") {
@@ -343,39 +389,82 @@ export async function createServer() {
       const hearingMatch = pathname.match(/^\/api\/hearings\/([^/]+)$/);
 
       if (pathname === "/api/cases/search" && req.method === "GET") {
-        const rateWindowMs = readEnvInt("LEXMATCH_RATE_LIMIT_WINDOW_MS", DEFAULT_RATE_LIMIT_WINDOW_MS);
-        const maxRequests = readEnvInt("LEXMATCH_RATE_LIMIT_SEARCH_MAX", DEFAULT_RATE_LIMIT_SEARCH_MAX);
-        const limit = consumeRateLimit("search", clientAddress, maxRequests, rateWindowMs);
+        const rateWindowMs = readEnvInt(
+          "LEXMATCH_RATE_LIMIT_WINDOW_MS",
+          DEFAULT_RATE_LIMIT_WINDOW_MS,
+        );
+        const maxRequests = readEnvInt(
+          "LEXMATCH_RATE_LIMIT_SEARCH_MAX",
+          DEFAULT_RATE_LIMIT_SEARCH_MAX,
+        );
+        const limit = consumeRateLimit(
+          "search",
+          clientAddress,
+          maxRequests,
+          rateWindowMs,
+        );
         if (!limit.allowed) {
           sendJson(res, 429, {
             error: "Rate limit exceeded for case search. Please retry shortly.",
-            retryAfterSeconds: Math.max(1, Math.ceil(limit.retryAfterMs / 1000)),
+            retryAfterSeconds: Math.max(
+              1,
+              Math.ceil(limit.retryAfterMs / 1000),
+            ),
           });
           return;
         }
       }
 
       if (pathname === "/api/rag/query") {
-        const rateWindowMs = readEnvInt("LEXMATCH_RATE_LIMIT_WINDOW_MS", DEFAULT_RATE_LIMIT_WINDOW_MS);
-        const maxRequests = readEnvInt("LEXMATCH_RATE_LIMIT_SEARCH_MAX", DEFAULT_RATE_LIMIT_SEARCH_MAX);
-        const limit = consumeRateLimit("rag-query", clientAddress, maxRequests, rateWindowMs);
+        const rateWindowMs = readEnvInt(
+          "LEXMATCH_RATE_LIMIT_WINDOW_MS",
+          DEFAULT_RATE_LIMIT_WINDOW_MS,
+        );
+        const maxRequests = readEnvInt(
+          "LEXMATCH_RATE_LIMIT_SEARCH_MAX",
+          DEFAULT_RATE_LIMIT_SEARCH_MAX,
+        );
+        const limit = consumeRateLimit(
+          "rag-query",
+          clientAddress,
+          maxRequests,
+          rateWindowMs,
+        );
         if (!limit.allowed) {
           sendJson(res, 429, {
             error: "Rate limit exceeded for RAG query. Please retry shortly.",
-            retryAfterSeconds: Math.max(1, Math.ceil(limit.retryAfterMs / 1000)),
+            retryAfterSeconds: Math.max(
+              1,
+              Math.ceil(limit.retryAfterMs / 1000),
+            ),
           });
           return;
         }
       }
 
       if (pathname === "/api/analyze-pdf" && req.method === "POST") {
-        const rateWindowMs = readEnvInt("LEXMATCH_RATE_LIMIT_WINDOW_MS", DEFAULT_RATE_LIMIT_WINDOW_MS);
-        const maxRequests = readEnvInt("LEXMATCH_RATE_LIMIT_ANALYZE_MAX", DEFAULT_RATE_LIMIT_ANALYZE_MAX);
-        const limit = consumeRateLimit("analyze-pdf", clientAddress, maxRequests, rateWindowMs);
+        const rateWindowMs = readEnvInt(
+          "LEXMATCH_RATE_LIMIT_WINDOW_MS",
+          DEFAULT_RATE_LIMIT_WINDOW_MS,
+        );
+        const maxRequests = readEnvInt(
+          "LEXMATCH_RATE_LIMIT_ANALYZE_MAX",
+          DEFAULT_RATE_LIMIT_ANALYZE_MAX,
+        );
+        const limit = consumeRateLimit(
+          "analyze-pdf",
+          clientAddress,
+          maxRequests,
+          rateWindowMs,
+        );
         if (!limit.allowed) {
           sendJson(res, 429, {
-            error: "Rate limit exceeded for PDF analysis. Please retry shortly.",
-            retryAfterSeconds: Math.max(1, Math.ceil(limit.retryAfterMs / 1000)),
+            error:
+              "Rate limit exceeded for PDF analysis. Please retry shortly.",
+            retryAfterSeconds: Math.max(
+              1,
+              Math.ceil(limit.retryAfterMs / 1000),
+            ),
           });
           return;
         }
@@ -396,8 +485,13 @@ export async function createServer() {
       }
 
       if (pathname === "/api/audit") {
-        const limit = Number.parseInt(url.searchParams.get("limit") || "50", 10);
-        const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 200) : 50;
+        const limit = Number.parseInt(
+          url.searchParams.get("limit") || "50",
+          10,
+        );
+        const safeLimit = Number.isFinite(limit)
+          ? Math.min(Math.max(limit, 1), 200)
+          : 50;
         sendJson(res, 200, auditTrail.slice(-safeLimit).reverse());
         return;
       }
@@ -414,7 +508,9 @@ export async function createServer() {
           result = result.filter((item) => item.type === type);
         }
 
-        result = result.slice().sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
+        result = result
+          .slice()
+          .sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
         sendJson(res, 200, result);
         return;
       }
@@ -422,11 +518,19 @@ export async function createServer() {
       if (pathname === "/api/cases/search") {
         const q = (url.searchParams.get("q") || "").trim().toLowerCase();
         const limit = Number.parseInt(url.searchParams.get("limit") || "5", 10);
-        const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 10) : 5;
+        const safeLimit = Number.isFinite(limit)
+          ? Math.min(Math.max(limit, 1), 10)
+          : 5;
         if (!q) {
           const fallbackResults = allCases.slice(0, safeLimit).map((item) => {
-            const mappedJudgement = mapJudgement(item.judgment || item.finalVerdict || "", item.summary || "");
-            const clearFinalJudgment = toClearFinalJudgment(mappedJudgement, item.title || "");
+            const mappedJudgement = mapJudgement(
+              item.judgment || item.finalVerdict || "",
+              item.summary || "",
+            );
+            const clearFinalJudgment = toClearFinalJudgment(
+              mappedJudgement,
+              item.title || "",
+            );
             return {
               id: item.id,
               title: item.title,
@@ -451,7 +555,8 @@ export async function createServer() {
         }
 
         const cached = queryEmbeddingCache.get(q);
-        const queryVec = cached?.vector || buildHashedEmbedding(q, LOCAL_EMBEDDING_DIMS);
+        const queryVec =
+          cached?.vector || buildHashedEmbedding(q, LOCAL_EMBEDDING_DIMS);
         const queryNorm = vectorNorm(queryVec);
         if (!cached) {
           queryEmbeddingCache.set(q, { vector: queryVec, at: Date.now() });
@@ -463,11 +568,21 @@ export async function createServer() {
 
         const ranked = allCases
           .map((item) => {
-            const blob = `${item.title} ${item.summary} ${item.judgment || ""} ${item.finalVerdict || ""} ${item.whyMatch} ${item.tags.join(" ")} ${item.citation || ""}`.toLowerCase();
-            const keywordHits = q.split(/\s+/).filter((term) => term && blob.includes(term)).length;
+            const blob =
+              `${item.title} ${item.summary} ${item.judgment || ""} ${item.finalVerdict || ""} ${item.whyMatch} ${item.tags.join(" ")} ${item.citation || ""}`.toLowerCase();
+            const keywordHits = q
+              .split(/\s+/)
+              .filter((term) => term && blob.includes(term)).length;
             const row = caseSearchIndexMap?.get(item.id);
-            const vectorScore = row ? Math.max(0, cosineSimilarity(queryVec, row.vector, row.norm, queryNorm)) : 0;
-            const verdictSignalBoost = computeVerdictSignalBoost(item.judgment || item.summary || "");
+            const vectorScore = row
+              ? Math.max(
+                  0,
+                  cosineSimilarity(queryVec, row.vector, row.norm, queryNorm),
+                )
+              : 0;
+            const verdictSignalBoost = computeVerdictSignalBoost(
+              item.judgment || item.summary || "",
+            );
             const rankScore =
               keywordHits * 14 +
               vectorScore * 100 * 0.85 +
@@ -485,8 +600,14 @@ export async function createServer() {
 
         const formatted = ranked.map(({ item, rankScore }) => {
           const { whyMatched, matchedTerms } = buildMatchExplanation(q, item);
-          const mappedJudgement = mapJudgement(item.judgment || item.finalVerdict || "", item.summary || "");
-          const clearFinalJudgment = toClearFinalJudgment(mappedJudgement, item.title || "");
+          const mappedJudgement = mapJudgement(
+            item.judgment || item.finalVerdict || "",
+            item.summary || "",
+          );
+          const clearFinalJudgment = toClearFinalJudgment(
+            mappedJudgement,
+            item.title || "",
+          );
 
           return {
             id: item.id,
@@ -495,7 +616,9 @@ export async function createServer() {
             year: item.year,
             similarity: Math.min(99, Math.max(40, Math.round(rankScore))),
             matchLevel: getMatchLevel(rankScore / 100),
-            summary: generateSummary(`${item.summary || ""} ${item.judgment || ""}`),
+            summary: generateSummary(
+              `${item.summary || ""} ${item.judgment || ""}`,
+            ),
             judgement: clearFinalJudgment,
             whyMatched,
             whyMatch: whyMatched,
@@ -514,16 +637,19 @@ export async function createServer() {
 
       if (pathname === "/api/rag/query") {
         let query = "";
-        let topK = 8;
+        let topK = 4;
 
         if (req.method === "GET") {
           query = `${url.searchParams.get("q") || ""}`;
-          const parsedTopK = Number.parseInt(url.searchParams.get("topK") || "8", 10);
+          const parsedTopK = Number.parseInt(
+            url.searchParams.get("topK") || "4",
+            10,
+          );
           if (Number.isFinite(parsedTopK)) topK = parsedTopK;
         } else if (req.method === "POST") {
           const payload = await readJsonBody(req);
           query = `${payload.query || ""}`;
-          const parsedTopK = Number.parseInt(`${payload.topK || 8}`, 10);
+          const parsedTopK = Number.parseInt(`${payload.topK || 4}`, 10);
           if (Number.isFinite(parsedTopK)) topK = parsedTopK;
         } else {
           sendJson(res, 405, { error: "Method not allowed" });
@@ -582,7 +708,12 @@ export async function createServer() {
 
         // 1. Run RAG retrieval
         if (!ragIndexCache) ragIndexCache = buildRagIndex(allCases);
-        const ragResult = queryRag({ query: context, index: ragIndexCache, topK: 8, minScore: 0.18 });
+        const ragResult = queryRag({
+          query: context,
+          index: ragIndexCache,
+          topK: 4,
+          minScore: 0.18,
+        });
         const grounded = ragResult.grounded && ragResult.sources.length > 0;
         const src = ragResult.sources;
 
@@ -594,16 +725,23 @@ export async function createServer() {
           entity: "case_analysis",
           requestId,
           clientAddress,
-          details: { contextLen: context.length, grounded, priorityLevel: report.priorityLevel, priorityScore: report.priorityScore },
+          details: {
+            contextLen: context.length,
+            grounded,
+            priorityLevel: report.priorityLevel,
+            priorityScore: report.priorityScore,
+          },
         });
 
         sendJson(res, 200, report);
         return;
       }
 
-
       if (pathname === "/api/cases/priority") {
-        const limit = Number.parseInt(url.searchParams.get("limit") || "20", 10);
+        const limit = Number.parseInt(
+          url.searchParams.get("limit") || "20",
+          10,
+        );
         const sorted = allCases
           .slice()
           .sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0))
@@ -615,21 +753,58 @@ export async function createServer() {
       if (pathname === "/api/cases/priority-matrix") {
         const matrix = {
           bands: [
-            { band: "P0", label: "Critical", threshold: 85, count: allCases.filter((c) => (c.priorityBand || "P3") === "P0").length },
-            { band: "P1", label: "High",     threshold: 70, count: allCases.filter((c) => (c.priorityBand || "P3") === "P1").length },
-            { band: "P2", label: "Medium",   threshold: 50, count: allCases.filter((c) => (c.priorityBand || "P3") === "P2").length },
-            { band: "P3", label: "Low",      threshold: 0,  count: allCases.filter((c) => (c.priorityBand || "P3") === "P3").length },
+            {
+              band: "P0",
+              label: "Critical",
+              threshold: 85,
+              count: allCases.filter((c) => (c.priorityBand || "P3") === "P0")
+                .length,
+            },
+            {
+              band: "P1",
+              label: "High",
+              threshold: 70,
+              count: allCases.filter((c) => (c.priorityBand || "P3") === "P1")
+                .length,
+            },
+            {
+              band: "P2",
+              label: "Medium",
+              threshold: 50,
+              count: allCases.filter((c) => (c.priorityBand || "P3") === "P2")
+                .length,
+            },
+            {
+              band: "P3",
+              label: "Low",
+              threshold: 0,
+              count: allCases.filter((c) => (c.priorityBand || "P3") === "P3")
+                .length,
+            },
           ],
           topCritical: allCases
             .filter((c) => c.priorityBand === "P0")
             .sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0))
             .slice(0, 5)
-            .map((c) => ({ id: c.id, title: c.title, priorityScore: c.priorityScore, type: c.type })),
+            .map((c) => ({
+              id: c.id,
+              title: c.title,
+              priorityScore: c.priorityScore,
+              type: c.type,
+            })),
           severitySignals: {
-            murderHomicide: allCases.filter((c) => /murder|homicide/i.test(c.title + c.summary)).length,
-            sexualOffences: allCases.filter((c) => /rape|sexual|pocso/i.test(c.title + c.summary)).length,
-            terrorism:      allCases.filter((c) => /terror|uapa|sedition/i.test(c.title + c.summary)).length,
-            fraud:          allCases.filter((c) => /fraud|laundering|corruption/i.test(c.title + c.summary)).length,
+            murderHomicide: allCases.filter((c) =>
+              /murder|homicide/i.test(c.title + c.summary),
+            ).length,
+            sexualOffences: allCases.filter((c) =>
+              /rape|sexual|pocso/i.test(c.title + c.summary),
+            ).length,
+            terrorism: allCases.filter((c) =>
+              /terror|uapa|sedition/i.test(c.title + c.summary),
+            ).length,
+            fraud: allCases.filter((c) =>
+              /fraud|laundering|corruption/i.test(c.title + c.summary),
+            ).length,
           },
         };
         sendJson(res, 200, matrix);
@@ -659,7 +834,10 @@ export async function createServer() {
               finalVerdict: match.finalVerdict,
               section: "Case Summary",
               score: 1,
-              excerpt: `${match.summary || ""} ${match.judgment || ""}`.slice(0, 400),
+              excerpt: `${match.summary || ""} ${match.judgment || ""}`.slice(
+                0,
+                400,
+              ),
             },
           ],
           retrievedChunks: [
@@ -668,7 +846,10 @@ export async function createServer() {
               caseId: match.id,
               score: 1,
               section: "Case Summary",
-              text: `${match.summary || ""} ${match.judgment || ""}`.slice(0, 500),
+              text: `${match.summary || ""} ${match.judgment || ""}`.slice(
+                0,
+                500,
+              ),
             },
           ],
           mode: "explain",
@@ -692,7 +873,8 @@ export async function createServer() {
 
         const localNarrative = buildHumanizedNarrative(match);
         const deepSeekNarrative = await generateDeepSeekGroundedAnswer({
-          query: "Create a plain-language, human-friendly case brief in 3-5 sentences.",
+          query:
+            "Create a plain-language, human-friendly case brief in 3-5 sentences.",
           localAnswer: localNarrative,
           sources: [
             {
@@ -704,7 +886,10 @@ export async function createServer() {
               finalVerdict: match.finalVerdict,
               section: "Case Summary",
               score: 1,
-              excerpt: `${match.summary || ""} ${match.judgment || ""}`.slice(0, 400),
+              excerpt: `${match.summary || ""} ${match.judgment || ""}`.slice(
+                0,
+                400,
+              ),
             },
           ],
           retrievedChunks: [
@@ -713,7 +898,10 @@ export async function createServer() {
               caseId: match.id,
               score: 1,
               section: "Case Summary",
-              text: `${match.summary || ""} ${match.judgment || ""}`.slice(0, 500),
+              text: `${match.summary || ""} ${match.judgment || ""}`.slice(
+                0,
+                500,
+              ),
             },
           ],
           mode: "explain",
@@ -745,10 +933,16 @@ export async function createServer() {
 
       if (pathname === "/api/analyze-pdf" && req.method === "POST") {
         const payload = await readJsonBody(req);
-        const fileName = `${payload.filename || "uploaded-document.pdf"}`.trim();
-        const contentBase64 = typeof payload.contentBase64 === "string" ? payload.contentBase64 : "";
+        const fileName =
+          `${payload.filename || "uploaded-document.pdf"}`.trim();
+        const contentBase64 =
+          typeof payload.contentBase64 === "string"
+            ? payload.contentBase64
+            : "";
         const extractedTextOverride =
-          typeof payload.extractedText === "string" ? normalizeText(payload.extractedText) : "";
+          typeof payload.extractedText === "string"
+            ? normalizeText(payload.extractedText)
+            : "";
         const sections = await buildPdfSections(fileName, allCases, {
           contentBase64,
           extractedTextOverride,
@@ -758,7 +952,10 @@ export async function createServer() {
           entity: "pdf",
           requestId,
           clientAddress,
-          details: { fileName, extractionOverride: Boolean(extractedTextOverride) },
+          details: {
+            fileName,
+            extractionOverride: Boolean(extractedTextOverride),
+          },
         });
         sendJson(res, 200, { sections });
         return;
@@ -906,7 +1103,21 @@ export async function createServer() {
 
         if (req.method === "POST") {
           const payload = await readJsonBody(req);
-          const created = await createHearing(payload);
+          let created;
+          try {
+            created = await createHearing(payload);
+          } catch (createErr) {
+            const msg =
+              createErr instanceof Error
+                ? createErr.message
+                : "Unable to schedule hearing.";
+            // Distinguish scheduling conflicts (409) from other errors (500)
+            const isConflict = msg
+              .toLowerCase()
+              .includes("scheduling conflict");
+            sendJson(res, isConflict ? 409 : 500, { error: msg });
+            return;
+          }
           recordAuditEvent({
             action: "create_hearing",
             entity: "hearing",
@@ -977,7 +1188,11 @@ export async function createServer() {
 
       if (pathname === "/api/fir/assess-priority" && req.method === "POST") {
         const payload = await readJsonBody(req);
-        const text = buildFirText(payload.filename || "", payload.sections || [], payload.extractedText || "");
+        const text = buildFirText(
+          payload.filename || "",
+          payload.sections || [],
+          payload.extractedText || "",
+        );
         const assessment = buildFirAssessment(text);
         sendJson(res, 200, assessment);
         return;
@@ -994,7 +1209,11 @@ export async function createServer() {
 
       if (pathname === "/api/fir/assign-judge" && req.method === "POST") {
         const payload = await readJsonBody(req);
-        const text = buildFirText(payload.filename || "", payload.sections || [], payload.extractedText || "");
+        const text = buildFirText(
+          payload.filename || "",
+          payload.sections || [],
+          payload.extractedText || "",
+        );
         const assessment = payload.assessment || buildFirAssessment(text);
         const judges = await listJudges();
         const assignment = buildFirAssignment(assessment, judges, text);
@@ -1010,7 +1229,9 @@ export async function createServer() {
       }
 
       // ── Managed Cases ────────────────────────────────────────────────────
-      const managedCaseMatch = pathname.match(/^\/api\/managed-cases\/([^/]+)$/);
+      const managedCaseMatch = pathname.match(
+        /^\/api\/managed-cases\/([^/]+)$/,
+      );
 
       if (pathname === "/api/managed-cases" && req.method === "GET") {
         const cases = await listManagedCases();
@@ -1022,7 +1243,13 @@ export async function createServer() {
         const payload = await readJsonBody(req);
         if (!payload.title) throw new HttpError(400, "title is required");
         const created = await upsertManagedCase(payload);
-        recordAuditEvent({ action: "create_managed_case", entity: "managed_case", requestId, clientAddress, details: { id: created.id } });
+        recordAuditEvent({
+          action: "create_managed_case",
+          entity: "managed_case",
+          requestId,
+          clientAddress,
+          details: { id: created.id },
+        });
         sendJson(res, 201, created);
         return;
       }
@@ -1031,7 +1258,10 @@ export async function createServer() {
         const id = decodeURIComponent(managedCaseMatch[1]);
         const all = await listManagedCases();
         const found = all.find((c) => c.id === id);
-        if (!found) { sendJson(res, 404, { error: "Managed case not found" }); return; }
+        if (!found) {
+          sendJson(res, 404, { error: "Managed case not found" });
+          return;
+        }
         sendJson(res, 200, found);
         return;
       }
@@ -1040,8 +1270,17 @@ export async function createServer() {
         const id = decodeURIComponent(managedCaseMatch[1]);
         const payload = await readJsonBody(req);
         const updated = await updateManagedCase(id, payload);
-        if (!updated) { sendJson(res, 404, { error: "Managed case not found" }); return; }
-        recordAuditEvent({ action: "update_managed_case", entity: "managed_case", requestId, clientAddress, details: { id } });
+        if (!updated) {
+          sendJson(res, 404, { error: "Managed case not found" });
+          return;
+        }
+        recordAuditEvent({
+          action: "update_managed_case",
+          entity: "managed_case",
+          requestId,
+          clientAddress,
+          details: { id },
+        });
         sendJson(res, 200, updated);
         return;
       }
@@ -1049,14 +1288,25 @@ export async function createServer() {
       if (managedCaseMatch && req.method === "DELETE") {
         const id = decodeURIComponent(managedCaseMatch[1]);
         const removed = await deleteManagedCase(id);
-        if (!removed) { sendJson(res, 404, { error: "Managed case not found" }); return; }
-        recordAuditEvent({ action: "delete_managed_case", entity: "managed_case", requestId, clientAddress, details: { id } });
+        if (!removed) {
+          sendJson(res, 404, { error: "Managed case not found" });
+          return;
+        }
+        recordAuditEvent({
+          action: "delete_managed_case",
+          entity: "managed_case",
+          requestId,
+          clientAddress,
+          details: { id },
+        });
         sendJson(res, 204, {});
         return;
       }
 
       // ── Priority Overrides ───────────────────────────────────────────────
-      const priorityOverridesCaseMatch = pathname.match(/^\/api\/managed-cases\/([^/]+)\/priority-overrides$/);
+      const priorityOverridesCaseMatch = pathname.match(
+        /^\/api\/managed-cases\/([^/]+)\/priority-overrides$/,
+      );
 
       if (priorityOverridesCaseMatch && req.method === "GET") {
         const caseId = decodeURIComponent(priorityOverridesCaseMatch[1]);
@@ -1068,11 +1318,21 @@ export async function createServer() {
       if (priorityOverridesCaseMatch && req.method === "POST") {
         const caseId = decodeURIComponent(priorityOverridesCaseMatch[1]);
         const payload = await readJsonBody(req);
-        if (!payload.overrideBand || !payload.reason) throw new HttpError(400, "overrideBand and reason are required");
+        if (!payload.overrideBand || !payload.reason)
+          throw new HttpError(400, "overrideBand and reason are required");
         const override = await createPriorityOverride({ ...payload, caseId });
         // Also update the managed case's band
-        await updateManagedCase(caseId, { priorityBand: payload.overrideBand, priorityScore: payload.overrideScore });
-        recordAuditEvent({ action: "priority_override", entity: "managed_case", requestId, clientAddress, details: { caseId, overrideBand: payload.overrideBand } });
+        await updateManagedCase(caseId, {
+          priorityBand: payload.overrideBand,
+          priorityScore: payload.overrideScore,
+        });
+        recordAuditEvent({
+          action: "priority_override",
+          entity: "managed_case",
+          requestId,
+          clientAddress,
+          details: { caseId, overrideBand: payload.overrideBand },
+        });
         sendJson(res, 201, override);
         return;
       }
@@ -1096,58 +1356,380 @@ export async function createServer() {
 
 function buildCaseExplanation(query, item) {
   const loweredQuery = `${query}`.toLowerCase();
-  const matchedTags = item.tags.filter((tag) => loweredQuery.includes(tag.toLowerCase()));
-  const tagPhrase = matchedTags.length > 0 ? `matching topic tags (${matchedTags.join(", ")})` : "overlapping legal themes";
+  const matchedTags = item.tags.filter((tag) =>
+    loweredQuery.includes(tag.toLowerCase()),
+  );
+  const tagPhrase =
+    matchedTags.length > 0
+      ? `matching topic tags (${matchedTags.join(", ")})`
+      : "overlapping legal themes";
   return `Matched on ${tagPhrase}, case type (${item.type}), and strong similarity signals from title and summary context.`;
 }
 
 function buildFirText(filename, sections, extractedText) {
   const sectionText = Array.isArray(sections)
     ? sections
-        .map((section) => `${section.title || ""} ${section.summary || ""} ${section.content || ""} ${(section.highlights || []).join(" ")}`)
+        .map(
+          (section) =>
+            `${section.title || ""} ${section.summary || ""} ${section.content || ""} ${(section.highlights || []).join(" ")}`,
+        )
         .join(" ")
     : "";
   return `${filename || ""} ${extractedText || ""} ${sectionText}`.trim();
 }
 
-
 // ── Legal Section Knowledge Base ─────────────────────────────────────────────
 const LEGAL_SECTION_MAP = [
   // Homicide & bodily harm
-  { terms: ["murder","killed","homicide","death of accused","deceased"], sections: ["IPC Section 302 (Murder)","IPC Section 300 (Definition of Murder)","IPC Section 304 (Culpable Homicide not amounting to Murder)","CrPC Section 173 (Police Report)"], domain: "Criminal", severity: "Critical", publicRisk: true },
-  { terms: ["attempt to murder","attempted murder","shot at","stabbed","fired at"], sections: ["IPC Section 307 (Attempt to Murder)","IPC Section 309 (Attempt to commit Suicide)","IPC Section 34 (Common Intention)","CrPC Section 439 (High Court Powers Regarding Bail)"], domain: "Criminal", severity: "Critical", publicRisk: true },
-  { terms: ["grievous hurt","grievous injury","fracture","permanent disability","disfigurement"], sections: ["IPC Section 320 (Grievous Hurt)","IPC Section 325 (Punishment for Grievous Hurt)","IPC Section 326 (Grievous Hurt by Dangerous Weapons)"], domain: "Criminal", severity: "High", publicRisk: true },
-  { terms: ["hurt","injury","assault","beat","beaten"], sections: ["IPC Section 319 (Hurt)","IPC Section 323 (Punishment for Voluntarily Causing Hurt)","IPC Section 324 (Hurt by Dangerous Weapon)","IPC Section 351 (Assault)"], domain: "Criminal", severity: "Medium", publicRisk: false },
+  {
+    terms: ["murder", "killed", "homicide", "death of accused", "deceased"],
+    sections: [
+      "IPC Section 302 (Murder)",
+      "IPC Section 300 (Definition of Murder)",
+      "IPC Section 304 (Culpable Homicide not amounting to Murder)",
+      "CrPC Section 173 (Police Report)",
+    ],
+    domain: "Criminal",
+    severity: "Critical",
+    publicRisk: true,
+  },
+  {
+    terms: [
+      "attempt to murder",
+      "attempted murder",
+      "shot at",
+      "stabbed",
+      "fired at",
+    ],
+    sections: [
+      "IPC Section 307 (Attempt to Murder)",
+      "IPC Section 309 (Attempt to commit Suicide)",
+      "IPC Section 34 (Common Intention)",
+      "CrPC Section 439 (High Court Powers Regarding Bail)",
+    ],
+    domain: "Criminal",
+    severity: "Critical",
+    publicRisk: true,
+  },
+  {
+    terms: [
+      "grievous hurt",
+      "grievous injury",
+      "fracture",
+      "permanent disability",
+      "disfigurement",
+    ],
+    sections: [
+      "IPC Section 320 (Grievous Hurt)",
+      "IPC Section 325 (Punishment for Grievous Hurt)",
+      "IPC Section 326 (Grievous Hurt by Dangerous Weapons)",
+    ],
+    domain: "Criminal",
+    severity: "High",
+    publicRisk: true,
+  },
+  {
+    terms: ["hurt", "injury", "assault", "beat", "beaten"],
+    sections: [
+      "IPC Section 319 (Hurt)",
+      "IPC Section 323 (Punishment for Voluntarily Causing Hurt)",
+      "IPC Section 324 (Hurt by Dangerous Weapon)",
+      "IPC Section 351 (Assault)",
+    ],
+    domain: "Criminal",
+    severity: "Medium",
+    publicRisk: false,
+  },
   // Road accidents
-  { terms: ["accident","rash driving","negligent driving","hit","road","vehicle","car","truck","bus"], sections: ["IPC Section 279 (Rash Driving on Public Way)","IPC Section 304A (Death by Negligence)","IPC Section 338 (Grievous Hurt by Negligent Act)","Motor Vehicles Act Section 166 (Application for Compensation)","Motor Vehicles Act Section 185 (Drunken Driving)"], domain: "Criminal", severity: "High", publicRisk: true },
+  {
+    terms: [
+      "accident",
+      "rash driving",
+      "negligent driving",
+      "hit",
+      "road",
+      "vehicle",
+      "car",
+      "truck",
+      "bus",
+    ],
+    sections: [
+      "IPC Section 279 (Rash Driving on Public Way)",
+      "IPC Section 304A (Death by Negligence)",
+      "IPC Section 338 (Grievous Hurt by Negligent Act)",
+      "Motor Vehicles Act Section 166 (Application for Compensation)",
+      "Motor Vehicles Act Section 185 (Drunken Driving)",
+    ],
+    domain: "Criminal",
+    severity: "High",
+    publicRisk: true,
+  },
   // Sexual offences
-  { terms: ["rape","sexual assault","molestation","outraging modesty","POCSO","minor victim"], sections: ["IPC Section 375 (Definition of Rape)","IPC Section 376 (Punishment for Rape)","IPC Section 354 (Outraging Modesty of a Woman)","POCSO Act Section 4 (Penetrative Sexual Assault)","POCSO Act Section 7 (Sexual Assault on Child)","CrPC Section 164 (Statement of Victim)"], domain: "Criminal", severity: "Critical", publicRisk: true },
+  {
+    terms: [
+      "rape",
+      "sexual assault",
+      "molestation",
+      "outraging modesty",
+      "POCSO",
+      "minor victim",
+    ],
+    sections: [
+      "IPC Section 375 (Definition of Rape)",
+      "IPC Section 376 (Punishment for Rape)",
+      "IPC Section 354 (Outraging Modesty of a Woman)",
+      "POCSO Act Section 4 (Penetrative Sexual Assault)",
+      "POCSO Act Section 7 (Sexual Assault on Child)",
+      "CrPC Section 164 (Statement of Victim)",
+    ],
+    domain: "Criminal",
+    severity: "Critical",
+    publicRisk: true,
+  },
   // Kidnapping & trafficking
-  { terms: ["kidnap","abduct","trafficking","missing person","wrongful confinement"], sections: ["IPC Section 359 (Kidnapping)","IPC Section 363 (Punishment for Kidnapping)","IPC Section 364A (Ransom Kidnapping)","IPC Section 342 (Wrongful Confinement)"], domain: "Criminal", severity: "Critical", publicRisk: true },
+  {
+    terms: [
+      "kidnap",
+      "abduct",
+      "trafficking",
+      "missing person",
+      "wrongful confinement",
+    ],
+    sections: [
+      "IPC Section 359 (Kidnapping)",
+      "IPC Section 363 (Punishment for Kidnapping)",
+      "IPC Section 364A (Ransom Kidnapping)",
+      "IPC Section 342 (Wrongful Confinement)",
+    ],
+    domain: "Criminal",
+    severity: "Critical",
+    publicRisk: true,
+  },
   // Robbery & dacoity
-  { terms: ["robbery","dacoity","armed robbery","theft at gunpoint","looting"], sections: ["IPC Section 390 (Robbery)","IPC Section 392 (Punishment for Robbery)","IPC Section 395 (Punishment for Dacoity)","IPC Section 397 (Robbery with Attempt to Cause Death)"], domain: "Criminal", severity: "High", publicRisk: true },
+  {
+    terms: [
+      "robbery",
+      "dacoity",
+      "armed robbery",
+      "theft at gunpoint",
+      "looting",
+    ],
+    sections: [
+      "IPC Section 390 (Robbery)",
+      "IPC Section 392 (Punishment for Robbery)",
+      "IPC Section 395 (Punishment for Dacoity)",
+      "IPC Section 397 (Robbery with Attempt to Cause Death)",
+    ],
+    domain: "Criminal",
+    severity: "High",
+    publicRisk: true,
+  },
   // Theft & cheating
-  { terms: ["theft","stolen","stole","pickpocket"], sections: ["IPC Section 378 (Theft)","IPC Section 379 (Punishment for Theft)","IPC Section 380 (Theft in Dwelling)"], domain: "Criminal", severity: "Medium", publicRisk: false },
-  { terms: ["cheating","fraud","misrepresentation","deceived","defraud"], sections: ["IPC Section 415 (Cheating)","IPC Section 420 (Cheating and Dishonestly Inducing Delivery of Property)","IPC Section 468 (Forgery for purpose of Cheating)","Indian Evidence Act Section 17 (Admission)"], domain: "Criminal", severity: "Medium", publicRisk: false },
+  {
+    terms: ["theft", "stolen", "stole", "pickpocket"],
+    sections: [
+      "IPC Section 378 (Theft)",
+      "IPC Section 379 (Punishment for Theft)",
+      "IPC Section 380 (Theft in Dwelling)",
+    ],
+    domain: "Criminal",
+    severity: "Medium",
+    publicRisk: false,
+  },
+  {
+    terms: ["cheating", "fraud", "misrepresentation", "deceived", "defraud"],
+    sections: [
+      "IPC Section 415 (Cheating)",
+      "IPC Section 420 (Cheating and Dishonestly Inducing Delivery of Property)",
+      "IPC Section 468 (Forgery for purpose of Cheating)",
+      "Indian Evidence Act Section 17 (Admission)",
+    ],
+    domain: "Criminal",
+    severity: "Medium",
+    publicRisk: false,
+  },
   // Corruption & bribery
-  { terms: ["corruption","bribery","bribe","public servant","graft"], sections: ["Prevention of Corruption Act 1988 Section 7 (Offence relating to Bribery)","Prevention of Corruption Act 1988 Section 13 (Criminal Misconduct)","IPC Section 161 (Public Servant Taking Illegal Gratification)"], domain: "Criminal", severity: "High", publicRisk: true },
+  {
+    terms: ["corruption", "bribery", "bribe", "public servant", "graft"],
+    sections: [
+      "Prevention of Corruption Act 1988 Section 7 (Offence relating to Bribery)",
+      "Prevention of Corruption Act 1988 Section 13 (Criminal Misconduct)",
+      "IPC Section 161 (Public Servant Taking Illegal Gratification)",
+    ],
+    domain: "Criminal",
+    severity: "High",
+    publicRisk: true,
+  },
   // Domestic violence & dowry
-  { terms: ["domestic violence","dowry","dowry death","cruelty by husband","498a"], sections: ["IPC Section 498A (Cruelty by Husband or Relatives)","IPC Section 304B (Dowry Death)","Dowry Prohibition Act 1961 Section 3","Protection of Women from Domestic Violence Act 2005 Section 18"], domain: "Criminal", severity: "High", publicRisk: false },
+  {
+    terms: [
+      "domestic violence",
+      "dowry",
+      "dowry death",
+      "cruelty by husband",
+      "498a",
+    ],
+    sections: [
+      "IPC Section 498A (Cruelty by Husband or Relatives)",
+      "IPC Section 304B (Dowry Death)",
+      "Dowry Prohibition Act 1961 Section 3",
+      "Protection of Women from Domestic Violence Act 2005 Section 18",
+    ],
+    domain: "Criminal",
+    severity: "High",
+    publicRisk: false,
+  },
   // Bail proceedings
-  { terms: ["bail","bail application","anticipatory bail","regular bail","CrPC 437","CrPC 439"], sections: ["CrPC Section 437 (When Bail may be taken in case of Non-Bailable Offence)","CrPC Section 439 (Special Powers of High Court regarding Bail)","CrPC Section 167 (Procedure when Investigation cannot be completed in 24 hours)","Indian Evidence Act Section 3 (Interpretation – Facts)"], domain: "Criminal", severity: "Medium", publicRisk: false },
+  {
+    terms: [
+      "bail",
+      "bail application",
+      "anticipatory bail",
+      "regular bail",
+      "CrPC 437",
+      "CrPC 439",
+    ],
+    sections: [
+      "CrPC Section 437 (When Bail may be taken in case of Non-Bailable Offence)",
+      "CrPC Section 439 (Special Powers of High Court regarding Bail)",
+      "CrPC Section 167 (Procedure when Investigation cannot be completed in 24 hours)",
+      "Indian Evidence Act Section 3 (Interpretation – Facts)",
+    ],
+    domain: "Criminal",
+    severity: "Medium",
+    publicRisk: false,
+  },
   // Self-defence
-  { terms: ["self defense","self defence","private defence","right of private defense"], sections: ["IPC Section 96 (Right of Private Defence)","IPC Section 97 (Right of Private Defence of Body and Property)","IPC Section 100 (When Right of Private Defence extends to Causing Death)","IPC Section 105 (Commencement and Continuance of Right of Private Defence of Property)"], domain: "Criminal", severity: "High", publicRisk: false },
+  {
+    terms: [
+      "self defense",
+      "self defence",
+      "private defence",
+      "right of private defense",
+    ],
+    sections: [
+      "IPC Section 96 (Right of Private Defence)",
+      "IPC Section 97 (Right of Private Defence of Body and Property)",
+      "IPC Section 100 (When Right of Private Defence extends to Causing Death)",
+      "IPC Section 105 (Commencement and Continuance of Right of Private Defence of Property)",
+    ],
+    domain: "Criminal",
+    severity: "High",
+    publicRisk: false,
+  },
   // Property & civil
-  { terms: ["property dispute","title","ownership","encroachment","possession","land","plot","sale deed"], sections: ["Transfer of Property Act 1882 Section 54 (Sale)","Specific Relief Act 1963 Section 38 (Perpetual Injunction)","Code of Civil Procedure Order 39 (Temporary Injunctions)","Registration Act 1908 Section 17 (Documents to be Registered)"], domain: "Civil", severity: "Medium", publicRisk: false },
-  { terms: ["contract","breach of contract","agreement","non-performance","specific performance"], sections: ["Indian Contract Act 1872 Section 73 (Compensation for Loss)","Indian Contract Act 1872 Section 74 (Compensation for Breach)","Specific Relief Act 1963 Section 10 (Cases in which specific performance is enforceable)","Limitation Act 1963 Article 55 (Contract Breach – 3 years)"], domain: "Civil", severity: "Medium", publicRisk: false },
+  {
+    terms: [
+      "property dispute",
+      "title",
+      "ownership",
+      "encroachment",
+      "possession",
+      "land",
+      "plot",
+      "sale deed",
+    ],
+    sections: [
+      "Transfer of Property Act 1882 Section 54 (Sale)",
+      "Specific Relief Act 1963 Section 38 (Perpetual Injunction)",
+      "Code of Civil Procedure Order 39 (Temporary Injunctions)",
+      "Registration Act 1908 Section 17 (Documents to be Registered)",
+    ],
+    domain: "Civil",
+    severity: "Medium",
+    publicRisk: false,
+  },
+  {
+    terms: [
+      "contract",
+      "breach of contract",
+      "agreement",
+      "non-performance",
+      "specific performance",
+    ],
+    sections: [
+      "Indian Contract Act 1872 Section 73 (Compensation for Loss)",
+      "Indian Contract Act 1872 Section 74 (Compensation for Breach)",
+      "Specific Relief Act 1963 Section 10 (Cases in which specific performance is enforceable)",
+      "Limitation Act 1963 Article 55 (Contract Breach – 3 years)",
+    ],
+    domain: "Civil",
+    severity: "Medium",
+    publicRisk: false,
+  },
   // GST & tax
-  { terms: ["gst","tax evasion","income tax","customs","excise"], sections: ["CGST Act 2017 Section 132 (Punishment for Certain Offences)","Income Tax Act 1961 Section 276C (Wilful Attempt to Evade Tax)","Income Tax Act 1961 Section 279 (Prosecution – Sanction for)","Customs Act 1962 Section 135 (Evasion of Duty)"], domain: "Civil", severity: "Medium", publicRisk: false },
+  {
+    terms: ["gst", "tax evasion", "income tax", "customs", "excise"],
+    sections: [
+      "CGST Act 2017 Section 132 (Punishment for Certain Offences)",
+      "Income Tax Act 1961 Section 276C (Wilful Attempt to Evade Tax)",
+      "Income Tax Act 1961 Section 279 (Prosecution – Sanction for)",
+      "Customs Act 1962 Section 135 (Evasion of Duty)",
+    ],
+    domain: "Civil",
+    severity: "Medium",
+    publicRisk: false,
+  },
   // Consumer protection
-  { terms: ["consumer","defective product","deficiency in service","unfair trade","complaint consumer"], sections: ["Consumer Protection Act 2019 Section 2(7) (Definition of Consumer)","Consumer Protection Act 2019 Section 35 (Complaint before District Commission)","Consumer Protection Act 2019 Section 47 (Jurisdiction of State Commission)"], domain: "Civil", severity: "Low", publicRisk: false },
+  {
+    terms: [
+      "consumer",
+      "defective product",
+      "deficiency in service",
+      "unfair trade",
+      "complaint consumer",
+    ],
+    sections: [
+      "Consumer Protection Act 2019 Section 2(7) (Definition of Consumer)",
+      "Consumer Protection Act 2019 Section 35 (Complaint before District Commission)",
+      "Consumer Protection Act 2019 Section 47 (Jurisdiction of State Commission)",
+    ],
+    domain: "Civil",
+    severity: "Low",
+    publicRisk: false,
+  },
   // NDPS / drugs
-  { terms: ["narcotics","drugs","ganja","cocaine","heroin","ndps","contraband"], sections: ["NDPS Act 1985 Section 20 (Cannabis)","NDPS Act 1985 Section 21 (Manufactured Drugs)","NDPS Act 1985 Section 37 (Offences to be Cognizable and Non-Bailable)","CrPC Section 437 (Bail in Non-Bailable Cases)"], domain: "Criminal", severity: "High", publicRisk: true },
+  {
+    terms: [
+      "narcotics",
+      "drugs",
+      "ganja",
+      "cocaine",
+      "heroin",
+      "ndps",
+      "contraband",
+    ],
+    sections: [
+      "NDPS Act 1985 Section 20 (Cannabis)",
+      "NDPS Act 1985 Section 21 (Manufactured Drugs)",
+      "NDPS Act 1985 Section 37 (Offences to be Cognizable and Non-Bailable)",
+      "CrPC Section 437 (Bail in Non-Bailable Cases)",
+    ],
+    domain: "Criminal",
+    severity: "High",
+    publicRisk: true,
+  },
   // Cybercrime
-  { terms: ["cyber","hacking","phishing","online fraud","data breach","identity theft"], sections: ["IT Act 2000 Section 43 (Penalty for Damage to Computer)","IT Act 2000 Section 66 (Computer Related Offences)","IT Act 2000 Section 66C (Identity Theft)","IT Act 2000 Section 66D (Cheating by Personation)","IPC Section 420 (Cheating)"], domain: "Criminal", severity: "Medium", publicRisk: false },
+  {
+    terms: [
+      "cyber",
+      "hacking",
+      "phishing",
+      "online fraud",
+      "data breach",
+      "identity theft",
+    ],
+    sections: [
+      "IT Act 2000 Section 43 (Penalty for Damage to Computer)",
+      "IT Act 2000 Section 66 (Computer Related Offences)",
+      "IT Act 2000 Section 66C (Identity Theft)",
+      "IT Act 2000 Section 66D (Cheating by Personation)",
+      "IPC Section 420 (Cheating)",
+    ],
+    domain: "Criminal",
+    severity: "Medium",
+    publicRisk: false,
+  },
 ];
 
 // ── Concrete Legal Analysis Engine ──────────────────────────────────────────
@@ -1158,17 +1740,31 @@ function buildConcreteAnalysis(context, ragResult, grounded, src) {
   let matched = null;
   let matchScore = 0;
   for (const entry of LEGAL_SECTION_MAP) {
-    const hits = entry.terms.filter(t => ctxLower.includes(t)).length;
-    if (hits > matchScore) { matchScore = hits; matched = entry; }
+    const hits = entry.terms.filter((t) => ctxLower.includes(t)).length;
+    if (hits > matchScore) {
+      matchScore = hits;
+      matched = entry;
+    }
   }
   // Default fallback
   if (!matched) {
-    matched = { terms: [], sections: ["IPC Section 34 (Common Intention)","Indian Evidence Act Section 3 (Facts)","CrPC Section 482 (Inherent Powers of High Court)"], domain: "Criminal", severity: "Medium", publicRisk: false };
+    matched = {
+      terms: [],
+      sections: [
+        "IPC Section 34 (Common Intention)",
+        "Indian Evidence Act Section 3 (Facts)",
+        "CrPC Section 482 (Inherent Powers of High Court)",
+      ],
+      domain: "Criminal",
+      severity: "Medium",
+      publicRisk: false,
+    };
   }
 
   // 2. Extract explicit section references from context
   const explicitSections = [];
-  const sectionRe = /(?:section|sec\.?|s\.)\s*(\d{1,4}[A-Z]?)\s*(?:of\s+)?(?:ipc|crpc|bnss|it act|ndps|pocso|mvact|[a-z\s]{3,30})?/gi;
+  const sectionRe =
+    /(?:section|sec\.?|s\.)\s*(\d{1,4}[A-Z]?)\s*(?:of\s+)?(?:ipc|crpc|bnss|it act|ndps|pocso|mvact|[a-z\s]{3,30})?/gi;
   let sm;
   while ((sm = sectionRe.exec(context)) !== null) {
     const raw = sm[0].replace(/\s+/g, " ").trim();
@@ -1176,10 +1772,13 @@ function buildConcreteAnalysis(context, ragResult, grounded, src) {
   }
   const ipcRe = /IPC\s+\d{2,3}[A-Z]?/g;
   const ipcHits = context.match(ipcRe) || [];
-  for (const hit of ipcHits) if (!explicitSections.includes(hit)) explicitSections.push(hit);
+  for (const hit of ipcHits)
+    if (!explicitSections.includes(hit)) explicitSections.push(hit);
 
   // 3. Build final laws list (explicit first, then inferred)
-  const relevantLaws = [...new Set([...explicitSections, ...matched.sections])].slice(0, 6);
+  const relevantLaws = [
+    ...new Set([...explicitSections, ...matched.sections]),
+  ].slice(0, 6);
 
   // 4. Derive case type and title
   const caseType = matched.domain;
@@ -1192,19 +1791,31 @@ function buildConcreteAnalysis(context, ragResult, grounded, src) {
   const keyFacts = buildKeyFacts(context, matched, caseType);
 
   // 7. Legal issues (specific, never generic)
-  const legalIssues = buildLegalIssues(context, matched, relevantLaws, caseType);
+  const legalIssues = buildLegalIssues(
+    context,
+    matched,
+    relevantLaws,
+    caseType,
+  );
 
   // 8. Arguments (concrete, section-specific)
   const arguments_ = buildArguments(context, matched, relevantLaws, caseType);
 
   // 9. Predicted outcome (probabilistic, concrete)
-  const { predictedOutcome, reasoning, confidenceScore } = buildOutcome(context, matched, grounded, src, caseType);
+  const { predictedOutcome, reasoning, confidenceScore } = buildOutcome(
+    context,
+    matched,
+    grounded,
+    src,
+    caseType,
+  );
 
   // 10. Priority (strict rules per spec)
-  const { priorityScore, priorityLevel, priorityJustification } = computeConcretePriority(matched, context);
+  const { priorityScore, priorityLevel, priorityJustification } =
+    computeConcretePriority(matched, context);
 
   // 11. Similar case references from RAG
-  const similarCaseReferences = src.slice(0, 5).map(s => ({
+  const similarCaseReferences = src.slice(0, 5).map((s) => ({
     title: s.title,
     court: s.court || "Supreme Court of India",
     year: s.year || 2000,
@@ -1228,7 +1839,12 @@ function buildConcreteAnalysis(context, ragResult, grounded, src) {
     priorityJustification,
     confidenceScore,
     grounded,
-    ...(grounded ? {} : { generativeNote: "No direct precedent retrieved. Analysis generated by legal inference engine using established Indian law." }),
+    ...(grounded
+      ? {}
+      : {
+          generativeNote:
+            "No direct precedent retrieved. Analysis generated by legal inference engine using established Indian law.",
+        }),
   };
 }
 
@@ -1244,15 +1860,32 @@ function buildExpandedScenario(context, matched, caseType) {
   const ctxL = ctx.toLowerCase();
 
   if (matched.severity === "Critical") {
-    inferredFacts.push("Police are inferred to have registered a First Information Report (FIR) under cognizable, non-bailable sections.");
-    inferredFacts.push("Medical and forensic evidence is presumed to have been collected at the scene.");
+    inferredFacts.push(
+      "Police are inferred to have registered a First Information Report (FIR) under cognizable, non-bailable sections.",
+    );
+    inferredFacts.push(
+      "Medical and forensic evidence is presumed to have been collected at the scene.",
+    );
   }
-  if (ctxL.includes("bail")) inferredFacts.push("Custody proceedings are ongoing; the accused is likely in judicial remand pending bail hearing.");
-  if (ctxL.includes("witness") || ctxL.includes("eyewitness")) inferredFacts.push("Eyewitness depositions are a central evidentiary pillar in this matter.");
-  if (matched.publicRisk) inferredFacts.push("The offence involved a threat to public safety, warranting expedited judicial attention.");
-  if (caseType === "Civil") inferredFacts.push("Civil proceedings are likely filed before the appropriate District or High Court with attendant injunction/stay applications.");
+  if (ctxL.includes("bail"))
+    inferredFacts.push(
+      "Custody proceedings are ongoing; the accused is likely in judicial remand pending bail hearing.",
+    );
+  if (ctxL.includes("witness") || ctxL.includes("eyewitness"))
+    inferredFacts.push(
+      "Eyewitness depositions are a central evidentiary pillar in this matter.",
+    );
+  if (matched.publicRisk)
+    inferredFacts.push(
+      "The offence involved a threat to public safety, warranting expedited judicial attention.",
+    );
+  if (caseType === "Civil")
+    inferredFacts.push(
+      "Civil proceedings are likely filed before the appropriate District or High Court with attendant injunction/stay applications.",
+    );
 
-  const expanded = `${ctx} ${inferredFacts.length > 0 ? "Based on the facts presented and reasonable legal inference: " + inferredFacts.join(" ") : ""}`.trim();
+  const expanded =
+    `${ctx} ${inferredFacts.length > 0 ? "Based on the facts presented and reasonable legal inference: " + inferredFacts.join(" ") : ""}`.trim();
   return expanded;
 }
 
@@ -1269,20 +1902,63 @@ function buildKeyFacts(context, matched, caseType) {
   if (dateMatch) facts.push(`Incident date recorded as ${dateMatch[0]}.`);
 
   // Parties
-  if (ctxL.includes("accused") || ctxL.includes("defendant")) facts.push("Accused/defendant has been identified and is party to these proceedings.");
-  if (ctxL.includes("victim") || ctxL.includes("complainant") || ctxL.includes("plaintiff")) facts.push("Victim/complainant has filed a formal complaint initiating legal action.");
+  if (ctxL.includes("accused") || ctxL.includes("defendant"))
+    facts.push(
+      "Accused/defendant has been identified and is party to these proceedings.",
+    );
+  if (
+    ctxL.includes("victim") ||
+    ctxL.includes("complainant") ||
+    ctxL.includes("plaintiff")
+  )
+    facts.push(
+      "Victim/complainant has filed a formal complaint initiating legal action.",
+    );
 
   // Evidence signals
-  if (ctxL.includes("witness") || ctxL.includes("eyewitness")) facts.push("Eyewitness testimony has been recorded and forms part of prosecution evidence.");
-  if (ctxL.includes("cctv") || ctxL.includes("video") || ctxL.includes("footage")) facts.push("CCTV/video footage is available and constitutes material evidence.");
-  if (ctxL.includes("medical") || ctxL.includes("doctor") || ctxL.includes("hospital")) facts.push("Medico-legal evidence / medical examination report has been obtained.");
-  if (ctxL.includes("no prior") || ctxL.includes("no criminal record") || ctxL.includes("first offence")) facts.push("Accused has no prior criminal record — a mitigating factor relevant to bail and sentencing.");
+  if (ctxL.includes("witness") || ctxL.includes("eyewitness"))
+    facts.push(
+      "Eyewitness testimony has been recorded and forms part of prosecution evidence.",
+    );
+  if (
+    ctxL.includes("cctv") ||
+    ctxL.includes("video") ||
+    ctxL.includes("footage")
+  )
+    facts.push(
+      "CCTV/video footage is available and constitutes material evidence.",
+    );
+  if (
+    ctxL.includes("medical") ||
+    ctxL.includes("doctor") ||
+    ctxL.includes("hospital")
+  )
+    facts.push(
+      "Medico-legal evidence / medical examination report has been obtained.",
+    );
+  if (
+    ctxL.includes("no prior") ||
+    ctxL.includes("no criminal record") ||
+    ctxL.includes("first offence")
+  )
+    facts.push(
+      "Accused has no prior criminal record — a mitigating factor relevant to bail and sentencing.",
+    );
 
   // Domain-specific inferred facts
-  if (matched.severity === "Critical" && facts.length < 3) facts.push(`This is a ${matched.severity.toLowerCase()}-severity matter under ${matched.sections[0]} and cognate provisions.`);
-  if (facts.length < 3) facts.push(`Case classified as ${caseType} with severity level: ${matched.severity}.`);
+  if (matched.severity === "Critical" && facts.length < 3)
+    facts.push(
+      `This is a ${matched.severity.toLowerCase()}-severity matter under ${matched.sections[0]} and cognate provisions.`,
+    );
+  if (facts.length < 3)
+    facts.push(
+      `Case classified as ${caseType} with severity level: ${matched.severity}.`,
+    );
 
-  while (facts.length < 3) facts.push(`Proceedings governed by ${matched.sections[0] || "the applicable statute"}.`);
+  while (facts.length < 3)
+    facts.push(
+      `Proceedings governed by ${matched.sections[0] || "the applicable statute"}.`,
+    );
   return facts.slice(0, 5);
 }
 
@@ -1292,50 +1968,89 @@ function buildLegalIssues(context, matched, relevantLaws, caseType) {
 
   if (caseType === "Criminal") {
     const primarySection = matched.sections[0] || "IPC Section 302";
-    issues.push(`Whether the accused's conduct satisfies all ingredients of ${primarySection} beyond reasonable doubt.`);
-    if (ctxL.includes("bail")) issues.push(`Whether the accused is entitled to bail under CrPC Section 437/439 given the non-bailable nature of ${matched.sections[0] || "the charge"}.`);
-    if (ctxL.includes("self def") || ctxL.includes("private def")) issues.push("Whether the right of private defence under IPC Section 96–100 was lawfully exercised so as to negate culpability.");
-    if (ctxL.includes("intent") || ctxL.includes("intention")) issues.push("Whether the requisite mens rea (criminal intention) under IPC Section 8 is established by the prosecution's evidence.");
-    if (matched.severity === "Critical") issues.push("Whether the eyewitness testimony is credible, consistent and free from material contradictions that would create reasonable doubt.");
+    issues.push(
+      `Whether the accused's conduct satisfies all ingredients of ${primarySection} beyond reasonable doubt.`,
+    );
+    if (ctxL.includes("bail"))
+      issues.push(
+        `Whether the accused is entitled to bail under CrPC Section 437/439 given the non-bailable nature of ${matched.sections[0] || "the charge"}.`,
+      );
+    if (ctxL.includes("self def") || ctxL.includes("private def"))
+      issues.push(
+        "Whether the right of private defence under IPC Section 96–100 was lawfully exercised so as to negate culpability.",
+      );
+    if (ctxL.includes("intent") || ctxL.includes("intention"))
+      issues.push(
+        "Whether the requisite mens rea (criminal intention) under IPC Section 8 is established by the prosecution's evidence.",
+      );
+    if (matched.severity === "Critical")
+      issues.push(
+        "Whether the eyewitness testimony is credible, consistent and free from material contradictions that would create reasonable doubt.",
+      );
   } else {
-    issues.push(`Whether the plaintiff's legal right or title is established under ${relevantLaws[0] || "the Transfer of Property Act 1882"}.`);
-    issues.push("Whether the defendant's acts constitute a wrongful breach entitling the plaintiff to specific performance, damages or injunction.");
-    if (ctxL.includes("injunction")) issues.push("Whether the three-pronged test for temporary injunction (prima facie case, balance of convenience, irreparable harm) is satisfied under CPC Order 39 Rule 1.");
+    issues.push(
+      `Whether the plaintiff's legal right or title is established under ${relevantLaws[0] || "the Transfer of Property Act 1882"}.`,
+    );
+    issues.push(
+      "Whether the defendant's acts constitute a wrongful breach entitling the plaintiff to specific performance, damages or injunction.",
+    );
+    if (ctxL.includes("injunction"))
+      issues.push(
+        "Whether the three-pronged test for temporary injunction (prima facie case, balance of convenience, irreparable harm) is satisfied under CPC Order 39 Rule 1.",
+      );
   }
 
-  while (issues.length < 2) issues.push(`Whether the evidence on record establishes liability under ${relevantLaws[0] || matched.sections[0]}.`);
+  while (issues.length < 2)
+    issues.push(
+      `Whether the evidence on record establishes liability under ${relevantLaws[0] || matched.sections[0]}.`,
+    );
   return issues.slice(0, 4);
 }
 
 function buildArguments(context, matched, relevantLaws, caseType) {
   const ctxL = context.toLowerCase();
-  const primarySection = matched.sections[0] || (caseType === "Criminal" ? "IPC Section 302" : "Transfer of Property Act Section 54");
+  const primarySection =
+    matched.sections[0] ||
+    (caseType === "Criminal"
+      ? "IPC Section 302"
+      : "Transfer of Property Act Section 54");
   const secondarySection = matched.sections[1] || matched.sections[0];
 
   let plaintiff, defendant;
 
   if (caseType === "Criminal") {
     // Prosecution
-    plaintiff = `The prosecution contends that all ingredients of ${primarySection} are fully established on the record. `
-      + `The eyewitness testimony, corroborated by medical/forensic evidence, proves the accused's direct involvement. `
-      + `Under ${secondarySection}, the actus reus and mens rea are both demonstrated beyond reasonable doubt. `
-      + (ctxL.includes("bail") ? "The prosecution opposes bail, arguing the accused poses a flight risk and may tamper with evidence (CrPC Section 437(1) proviso). " : "")
-      + "The prosecution urges framing of charges and expeditious trial in the interest of justice.";
+    plaintiff =
+      `The prosecution contends that all ingredients of ${primarySection} are fully established on the record. ` +
+      `The eyewitness testimony, corroborated by medical/forensic evidence, proves the accused's direct involvement. ` +
+      `Under ${secondarySection}, the actus reus and mens rea are both demonstrated beyond reasonable doubt. ` +
+      (ctxL.includes("bail")
+        ? "The prosecution opposes bail, arguing the accused poses a flight risk and may tamper with evidence (CrPC Section 437(1) proviso). "
+        : "") +
+      "The prosecution urges framing of charges and expeditious trial in the interest of justice.";
 
     // Defence
-    const defenceSection = ctxL.includes("self def") ? "IPC Section 96–100 (Private Defence)" : (matched.sections[2] || "IPC Section 300 Exception I (Grave and Sudden Provocation)");
-    defendant = `The defence argues that the prosecution has failed to prove guilt beyond reasonable doubt. `
-      + `The accused relies on ${defenceSection} and submits that the FIR was registered with delay, raising doubts about its authenticity. `
-      + (ctxL.includes("no prior") || ctxL.includes("no criminal") ? "The defence highlights the accused's clean criminal antecedents as a mitigating factor (Moti Ram vs State of M.P., AIR 1978 SC 1594). " : "")
-      + `The defence urges acquittal / grant of bail, citing that the investigation is at a nascent stage and custodial interrogation is unnecessary.`;
+    const defenceSection = ctxL.includes("self def")
+      ? "IPC Section 96–100 (Private Defence)"
+      : matched.sections[2] ||
+        "IPC Section 300 Exception I (Grave and Sudden Provocation)";
+    defendant =
+      `The defence argues that the prosecution has failed to prove guilt beyond reasonable doubt. ` +
+      `The accused relies on ${defenceSection} and submits that the FIR was registered with delay, raising doubts about its authenticity. ` +
+      (ctxL.includes("no prior") || ctxL.includes("no criminal")
+        ? "The defence highlights the accused's clean criminal antecedents as a mitigating factor (Moti Ram vs State of M.P., AIR 1978 SC 1594). "
+        : "") +
+      `The defence urges acquittal / grant of bail, citing that the investigation is at a nascent stage and custodial interrogation is unnecessary.`;
   } else {
-    plaintiff = `The plaintiff asserts a legally valid right/title under ${primarySection}, supported by registered documents and continuous possession. `
-      + `The defendant's actions constitute an unlawful encroachment/breach entitling the plaintiff to a decree of specific performance or permanent injunction under ${secondarySection}. `
-      + "The plaintiff satisfies the balance-of-convenience test as irreversible harm will occur without court intervention.";
+    plaintiff =
+      `The plaintiff asserts a legally valid right/title under ${primarySection}, supported by registered documents and continuous possession. ` +
+      `The defendant's actions constitute an unlawful encroachment/breach entitling the plaintiff to a decree of specific performance or permanent injunction under ${secondarySection}. ` +
+      "The plaintiff satisfies the balance-of-convenience test as irreversible harm will occur without court intervention.";
 
-    defendant = `The defendant disputes the plaintiff's title and pleads prior possession and adverse possession under the Limitation Act 1963 Article 65. `
-      + `The defendant contends that ${secondarySection} is not attracted as no completed transfer occurred. `
-      + "The defendant argues the suit is barred by limitation under the Limitation Act 1963 and seeks dismissal with costs.";
+    defendant =
+      `The defendant disputes the plaintiff's title and pleads prior possession and adverse possession under the Limitation Act 1963 Article 65. ` +
+      `The defendant contends that ${secondarySection} is not attracted as no completed transfer occurred. ` +
+      "The defendant argues the suit is barred by limitation under the Limitation Act 1963 and seeks dismissal with costs.";
   }
 
   return { plaintiff, defendant };
@@ -1356,7 +2071,7 @@ function buildOutcome(context, matched, grounded, src, caseType) {
       reasoning = `Courts consistently deny bail in ${matched.severity.toLowerCase()}-severity non-bailable offences without exceptional grounds. The prima facie case appears strong based on disclosed facts.`;
     } else {
       predictedOutcome = `Charges under ${primarySection} are likely to be FRAMED and trial will proceed. Given the severity of the offence and eyewitness corroboration, conviction probability is HIGH (65–75%) if prosecution evidence remains consistent at trial. Minimum sentence on conviction: 10 years rigorous imprisonment to life under ${primarySection}.`;
-      confidenceScore = 0.70;
+      confidenceScore = 0.7;
       reasoning = `Under Indian criminal jurisprudence, ${primarySection} carries a high evidentiary burden but once witnesses hold up in cross-examination, conviction rates are significant. Similar cases: ${grounded && src[0] ? src[0].title + " (" + (src[0].year || "N.A.") + ")" : "State of Maharashtra v. Mayur (2007), Supreme Court"}.`;
     }
   } else if (matched.severity === "High" && caseType === "Criminal") {
@@ -1369,17 +2084,22 @@ function buildOutcome(context, matched, grounded, src, caseType) {
     reasoning = `Medium-severity criminal cases with first-time offenders often resolve through compounding or reduced sentences. Section 360 CrPC and Probation of Offenders Act 1958 are applicable.`;
   } else {
     predictedOutcome = `The plaintiff has a reasonable probability (60%) of obtaining relief — either specific performance, injunction, or damages — depending on documentary evidence of title/breach. Courts will apply ${matched.sections[0] || "applicable civil provisions"} strictly. Interim injunction is likely to be granted if documents are prima facie valid.`;
-    confidenceScore = 0.60;
+    confidenceScore = 0.6;
     reasoning = `Civil matters hinge on documentary evidence and the strength of title records. If registered sale deeds or contracts are produced, the plaintiff's case is strong.`;
   }
 
   if (grounded && src[0]) {
     reasoning += ` Grounded in retrieved precedent: ${src[0].title} (${src[0].year || "N.A."}).`;
-    if (src[1]) reasoning += ` Further supported by ${src[1].title} (${src[1].year || "N.A."}).`;
+    if (src[1])
+      reasoning += ` Further supported by ${src[1].title} (${src[1].year || "N.A."}).`;
     confidenceScore = Math.min(0.92, confidenceScore + 0.12);
   }
 
-  return { predictedOutcome, reasoning, confidenceScore: Number(confidenceScore.toFixed(2)) };
+  return {
+    predictedOutcome,
+    reasoning,
+    confidenceScore: Number(confidenceScore.toFixed(2)),
+  };
 }
 
 function computeConcretePriority(matched, context) {
@@ -1392,28 +2112,57 @@ function computeConcretePriority(matched, context) {
   if (matched.severity === "Critical" || matched.publicRisk) {
     priorityScore = matched.severity === "Critical" ? 92 : 82;
     priorityLevel = "HIGH";
-    justificationParts.push(`Severity: ${matched.severity} — involves ${matched.publicRisk ? "public safety risk" : "grievous offence"}.`);
-    justificationParts.push(`Primary section ${matched.sections[0]} carries maximum punishment (life/death).`);
+    justificationParts.push(
+      `Severity: ${matched.severity} — involves ${matched.publicRisk ? "public safety risk" : "grievous offence"}.`,
+    );
+    justificationParts.push(
+      `Primary section ${matched.sections[0]} carries maximum punishment (life/death).`,
+    );
   } else if (matched.severity === "High") {
     priorityScore = 72;
     priorityLevel = "HIGH";
-    justificationParts.push(`High-severity offence under ${matched.sections[0]}; significant injury or financial harm established.`);
+    justificationParts.push(
+      `High-severity offence under ${matched.sections[0]}; significant injury or financial harm established.`,
+    );
   } else if (matched.domain === "Civil" || matched.severity === "Medium") {
     priorityScore = matched.domain === "Civil" ? 48 : 55;
     priorityLevel = "MEDIUM";
-    justificationParts.push(`Financial/property matter or medium-severity offence — MEDIUM priority per triage rules.`);
+    justificationParts.push(
+      `Financial/property matter or medium-severity offence — MEDIUM priority per triage rules.`,
+    );
   } else {
     priorityScore = 22;
     priorityLevel = "LOW";
-    justificationParts.push("Minor or no physical harm; LOW priority — can be scheduled without urgent triage.");
+    justificationParts.push(
+      "Minor or no physical harm; LOW priority — can be scheduled without urgent triage.",
+    );
   }
 
   // Modifiers
-  if (ctxL.includes("bail") && priorityLevel !== "LOW") { priorityScore = Math.min(100, priorityScore + 5); justificationParts.push("Bail proceedings pending — scheduling urgency elevated."); }
-  if (ctxL.includes("child") || ctxL.includes("minor")) { priorityScore = Math.min(100, priorityScore + 8); justificationParts.push("Victim is a minor — POCSO / elevated priority applies."); }
-  if (ctxL.includes("woman") || ctxL.includes("female")) { priorityScore = Math.min(100, priorityScore + 4); justificationParts.push("Offence against woman — fast-track consideration warranted."); }
+  if (ctxL.includes("bail") && priorityLevel !== "LOW") {
+    priorityScore = Math.min(100, priorityScore + 5);
+    justificationParts.push(
+      "Bail proceedings pending — scheduling urgency elevated.",
+    );
+  }
+  if (ctxL.includes("child") || ctxL.includes("minor")) {
+    priorityScore = Math.min(100, priorityScore + 8);
+    justificationParts.push(
+      "Victim is a minor — POCSO / elevated priority applies.",
+    );
+  }
+  if (ctxL.includes("woman") || ctxL.includes("female")) {
+    priorityScore = Math.min(100, priorityScore + 4);
+    justificationParts.push(
+      "Offence against woman — fast-track consideration warranted.",
+    );
+  }
 
-  return { priorityScore: Math.round(priorityScore), priorityLevel, priorityJustification: justificationParts.join(" ") };
+  return {
+    priorityScore: Math.round(priorityScore),
+    priorityLevel,
+    priorityJustification: justificationParts.join(" "),
+  };
 }
 
 function buildFirAssessment(text) {
@@ -1436,7 +2185,8 @@ function buildFirAssessment(text) {
 
 function buildFirAssignment(assessment, judges, seedText) {
   const category = toJudgeCategory(assessment.caseType);
-  const roster = judges && judges.length > 0 ? judges : buildFallbackJudges(category);
+  const roster =
+    judges && judges.length > 0 ? judges : buildFallbackJudges(category);
   const rankings = rankJudgesForAssessment(assessment, roster, seedText);
   const selected = rankings[0] || null;
 
@@ -1455,10 +2205,21 @@ function buildFirAssignment(assessment, judges, seedText) {
 
 function classifyFirCaseType(text) {
   const normalized = `${text || ""}`.toLowerCase();
-  if (normalized.includes("fir") || normalized.includes("ipc") || normalized.includes("criminal") || normalized.includes("murder") || normalized.includes("assault")) {
+  if (
+    normalized.includes("fir") ||
+    normalized.includes("ipc") ||
+    normalized.includes("criminal") ||
+    normalized.includes("murder") ||
+    normalized.includes("assault")
+  ) {
     return "Criminal";
   }
-  if (normalized.includes("civil") || normalized.includes("property") || normalized.includes("contract") || normalized.includes("injunction")) {
+  if (
+    normalized.includes("civil") ||
+    normalized.includes("property") ||
+    normalized.includes("contract") ||
+    normalized.includes("injunction")
+  ) {
     return "Civil";
   }
   return "Specialized Cases";
@@ -1466,16 +2227,63 @@ function classifyFirCaseType(text) {
 
 function detectFirSeverity(text) {
   const normalized = `${text || ""}`.toLowerCase();
-  if (includesAny(normalized, ["murder", "rape", "terror", "kidnap", "attempt to murder", "acid attack"])) return "Critical";
-  if (includesAny(normalized, ["grievous", "armed", "extortion", "rioting", "fraud", "serious injury"])) return "High";
-  if (includesAny(normalized, ["threat", "cheating", "breach", "damage", "dispute"])) return "Medium";
+  if (
+    includesAny(normalized, [
+      "murder",
+      "rape",
+      "terror",
+      "kidnap",
+      "attempt to murder",
+      "acid attack",
+    ])
+  )
+    return "Critical";
+  if (
+    includesAny(normalized, [
+      "grievous",
+      "armed",
+      "extortion",
+      "rioting",
+      "fraud",
+      "serious injury",
+    ])
+  )
+    return "High";
+  if (
+    includesAny(normalized, [
+      "threat",
+      "cheating",
+      "breach",
+      "damage",
+      "dispute",
+    ])
+  )
+    return "Medium";
   return "Low";
 }
 
 function assessFirRisk(text, caseType, severity) {
   const normalized = `${text || ""}`.toLowerCase();
-  let bailRiskScore = 18 + (caseType === "Criminal" ? 10 : 0) + (severity === "Critical" ? 18 : severity === "High" ? 12 : severity === "Medium" ? 6 : 0);
-  let escapeRiskScore = 12 + (caseType === "Criminal" ? 8 : 0) + (severity === "Critical" ? 18 : severity === "High" ? 12 : severity === "Medium" ? 4 : 0);
+  let bailRiskScore =
+    18 +
+    (caseType === "Criminal" ? 10 : 0) +
+    (severity === "Critical"
+      ? 18
+      : severity === "High"
+        ? 12
+        : severity === "Medium"
+          ? 6
+          : 0);
+  let escapeRiskScore =
+    12 +
+    (caseType === "Criminal" ? 8 : 0) +
+    (severity === "Critical"
+      ? 18
+      : severity === "High"
+        ? 12
+        : severity === "Medium"
+          ? 4
+          : 0);
   const riskFactors = [];
 
   const bailTerms = [
@@ -1525,7 +2333,10 @@ function assessFirRisk(text, caseType, severity) {
   return {
     bailRiskScore,
     escapeRiskScore,
-    riskScore: Math.max(10, Math.min(99, Math.round(bailRiskScore * 0.55 + escapeRiskScore * 0.45))),
+    riskScore: Math.max(
+      10,
+      Math.min(99, Math.round(bailRiskScore * 0.55 + escapeRiskScore * 0.45)),
+    ),
     riskFactors,
   };
 }
@@ -1533,17 +2344,28 @@ function assessFirRisk(text, caseType, severity) {
 function computeFirPriority(caseType, severity, risk) {
   const typeWeight = { Criminal: 42, Civil: 26, "Specialized Cases": 34 };
   const severityWeight = { Low: 12, Medium: 24, High: 36, Critical: 48 };
-  const weighted = 0.34 * typeWeight[caseType] + 0.3 * severityWeight[severity] + 0.18 * risk.bailRiskScore + 0.18 * risk.escapeRiskScore;
+  const weighted =
+    0.34 * typeWeight[caseType] +
+    0.3 * severityWeight[severity] +
+    0.18 * risk.bailRiskScore +
+    0.18 * risk.escapeRiskScore;
   return Math.max(20, Math.min(99, Math.round(weighted)));
 }
 
 function buildFirRationale({ caseType, severity, risk }) {
-  const factors = risk.riskFactors.length > 0 ? `Risk factors: ${risk.riskFactors.slice(0, 3).join(", ")}.` : "No explicit bail or flight-risk markers detected.";
+  const factors =
+    risk.riskFactors.length > 0
+      ? `Risk factors: ${risk.riskFactors.slice(0, 3).join(", ")}.`
+      : "No explicit bail or flight-risk markers detected.";
   return `Priority derived from ${caseType.toLowerCase()} classification, ${severity.toLowerCase()} severity, bail risk ${risk.bailRiskScore}, and escape risk ${risk.escapeRiskScore}. ${factors}`;
 }
 
 function toJudgeCategory(caseType) {
-  return caseType === "Criminal" ? "Criminal" : caseType === "Civil" ? "Civil" : "Other";
+  return caseType === "Criminal"
+    ? "Criminal"
+    : caseType === "Civil"
+      ? "Civil"
+      : "Other";
 }
 
 function buildFallbackJudges(category) {
@@ -1551,11 +2373,17 @@ function buildFallbackJudges(category) {
     id: `${category.toLowerCase()}-fallback-${index + 1}`,
     name,
     category,
-    courtLevel: category === "Criminal" ? "High Court" : category === "Civil" ? "High Court" : "District Court",
+    courtLevel:
+      category === "Criminal"
+        ? "High Court"
+        : category === "Civil"
+          ? "High Court"
+          : "District Court",
     yearsOfExperience: 10 + index * 4,
     caseLoadCapacity: 45 + index * 5,
     currentCaseLoad: 18 + index * 8,
-    availability: index === 0 ? "Available" : index === 1 ? "Busy" : "Available",
+    availability:
+      index === 0 ? "Available" : index === 1 ? "Busy" : "Available",
   }));
 }
 
@@ -1563,24 +2391,60 @@ function rankJudgesForAssessment(assessment, judges, seedText) {
   const category = toJudgeCategory(assessment.caseType);
   return judges
     .map((judge) => {
-      const utilization = judge.caseLoadCapacity ? judge.currentCaseLoad / judge.caseLoadCapacity : 1;
+      const utilization = judge.caseLoadCapacity
+        ? judge.currentCaseLoad / judge.caseLoadCapacity
+        : 1;
       const capacityHeadroom = Math.max(0, 1 - utilization);
-      const availabilityScore = judge.availability === "Available" ? 1 : judge.availability === "Busy" ? 0.6 : 0.15;
-      const categoryMatch = judge.category === category ? 1 : category === "Other" && judge.category === "Criminal" ? 0.72 : 0.38;
+      const availabilityScore =
+        judge.availability === "Available"
+          ? 1
+          : judge.availability === "Busy"
+            ? 0.6
+            : 0.15;
+      const categoryMatch =
+        judge.category === category
+          ? 1
+          : category === "Other" && judge.category === "Criminal"
+            ? 0.72
+            : 0.38;
       const experienceScore = Math.min(1, judge.yearsOfExperience / 25);
-      const courtScore = assessCourtFit(judge.courtLevel, assessment.severity, assessment.riskScore);
+      const courtScore = assessCourtFit(
+        judge.courtLevel,
+        assessment.severity,
+        assessment.riskScore,
+      );
       const seedAffinity = hashText(`${seedText}:${judge.name}`) % 11;
-      const score = Math.round(100 * (categoryMatch * 0.3 + availabilityScore * 0.22 + capacityHeadroom * 0.18 + experienceScore * 0.1 + courtScore * 0.17 + Math.max(0.55, Math.min(1, assessment.riskScore / 100)) * 0.03) + seedAffinity);
+      const score = Math.round(
+        100 *
+          (categoryMatch * 0.3 +
+            availabilityScore * 0.22 +
+            capacityHeadroom * 0.18 +
+            experienceScore * 0.1 +
+            courtScore * 0.17 +
+            Math.max(0.55, Math.min(1, assessment.riskScore / 100)) * 0.03) +
+          seedAffinity,
+      );
       return {
         judgeId: judge.id,
         judgeName: judge.name,
         score,
         utilization: Math.round(utilization * 100),
         availability: judge.availability,
-        reason: buildJudgeReason({ categoryMatch, availability: judge.availability, utilization, severity: assessment.severity, riskScore: assessment.riskScore }),
+        reason: buildJudgeReason({
+          categoryMatch,
+          availability: judge.availability,
+          utilization,
+          severity: assessment.severity,
+          riskScore: assessment.riskScore,
+        }),
       };
     })
-    .sort((a, b) => b.score - a.score || a.utilization - b.utilization || a.judgeName.localeCompare(b.judgeName));
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        a.utilization - b.utilization ||
+        a.judgeName.localeCompare(b.judgeName),
+    );
 }
 
 function assessCourtFit(courtLevel, severity, riskScore) {
@@ -1601,10 +2465,26 @@ function assessCourtFit(courtLevel, severity, riskScore) {
 }
 
 function buildJudgeReason(input) {
-  const availabilityText = input.availability === "Available" ? "available" : `${input.availability}`.toLowerCase();
-  const loadText = input.utilization >= 85 ? "high current load" : input.utilization >= 60 ? "moderate current load" : "low current load";
-  const fitText = input.categoryMatch >= 0.9 ? "strong category fit" : "acceptable fallback fit";
-  const riskText = input.riskScore >= 80 ? "critical risk profile" : input.riskScore >= 60 ? "elevated risk profile" : `${input.severity.toLowerCase()} severity`;
+  const availabilityText =
+    input.availability === "Available"
+      ? "available"
+      : `${input.availability}`.toLowerCase();
+  const loadText =
+    input.utilization >= 85
+      ? "high current load"
+      : input.utilization >= 60
+        ? "moderate current load"
+        : "low current load";
+  const fitText =
+    input.categoryMatch >= 0.9
+      ? "strong category fit"
+      : "acceptable fallback fit";
+  const riskText =
+    input.riskScore >= 80
+      ? "critical risk profile"
+      : input.riskScore >= 60
+        ? "elevated risk profile"
+        : `${input.severity.toLowerCase()} severity`;
   return `Selected for ${fitText}, ${availabilityText} status, ${loadText}, and ${riskText}.`;
 }
 
@@ -1623,7 +2503,9 @@ async function buildPdfSections(fileName, cases, options = {}) {
 
   const legalSignal = assessLegalCaseSignal(`${fileName} ${extraction.text}`);
   const suspectedType = inferPdfCaseType(fileName, extraction.text);
-  const ranked = legalSignal.isCaseLike ? rankCaseMatches(cases, extraction.text, suspectedType) : [];
+  const ranked = legalSignal.isCaseLike
+    ? rankCaseMatches(cases, extraction.text, suspectedType)
+    : [];
   const factSnippet = safeExcerpt(extraction.text, 680);
   const issueHighlights = legalSignal.isCaseLike
     ? extractIssueHighlights(extraction.text)
@@ -1663,7 +2545,8 @@ async function buildPdfSections(fileName, cases, options = {}) {
       title: "Issues",
       icon: "AlertTriangle",
       content: `Likely legal issues derived from document language: ${issueHighlights.join(", ")}.`,
-      summary: "Identified issue candidates from extracted text and legal keyword patterns.",
+      summary:
+        "Identified issue candidates from extracted text and legal keyword patterns.",
       highlights: issueHighlights,
       tags: ["Issues", suspectedType],
       matches: ranked,
@@ -1673,7 +2556,8 @@ async function buildPdfSections(fileName, cases, options = {}) {
       title: "Relief Sought",
       icon: "Scale",
       content: `Potential relief indicators found: ${reliefHighlights.join(", ")}. Validate prayer clause details against complete pleadings and annexures.`,
-      summary: "Inferred relief direction from explicit remedy-oriented terms in the PDF.",
+      summary:
+        "Inferred relief direction from explicit remedy-oriented terms in the PDF.",
       highlights: reliefHighlights,
       tags: ["Relief", suspectedType],
       matches: ranked,
@@ -1685,7 +2569,9 @@ function buildMetadataOnlyPdfSections(fileName, cases) {
   const lowerName = fileName.toLowerCase();
   const legalSignal = assessLegalCaseSignal(fileName);
   const suspectedType =
-    lowerName.includes("fir") || lowerName.includes("ipc") || lowerName.includes("crime")
+    lowerName.includes("fir") ||
+    lowerName.includes("ipc") ||
+    lowerName.includes("crime")
       ? "Criminal"
       : lowerName.includes("tax")
         ? "Tax"
@@ -1695,7 +2581,11 @@ function buildMetadataOnlyPdfSections(fileName, cases) {
 
   const ranked = legalSignal.isCaseLike
     ? cases
-        .filter((item) => (suspectedType === "General" ? true : item.type.toLowerCase().includes(suspectedType.toLowerCase())))
+        .filter((item) =>
+          suspectedType === "General"
+            ? true
+            : item.type.toLowerCase().includes(suspectedType.toLowerCase()),
+        )
         .slice(0, 3)
         .map((item) => ({
           title: item.title,
@@ -1704,7 +2594,10 @@ function buildMetadataOnlyPdfSections(fileName, cases) {
         }))
     : [];
 
-  const titleBits = fileName.replace(/\.pdf$/i, "").replace(/[\W_]+/g, " ").trim();
+  const titleBits = fileName
+    .replace(/\.pdf$/i, "")
+    .replace(/[\W_]+/g, " ")
+    .trim();
 
   return [
     {
@@ -1724,8 +2617,13 @@ function buildMetadataOnlyPdfSections(fileName, cases) {
       title: "Issues",
       icon: "AlertTriangle",
       content: `Potential legal issues detected for ${titleBits || "the uploaded matter"}: maintainability, applicable statutory provisions, and burden of proof considerations based on inferred case category.`,
-      summary: "Fallback issue candidates generated from metadata classification.",
-      highlights: ["maintainability", "statutory provisions", "burden of proof"],
+      summary:
+        "Fallback issue candidates generated from metadata classification.",
+      highlights: [
+        "maintainability",
+        "statutory provisions",
+        "burden of proof",
+      ],
       tags: ["Issues", suspectedType],
       matches: ranked,
     },
@@ -1756,7 +2654,10 @@ async function extractPdfText({ contentBase64, extractedTextOverride }) {
     return { text: primaryText, mode: "text" };
   }
 
-  if (pdfBuffer.length > readEnvInt("LEXMATCH_PDF_OCR_MAX_BYTES", DEFAULT_PDF_OCR_MAX_BYTES)) {
+  if (
+    pdfBuffer.length >
+    readEnvInt("LEXMATCH_PDF_OCR_MAX_BYTES", DEFAULT_PDF_OCR_MAX_BYTES)
+  ) {
     return { text: "", mode: "fallback" };
   }
 
@@ -1780,15 +2681,16 @@ async function extractPdfTextFromDocument(pdfBuffer) {
 async function extractPdfTextViaOcr(pdfBuffer) {
   if (process.env.LEXMATCH_ENABLE_PDF_OCR === "0") return "";
   try {
-    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs")
-      .catch(() => null);
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs").catch(
+      () => null,
+    );
     if (!pdfjsLib) return "";
-    const pdf = await pdfjsLib.getDocument({ 
-      data: new Uint8Array(pdfBuffer) 
+    const pdf = await pdfjsLib.getDocument({
+      data: new Uint8Array(pdfBuffer),
     }).promise;
     const page = await pdf.getPage(1);
     const content = await page.getTextContent();
-    return normalizeText(content.items.map(i => i.str).join(" "));
+    return normalizeText(content.items.map((i) => i.str).join(" "));
   } catch {
     return "";
   }
@@ -1814,8 +2716,10 @@ function readEnvInt(key, fallback) {
 function readEnvBool(key, fallback) {
   const value = `${process.env[key] || ""}`.trim().toLowerCase();
   if (!value) return fallback;
-  if (value === "1" || value === "true" || value === "yes" || value === "on") return true;
-  if (value === "0" || value === "false" || value === "no" || value === "off") return false;
+  if (value === "1" || value === "true" || value === "yes" || value === "on")
+    return true;
+  if (value === "0" || value === "false" || value === "no" || value === "off")
+    return false;
   return fallback;
 }
 
@@ -1827,7 +2731,8 @@ function logRequest(req, res, context) {
   const durationMs = Number(process.hrtime.bigint() - context.startedAt) / 1e6;
   recordRequestMetrics(req, res, context, durationMs);
 
-  if (!readEnvBool("LEXMATCH_ENABLE_REQUEST_LOGS", DEFAULT_ENABLE_REQUEST_LOGS)) return;
+  if (!readEnvBool("LEXMATCH_ENABLE_REQUEST_LOGS", DEFAULT_ENABLE_REQUEST_LOGS))
+    return;
 
   const entry = {
     ts: new Date().toISOString(),
@@ -1848,17 +2753,30 @@ function recordRequestMetrics(req, res, context, durationMs) {
   const statusClass = `${Math.floor((res.statusCode || 0) / 100)}xx`;
   const keyPath = normalizeMetricPath(context.path || "/");
 
-  requestMetrics.byMethod.set(method, (requestMetrics.byMethod.get(method) || 0) + 1);
-  requestMetrics.byStatusClass.set(statusClass, (requestMetrics.byStatusClass.get(statusClass) || 0) + 1);
+  requestMetrics.byMethod.set(
+    method,
+    (requestMetrics.byMethod.get(method) || 0) + 1,
+  );
+  requestMetrics.byStatusClass.set(
+    statusClass,
+    (requestMetrics.byStatusClass.get(statusClass) || 0) + 1,
+  );
 
-  const currentPath = requestMetrics.byPath.get(keyPath) || { count: 0, totalLatencyMs: 0, maxLatencyMs: 0 };
+  const currentPath = requestMetrics.byPath.get(keyPath) || {
+    count: 0,
+    totalLatencyMs: 0,
+    maxLatencyMs: 0,
+  };
   currentPath.count += 1;
   currentPath.totalLatencyMs += durationMs;
   currentPath.maxLatencyMs = Math.max(currentPath.maxLatencyMs, durationMs);
   requestMetrics.byPath.set(keyPath, currentPath);
 
   requestMetrics.latencyMsTotal += durationMs;
-  requestMetrics.latencyMsMax = Math.max(requestMetrics.latencyMsMax, durationMs);
+  requestMetrics.latencyMsMax = Math.max(
+    requestMetrics.latencyMsMax,
+    durationMs,
+  );
 }
 
 function normalizeMetricPath(pathname) {
@@ -1868,12 +2786,17 @@ function normalizeMetricPath(pathname) {
 }
 
 function buildMetricsSnapshot() {
-  const avgLatencyMs = requestMetrics.total > 0 ? requestMetrics.latencyMsTotal / requestMetrics.total : 0;
+  const avgLatencyMs =
+    requestMetrics.total > 0
+      ? requestMetrics.latencyMsTotal / requestMetrics.total
+      : 0;
   const topPaths = Array.from(requestMetrics.byPath.entries())
     .map(([path, stats]) => ({
       path,
       count: stats.count,
-      avgLatencyMs: Number((stats.totalLatencyMs / Math.max(1, stats.count)).toFixed(2)),
+      avgLatencyMs: Number(
+        (stats.totalLatencyMs / Math.max(1, stats.count)).toFixed(2),
+      ),
       maxLatencyMs: Number(stats.maxLatencyMs.toFixed(2)),
     }))
     .sort((a, b) => b.count - a.count)
@@ -1895,7 +2818,10 @@ function buildMetricsSnapshot() {
 }
 
 function recordAuditEvent(event) {
-  const maxEvents = readEnvInt("LEXMATCH_AUDIT_MAX_EVENTS", DEFAULT_AUDIT_MAX_EVENTS);
+  const maxEvents = readEnvInt(
+    "LEXMATCH_AUDIT_MAX_EVENTS",
+    DEFAULT_AUDIT_MAX_EVENTS,
+  );
   auditTrail.push({
     id: `aud_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
     ts: new Date().toISOString(),
@@ -1920,7 +2846,9 @@ function buildCaseSearchIndex(cases) {
 
 function buildHashedEmbedding(text, dims) {
   const vector = new Float32Array(dims);
-  const tokens = (`${text || ""}`.toLowerCase().match(/[a-z0-9]{3,}/g) || []).slice(0, 900);
+  const tokens = (
+    `${text || ""}`.toLowerCase().match(/[a-z0-9]{3,}/g) || []
+  ).slice(0, 900);
   for (const token of tokens) {
     const h1 = hashToken(token, 2166136261);
     const h2 = hashToken(token, 16777619);
@@ -1948,7 +2876,8 @@ function vectorNorm(vector) {
 }
 
 function cosineSimilarity(a, b, bNorm, aNormOverride) {
-  const aNorm = typeof aNormOverride === "number" ? aNormOverride : vectorNorm(a);
+  const aNorm =
+    typeof aNormOverride === "number" ? aNormOverride : vectorNorm(a);
   if (aNorm === 0 || bNorm === 0) return 0;
   let dot = 0;
   for (let i = 0; i < a.length; i += 1) {
@@ -2011,10 +2940,26 @@ function normalizeText(text) {
 
 function inferPdfCaseType(fileName, text) {
   const source = `${fileName} ${text}`.toLowerCase();
-  if (/fir|ipc|crpc|bail|charge sheet|prosecution|accused|convict|arrest|criminal/.test(source)) return "Criminal";
-  if (/income tax|gst|vat|assessment|revenue|customs|excise|tax/.test(source)) return "Tax";
-  if (/property|contract|agreement|injunction|specific performance|tenancy|civil suit|civil/.test(source)) return "Civil";
-  if (/article\s+\d+|constitution|writ|habeas|fundamental rights|mandamus/.test(source)) return "Constitutional";
+  if (
+    /fir|ipc|crpc|bail|charge sheet|prosecution|accused|convict|arrest|criminal/.test(
+      source,
+    )
+  )
+    return "Criminal";
+  if (/income tax|gst|vat|assessment|revenue|customs|excise|tax/.test(source))
+    return "Tax";
+  if (
+    /property|contract|agreement|injunction|specific performance|tenancy|civil suit|civil/.test(
+      source,
+    )
+  )
+    return "Civil";
+  if (
+    /article\s+\d+|constitution|writ|habeas|fundamental rights|mandamus/.test(
+      source,
+    )
+  )
+    return "Constitutional";
   return "General";
 }
 
@@ -2024,11 +2969,31 @@ function assessLegalCaseSignal(text) {
 
   let score = 0;
 
-  if (/\b(vs\.?|versus|petitioner|respondent|appellant|accused|plaintiff|defendant)\b/.test(source)) score += 2;
-  if (/\b(article\s+\d+|section\s+\d+|ipc|crpc|fir|writ|appeal|petition|bail)\b/.test(source)) score += 2;
-  if (/\b(supreme court|high court|tribunal|judgment|order|bench|jurisdiction)\b/.test(source)) score += 2;
+  if (
+    /\b(vs\.?|versus|petitioner|respondent|appellant|accused|plaintiff|defendant)\b/.test(
+      source,
+    )
+  )
+    score += 2;
+  if (
+    /\b(article\s+\d+|section\s+\d+|ipc|crpc|fir|writ|appeal|petition|bail)\b/.test(
+      source,
+    )
+  )
+    score += 2;
+  if (
+    /\b(supreme court|high court|tribunal|judgment|order|bench|jurisdiction)\b/.test(
+      source,
+    )
+  )
+    score += 2;
   if (/\b(air\s*\d{4}|\d{4}\s*scc|scr|crilj)\b/.test(source)) score += 2;
-  if (/\b(relief|injunction|compensation|damages|quash|set aside|maintainability|statutory)\b/.test(source)) score += 1;
+  if (
+    /\b(relief|injunction|compensation|damages|quash|set aside|maintainability|statutory)\b/.test(
+      source,
+    )
+  )
+    score += 1;
 
   return {
     isCaseLike: score >= 2,
@@ -2037,7 +3002,8 @@ function assessLegalCaseSignal(text) {
 }
 
 function safeExcerpt(text, maxLength) {
-  if (!text) return "No extractable textual content found in the uploaded file.";
+  if (!text)
+    return "No extractable textual content found in the uploaded file.";
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength).trim()}...`;
 }
@@ -2055,8 +3021,12 @@ function extractIssueHighlights(text) {
     { key: "statutory", label: "statutory interpretation" },
   ];
 
-  const found = pool.filter((item) => source.includes(item.key)).map((item) => item.label);
-  return found.length > 0 ? found.slice(0, 5) : ["maintainability", "statutory interpretation", "burden of proof"];
+  const found = pool
+    .filter((item) => source.includes(item.key))
+    .map((item) => item.label);
+  return found.length > 0
+    ? found.slice(0, 5)
+    : ["maintainability", "statutory interpretation", "burden of proof"];
 }
 
 function extractReliefHighlights(text) {
@@ -2072,26 +3042,47 @@ function extractReliefHighlights(text) {
     { key: "set aside", label: "setting aside order" },
   ];
 
-  const found = pool.filter((item) => source.includes(item.key)).map((item) => item.label);
-  return found.length > 0 ? found.slice(0, 5) : ["interim relief", "final relief", "consequential directions"];
+  const found = pool
+    .filter((item) => source.includes(item.key))
+    .map((item) => item.label);
+  return found.length > 0
+    ? found.slice(0, 5)
+    : ["interim relief", "final relief", "consequential directions"];
 }
 
 function rankCaseMatches(cases, text, suspectedType) {
   const keywords = extractTopKeywords(text);
   const citationSignals = extractCitationSignals(text);
   return cases
-    .filter((item) => (suspectedType === "General" ? true : item.type.toLowerCase().includes(suspectedType.toLowerCase())))
+    .filter((item) =>
+      suspectedType === "General"
+        ? true
+        : item.type.toLowerCase().includes(suspectedType.toLowerCase()),
+    )
     .map((item) => {
-      const haystack = `${item.title} ${item.summary} ${item.tags.join(" ")} ${item.whyMatch} ${item.citation || ""}`.toLowerCase();
-      const overlap = keywords.reduce((score, keyword) => (haystack.includes(keyword) ? score + 1 : score), 0);
+      const haystack =
+        `${item.title} ${item.summary} ${item.tags.join(" ")} ${item.whyMatch} ${item.citation || ""}`.toLowerCase();
+      const overlap = keywords.reduce(
+        (score, keyword) => (haystack.includes(keyword) ? score + 1 : score),
+        0,
+      );
       const citationText = `${item.citation || ""}`.toUpperCase();
-      const citationYearBoost = citationSignals.years.includes(String(item.year)) ? 8 : 0;
+      const citationYearBoost = citationSignals.years.includes(
+        String(item.year),
+      )
+        ? 8
+        : 0;
       const citationReporterHits = citationSignals.reporters.reduce(
-        (score, reporter) => (citationText.includes(reporter) ? score + 1 : score),
-        0
+        (score, reporter) =>
+          citationText.includes(reporter) ? score + 1 : score,
+        0,
       );
       const citationBoost = citationYearBoost + citationReporterHits * 10;
-      const totalScore = overlap * 8 + item.similarity * 0.6 + (item.priorityScore || 0) * 0.2 + citationBoost;
+      const totalScore =
+        overlap * 8 +
+        item.similarity * 0.6 +
+        (item.priorityScore || 0) * 0.2 +
+        citationBoost;
 
       let reason;
       if (citationBoost > 0 && overlap > 0) {
@@ -2118,15 +3109,40 @@ function rankCaseMatches(cases, text, suspectedType) {
 
 function extractCitationSignals(text) {
   const upper = `${text || ""}`.toUpperCase();
-  const years = Array.from(new Set((upper.match(/\b(?:19|20)\d{2}\b/g) || []).slice(0, 8)));
-  const reporters = ["AIR", "SCC", "SCR", "CRILJ", "ALL ER"].filter((token) => upper.includes(token));
+  const years = Array.from(
+    new Set((upper.match(/\b(?:19|20)\d{2}\b/g) || []).slice(0, 8)),
+  );
+  const reporters = ["AIR", "SCC", "SCR", "CRILJ", "ALL ER"].filter((token) =>
+    upper.includes(token),
+  );
   return { years, reporters };
 }
 
 function extractTopKeywords(text) {
   const stopWords = new Set([
-    "shall", "would", "could", "their", "there", "where", "which", "under", "being", "against", "within", "without",
-    "hereby", "thereof", "therein", "about", "before", "after", "party", "court", "appeal", "petition", "respondent",
+    "shall",
+    "would",
+    "could",
+    "their",
+    "there",
+    "where",
+    "which",
+    "under",
+    "being",
+    "against",
+    "within",
+    "without",
+    "hereby",
+    "thereof",
+    "therein",
+    "about",
+    "before",
+    "after",
+    "party",
+    "court",
+    "appeal",
+    "petition",
+    "respondent",
   ]);
   const tokens = text.toLowerCase().match(/[a-z]{4,}/g) || [];
   const frequencies = new Map();
@@ -2153,7 +3169,14 @@ function extractJudgmentText(fullText, decisionSegment, summary) {
     return normalizeText(summary || "") || "Judgment text unavailable.";
   }
 
-  const anchors = [/\bfinal order\b/i, /\bordered that\b/i, /\bheld that\b/i, /\bdecision\b/i, /\bjudgment\b/i, /\bresult\b/i];
+  const anchors = [
+    /\bfinal order\b/i,
+    /\bordered that\b/i,
+    /\bheld that\b/i,
+    /\bdecision\b/i,
+    /\bjudgment\b/i,
+    /\bresult\b/i,
+  ];
 
   for (const anchor of anchors) {
     const match = source.match(anchor);
@@ -2170,8 +3193,16 @@ function extractFinalVerdict(judgmentText) {
   if (!normalized) return "Unknown";
 
   // Legacy dataset uses Decision: 0/1 markers for outcomes.
-  if (/^(1|1\.0)$/.test(normalized) || /\bdecision\s*:\s*1(?:\.0)?\b/i.test(normalized)) return "Allowed";
-  if (/^(0|0\.0)$/.test(normalized) || /\bdecision\s*:\s*0(?:\.0)?\b/i.test(normalized)) return "Dismissed";
+  if (
+    /^(1|1\.0)$/.test(normalized) ||
+    /\bdecision\s*:\s*1(?:\.0)?\b/i.test(normalized)
+  )
+    return "Allowed";
+  if (
+    /^(0|0\.0)$/.test(normalized) ||
+    /\bdecision\s*:\s*0(?:\.0)?\b/i.test(normalized)
+  )
+    return "Dismissed";
 
   for (const rule of VERDICT_RULES) {
     if (rule.pattern.test(normalized)) {
@@ -2199,7 +3230,8 @@ function deriveWhyMatch(raw) {
   if (raw.issues) details.push("issue overlap");
   if (raw.decision) details.push("similar outcome pattern");
   if (raw.citation) details.push("citation support");
-  if (details.length === 0) return "Matched on legal narrative similarity from title and summary context.";
+  if (details.length === 0)
+    return "Matched on legal narrative similarity from title and summary context.";
   return `Matched on ${details.join(", ")} in the source judgment metadata.`;
 }
 
@@ -2208,27 +3240,43 @@ function toClearFinalJudgment(verdict, caseTitle) {
   const normalizedTitle = `${caseTitle || ""}`.toLowerCase();
 
   // Keep specific legal outcomes explicit and untouched.
-  if (/conviction|convicted/.test(normalizedVerdict)) return "Conviction Recorded";
-  if (/acquittal|acquitted/.test(normalizedVerdict)) return "Acquittal Recorded";
+  if (/conviction|convicted/.test(normalizedVerdict))
+    return "Conviction Recorded";
+  if (/acquittal|acquitted/.test(normalizedVerdict))
+    return "Acquittal Recorded";
   if (/bail granted/.test(normalizedVerdict)) return "Bail Granted";
-  if (/bail rejected|bail denied|bail dismissed/.test(normalizedVerdict)) return "Bail Rejected";
+  if (/bail rejected|bail denied|bail dismissed/.test(normalizedVerdict))
+    return "Bail Rejected";
   if (/remand/.test(normalizedVerdict)) return "Matter Remanded";
   if (/disposed/.test(normalizedVerdict)) return "Matter Disposed";
 
   let caseKind = "Case";
   if (/\bappeal\b/.test(normalizedTitle)) caseKind = "Appeal";
-  else if (/\bpetition\b|\bwrit\b|\bslp\b/.test(normalizedTitle)) caseKind = "Petition";
+  else if (/\bpetition\b|\bwrit\b|\bslp\b/.test(normalizedTitle))
+    caseKind = "Petition";
   else if (/\bapplication\b/.test(normalizedTitle)) caseKind = "Application";
 
-  if (/partly allowed|partially allowed|allowed in part|partly granted/.test(normalizedVerdict)) {
+  if (
+    /partly allowed|partially allowed|allowed in part|partly granted/.test(
+      normalizedVerdict,
+    )
+  ) {
     return `${caseKind} Partly Allowed`;
   }
 
-  if (/dismissed|rejected|declined|denied|failed|case dismissed \/ rejected/.test(normalizedVerdict)) {
+  if (
+    /dismissed|rejected|declined|denied|failed|case dismissed \/ rejected/.test(
+      normalizedVerdict,
+    )
+  ) {
     return `${caseKind} Dismissed`;
   }
 
-  if (/allowed|granted|in favor|successful|case allowed \/ in favor/.test(normalizedVerdict)) {
+  if (
+    /allowed|granted|in favor|successful|case allowed \/ in favor/.test(
+      normalizedVerdict,
+    )
+  ) {
     return `${caseKind} Allowed`;
   }
 
@@ -2264,23 +3312,52 @@ function computeSimilarity(raw) {
 }
 
 function computePriority(raw) {
-  const text = `${raw.issues || ""} ${raw.decision || ""} ${raw.title || ""}`.toLowerCase();
+  const text =
+    `${raw.issues || ""} ${raw.decision || ""} ${raw.title || ""}`.toLowerCase();
 
-  const urgency = keywordScore(text, ["bail", "stay", "urgent", "interim", "habeas", "injunction"], 100);
-  const impact = keywordScore(text, ["constitutional", "fundamental", "public", "nation", "policy"], 100);
-  const deadlineRisk = keywordScore(text, ["limitation", "deadline", "period", "time-barred"], 100);
-  const similarityConfidence = 60 + Math.min(40, ((raw.citation || "").match(/AIR|SCC|SCR|CriLJ/gi) || []).length * 8);
-  const complianceRisk = keywordScore(text, ["tax", "regulation", "penalty", "violation", "compliance"], 100);
+  const urgency = keywordScore(
+    text,
+    ["bail", "stay", "urgent", "interim", "habeas", "injunction"],
+    100,
+  );
+  const impact = keywordScore(
+    text,
+    ["constitutional", "fundamental", "public", "nation", "policy"],
+    100,
+  );
+  const deadlineRisk = keywordScore(
+    text,
+    ["limitation", "deadline", "period", "time-barred"],
+    100,
+  );
+  const similarityConfidence =
+    60 +
+    Math.min(
+      40,
+      ((raw.citation || "").match(/AIR|SCC|SCR|CriLJ/gi) || []).length * 8,
+    );
+  const complianceRisk = keywordScore(
+    text,
+    ["tax", "regulation", "penalty", "violation", "compliance"],
+    100,
+  );
 
   // ── Crime severity boost ──────────────────────────────────────────────────
   let severityBoost = 0;
-  if (/\b(murder|culpable homicide|attempt to murder|homicide)\b/.test(text)) severityBoost = 32;
-  else if (/\b(rape|sexual assault|acid attack|pocso)\b/.test(text)) severityBoost = 30;
-  else if (/\b(terror|uapa|blast|sedition|nsa)\b/.test(text)) severityBoost = 35;
-  else if (/\b(kidnap|abduction|ransom|trafficking)\b/.test(text)) severityBoost = 26;
-  else if (/\b(grievous|armed robbery|dacoity|extortion|rioting)\b/.test(text)) severityBoost = 18;
-  else if (/\b(fraud|money laundering|forgery|corruption|bribery)\b/.test(text)) severityBoost = 14;
-  else if (/\b(domestic violence|cheating|theft|burglary)\b/.test(text)) severityBoost = 8;
+  if (/\b(murder|culpable homicide|attempt to murder|homicide)\b/.test(text))
+    severityBoost = 32;
+  else if (/\b(rape|sexual assault|acid attack|pocso)\b/.test(text))
+    severityBoost = 30;
+  else if (/\b(terror|uapa|blast|sedition|nsa)\b/.test(text))
+    severityBoost = 35;
+  else if (/\b(kidnap|abduction|ransom|trafficking)\b/.test(text))
+    severityBoost = 26;
+  else if (/\b(grievous|armed robbery|dacoity|extortion|rioting)\b/.test(text))
+    severityBoost = 18;
+  else if (/\b(fraud|money laundering|forgery|corruption|bribery)\b/.test(text))
+    severityBoost = 14;
+  else if (/\b(domestic violence|cheating|theft|burglary)\b/.test(text))
+    severityBoost = 8;
 
   const weighted =
     0.3 * urgency +
@@ -2290,9 +3367,14 @@ function computePriority(raw) {
     0.1 * complianceRisk;
 
   const year = Number.parseInt((raw.decision_date || "").slice(0, 4), 10);
-  const recencyBoost = Number.isFinite(year) ? Math.max(0, year - 2000) * 0.15 : 0;
+  const recencyBoost = Number.isFinite(year)
+    ? Math.max(0, year - 2000) * 0.15
+    : 0;
 
-  return Math.max(20, Math.min(99, Math.round(weighted + recencyBoost + severityBoost)));
+  return Math.max(
+    20,
+    Math.min(99, Math.round(weighted + recencyBoost + severityBoost)),
+  );
 }
 
 function toPriorityBand(score) {
@@ -2303,7 +3385,10 @@ function toPriorityBand(score) {
 }
 
 function keywordScore(text, terms, maxScore) {
-  const hits = terms.reduce((acc, term) => (text.includes(term) ? acc + 1 : acc), 0);
+  const hits = terms.reduce(
+    (acc, term) => (text.includes(term) ? acc + 1 : acc),
+    0,
+  );
   return Math.min(maxScore, Math.round((hits / terms.length) * maxScore));
 }
 

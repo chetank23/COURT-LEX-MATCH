@@ -37,13 +37,15 @@ export default function JudgeAssignmentCenter() {
   const [suggestedJudge, setSuggestedJudge] = useState<string | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignmentMessage, setAssignmentMessage] = useState("");
-  
+
   // Widget states
   const [selectedDistrict, setSelectedDistrict] = useState("Bangalore");
   const [selectedCaseType, setSelectedCaseType] = useState("Criminal");
   const [schedulingDate, setSchedulingDate] = useState("");
   const [schedulingTime, setSchedulingTime] = useState("10:30");
-  const [schedulingJudgeId, setSchedulingJudgeId] = useState<string | null>(null);
+  const [schedulingJudgeId, setSchedulingJudgeId] = useState<string | null>(
+    null,
+  );
 
   // Filter and sort cases by priority
   const filteredCases = useMemo(() => {
@@ -51,7 +53,7 @@ export default function JudgeAssignmentCenter() {
 
     if (filterMode === "unassigned") {
       filtered = filtered.filter(
-        (c) => !c.assignedJudge || c.assignedJudge === "Unassigned"
+        (c) => !c.assignedJudge || c.assignedJudge === "Unassigned",
       );
     } else if (filterMode === "needs-reassign") {
       filtered = filtered.filter((c) => c.status === "Under Review");
@@ -93,7 +95,7 @@ export default function JudgeAssignmentCenter() {
       setAssignmentMessage("");
       getJudgeRecommendation(caseItem);
     },
-    [getJudgeRecommendation]
+    [getJudgeRecommendation],
   );
 
   // Normalize date helper
@@ -141,7 +143,8 @@ export default function JudgeAssignmentCenter() {
           caseTitle: selectedCase.title,
           assignedJudgeId: judge.id,
           assignedJudgeName: judge.name,
-          localCourtName: judge.courtName || `${selectedDistrict} District Court`,
+          localCourtName:
+            judge.courtName || `${selectedDistrict} District Court`,
           courtRoom: "Court Room 1",
           state: judge.state || "TBD",
           district: judge.district || selectedDistrict,
@@ -151,8 +154,10 @@ export default function JudgeAssignmentCenter() {
         });
 
         addHearing(hearing);
-        setAssignmentMessage(`✓ Successfully scheduled with ${judge.name} on ${normalizedDate} at ${selectedTime}`);
-        
+        setAssignmentMessage(
+          `✓ Successfully scheduled with ${judge.name} on ${normalizedDate} at ${selectedTime}`,
+        );
+
         setTimeout(() => {
           setSelectedCase(null);
           setAssignmentMessage("");
@@ -165,7 +170,16 @@ export default function JudgeAssignmentCenter() {
         setSchedulingJudgeId(null);
       }
     },
-    [selectedCase, updateManagedCase, addHearing, schedulingDate, schedulingTime, selectedDistrict, selectedCaseType, normalizeDateDMY]
+    [
+      selectedCase,
+      updateManagedCase,
+      addHearing,
+      schedulingDate,
+      schedulingTime,
+      selectedDistrict,
+      selectedCaseType,
+      normalizeDateDMY,
+    ],
   );
 
   // Handle manual judge assignment
@@ -202,7 +216,7 @@ export default function JudgeAssignmentCenter() {
           bailRiskScore: 0,
           escapeRiskScore: 0,
           riskScore: 0,
-          publicDefenderStatus: "Not Required"
+          publicDefenderStatus: "Not Required",
         } as any);
 
         addHearing(hearing);
@@ -219,7 +233,15 @@ export default function JudgeAssignmentCenter() {
         setIsAssigning(false);
       }
     },
-    [selectedCase, user, updateManagedCase, addHearing, assignmentMessage, selectedDistrict, normalizeDateDMY]
+    [
+      selectedCase,
+      user,
+      updateManagedCase,
+      addHearing,
+      assignmentMessage,
+      selectedDistrict,
+      normalizeDateDMY,
+    ],
   );
 
   return (
@@ -320,7 +342,13 @@ export default function JudgeAssignmentCenter() {
                 ))
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-8">
-                  No {filterMode === "all" ? "cases" : filterMode === "unassigned" ? "unassigned cases" : "cases needing reassignment"} found
+                  No{" "}
+                  {filterMode === "all"
+                    ? "cases"
+                    : filterMode === "unassigned"
+                      ? "unassigned cases"
+                      : "cases needing reassignment"}{" "}
+                  found
                 </p>
               )}
             </div>
@@ -390,11 +418,14 @@ export default function JudgeAssignmentCenter() {
                     </div>
 
                     {/* Current Assignment */}
-                    {selectedCase.assignedJudge && selectedCase.assignedJudge !== "Unassigned" ? (
+                    {selectedCase.assignedJudge &&
+                    selectedCase.assignedJudge !== "Unassigned" ? (
                       <div className="mt-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-4">
                         <div className="flex items-center gap-2 text-emerald-600 mb-2">
                           <CheckCircle2 className="w-4 h-4" />
-                          <span className="text-xs font-semibold uppercase">Current Assignment</span>
+                          <span className="text-xs font-semibold uppercase">
+                            Current Assignment
+                          </span>
                         </div>
                         <p className="text-foreground font-semibold">
                           {selectedCase.assignedJudge}
@@ -423,7 +454,8 @@ export default function JudgeAssignmentCenter() {
                   {/* Judge Availability & Scheduling Controls */}
                   <div className="mb-6 glass-panel rounded-2xl p-6 border border-primary/20">
                     <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                      <User className="w-5 h-5 text-primary" /> Check Judge Availability
+                      <User className="w-5 h-5 text-primary" /> Check Judge
+                      Availability
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -471,18 +503,41 @@ export default function JudgeAssignmentCenter() {
                         <label className="text-sm font-semibold text-foreground block mb-2">
                           Hearing Time
                         </label>
-                        <input
-                          type="text"
-                          value={schedulingTime}
-                          onChange={(e) => setSchedulingTime(e.target.value)}
-                          placeholder="HH:MM"
-                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
-                        />
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            "09:00",
+                            "09:30",
+                            "10:00",
+                            "10:30",
+                            "11:00",
+                            "11:30",
+                            "12:00",
+                            "14:00",
+                            "14:30",
+                            "15:00",
+                            "15:30",
+                            "16:00",
+                            "16:30",
+                          ].map((slot) => (
+                            <button
+                              key={slot}
+                              type="button"
+                              onClick={() => setSchedulingTime(slot)}
+                              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${
+                                schedulingTime === slot
+                                  ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30"
+                                  : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                              }`}
+                            >
+                              {slot}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Judge Availability Widget */}
-                    {selectedDistrict && selectedCaseType && schedulingDate && (
+                    {/* Judge Availability Widget — always visible once district & case type are set */}
+                    {selectedDistrict && selectedCaseType && (
                       <JudgeAvailabilityWidget
                         district={selectedDistrict}
                         caseType={selectedCaseType}
@@ -533,7 +588,9 @@ export default function JudgeAssignmentCenter() {
                             disabled={isAssigning}
                             className="w-full mt-4 rounded-lg bg-primary text-primary-foreground py-2.5 font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
                           >
-                            {isAssigning ? "Assigning..." : "Assign Recommended Judge"}
+                            {isAssigning
+                              ? "Assigning..."
+                              : "Assign Recommended Judge"}
                           </button>
                         </div>
                       </div>

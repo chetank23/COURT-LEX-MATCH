@@ -56,7 +56,15 @@ const PRIORITY_CONFIG = {
   },
 } as const;
 
-function ScoreRing({ value, color, size = 80 }: { value: number; color: string; size?: number }) {
+function ScoreRing({
+  value,
+  color,
+  size = 80,
+}: {
+  value: number;
+  color: string;
+  size?: number;
+}) {
   const r = (size - 8) / 2;
   const c = 2 * Math.PI * r;
   const offset = c - (value / 100) * c;
@@ -66,10 +74,22 @@ function ScoreRing({ value, color, size = 80 }: { value: number; color: string; 
         className="absolute inset-0 rounded-full pointer-events-none"
         style={{ background: color, filter: "blur(14px)" }}
         animate={{ opacity: [0, 0.28, 0] }}
-        transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 1.3 }}
+        transition={{
+          duration: 2.8,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 1.3,
+        }}
       />
       <svg width={size} height={size} className="block relative z-10">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth={6} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="hsl(var(--muted))"
+          strokeWidth={6}
+        />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
@@ -84,7 +104,13 @@ function ScoreRing({ value, color, size = 80 }: { value: number; color: string; 
           transition={{ duration: 1.2, ease: "easeOut" }}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
-        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" className="fill-foreground text-lg font-bold">
+        <text
+          x="50%"
+          y="50%"
+          textAnchor="middle"
+          dominantBaseline="central"
+          className="fill-foreground text-lg font-bold"
+        >
           {value}
         </text>
       </svg>
@@ -92,12 +118,35 @@ function ScoreRing({ value, color, size = 80 }: { value: number; color: string; 
   );
 }
 
-function DriftOrb({ x, y, size, color, duration }: { x: string; y: string; size: number; color: string; duration: number }) {
+function DriftOrb({
+  x,
+  y,
+  size,
+  color,
+  duration,
+}: {
+  x: string;
+  y: string;
+  size: number;
+  color: string;
+  duration: number;
+}) {
   return (
     <motion.div
       className="fixed rounded-full pointer-events-none z-0"
-      style={{ left: x, top: y, width: size, height: size, background: color, filter: "blur(80px)" }}
-      animate={{ x: [0, 50, -25, 0], y: [0, -35, 25, 0], opacity: [0.1, 0.2, 0.08, 0.1] }}
+      style={{
+        left: x,
+        top: y,
+        width: size,
+        height: size,
+        background: color,
+        filter: "blur(80px)",
+      }}
+      animate={{
+        x: [0, 50, -25, 0],
+        y: [0, -35, 25, 0],
+        opacity: [0.1, 0.2, 0.08, 0.1],
+      }}
       transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
     />
   );
@@ -125,7 +174,9 @@ function SectionBlock({
         <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
           <Icon className="w-4.5 h-4.5 text-primary" />
         </div>
-        <h3 className="text-base font-display font-bold text-foreground">{title}</h3>
+        <h3 className="text-base font-display font-bold text-foreground">
+          {title}
+        </h3>
       </div>
       {children}
     </motion.div>
@@ -152,7 +203,11 @@ export default function CaseAnalysis() {
       const result = await dataService.analyzeCaseContext(trimmed);
       setReport(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed. Please try again.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Analysis failed. Please try again.",
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -164,9 +219,27 @@ export default function CaseAnalysis() {
   return (
     <div className="min-h-screen relative">
       <div className="fixed inset-0 dot-grid opacity-20" />
-      <DriftOrb x="5%"  y="10%" size={500} color="hsl(238,70%,55%)" duration={20} />
-      <DriftOrb x="60%" y="50%" size={420} color="hsl(270,60%,60%)" duration={25} />
-      <DriftOrb x="35%" y="72%" size={320} color="hsl(200,70%,50%)" duration={17} />
+      <DriftOrb
+        x="5%"
+        y="10%"
+        size={500}
+        color="hsl(238,70%,55%)"
+        duration={20}
+      />
+      <DriftOrb
+        x="60%"
+        y="50%"
+        size={420}
+        color="hsl(270,60%,60%)"
+        duration={25}
+      />
+      <DriftOrb
+        x="35%"
+        y="72%"
+        size={320}
+        color="hsl(200,70%,50%)"
+        duration={17}
+      />
 
       <div className="relative z-10 pt-24 pb-16 px-4 max-w-5xl mx-auto">
         {/* ── Header ── */}
@@ -178,17 +251,42 @@ export default function CaseAnalysis() {
           {/* Sweeping scan beam */}
           <motion.div
             className="absolute top-0 left-0 h-full w-[3px] pointer-events-none"
-            style={{ background: "linear-gradient(180deg,transparent,hsl(var(--primary)/0.7),transparent)", zIndex: 10 }}
+            style={{
+              background:
+                "linear-gradient(180deg,transparent,hsl(var(--primary)/0.7),transparent)",
+              zIndex: 10,
+            }}
             animate={{ x: ["-5%", "120%"] }}
-            transition={{ duration: 3.5, repeat: Infinity, ease: "linear", repeatDelay: 5 }}
+            transition={{
+              duration: 3.5,
+              repeat: Infinity,
+              ease: "linear",
+              repeatDelay: 5,
+            }}
           />
-          <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg,transparent,hsl(var(--primary)/0.6),hsl(var(--accent)/0.6),transparent)" }} />
+          <div
+            className="absolute top-0 left-0 right-0 h-[2px]"
+            style={{
+              background:
+                "linear-gradient(90deg,transparent,hsl(var(--primary)/0.6),hsl(var(--accent)/0.6),transparent)",
+            }}
+          />
 
           <div className="flex justify-center mb-3">
             <motion.div
               className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/20 via-primary/10 to-accent/20 flex items-center justify-center border border-primary/20"
-              animate={{ boxShadow: ["0 0 0px hsl(var(--primary)/0)","0 0 20px hsl(var(--primary)/0.45)","0 0 0px hsl(var(--primary)/0)"] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+              animate={{
+                boxShadow: [
+                  "0 0 0px hsl(var(--primary)/0)",
+                  "0 0 20px hsl(var(--primary)/0.45)",
+                  "0 0 0px hsl(var(--primary)/0)",
+                ],
+              }}
+              transition={{
+                duration: 2.8,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
             >
               <Brain className="w-5 h-5 text-primary" />
             </motion.div>
@@ -205,13 +303,17 @@ export default function CaseAnalysis() {
             Case Analysis Engine
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
-            Structured case analysis with priority scoring, legal reasoning, and precedent retrieval
+            Structured case analysis with priority scoring, legal reasoning, and
+            precedent retrieval
           </p>
 
           <div className="flex justify-center mt-4">
             <motion.div
               className="h-px rounded-full"
-              style={{ background: "linear-gradient(90deg,transparent,hsl(var(--primary)/0.5),transparent)" }}
+              style={{
+                background:
+                  "linear-gradient(90deg,transparent,hsl(var(--primary)/0.5),transparent)",
+              }}
               animate={{ width: ["3rem", "8rem", "3rem"] }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -226,14 +328,23 @@ export default function CaseAnalysis() {
           className="glass-panel rounded-2xl p-4 md:p-5 mb-6 relative overflow-hidden"
         >
           {/* Decorative top strip */}
-          <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg,transparent,hsl(var(--accent)/0.5),transparent)" }} />
+          <div
+            className="absolute top-0 left-0 right-0 h-[2px]"
+            style={{
+              background:
+                "linear-gradient(90deg,transparent,hsl(var(--accent)/0.5),transparent)",
+            }}
+          />
 
           {/* Label row */}
           <div className="flex items-center gap-2 mb-3">
             <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
               <FileText className="w-3 h-3 text-primary" />
             </div>
-            <label htmlFor="case-context-input" className="text-sm font-semibold text-foreground">
+            <label
+              htmlFor="case-context-input"
+              className="text-sm font-semibold text-foreground"
+            >
               Describe the case or paste case context
             </label>
             <span className="ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/8 text-primary border border-primary/15">
@@ -249,14 +360,23 @@ export default function CaseAnalysis() {
               <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-primary rounded-bl-xl transition-transform duration-300 group-focus-within:-translate-x-1 group-focus-within:translate-y-1" />
               <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-primary rounded-br-xl transition-transform duration-300 group-focus-within:translate-x-1 group-focus-within:translate-y-1" />
               <motion.div
-                 className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
-                 animate={{ opacity: [0, 1, 0] }}
-                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
+                animate={{ opacity: [0, 1, 0] }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
               />
               <motion.div
-                 className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/3 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
-                 animate={{ opacity: [0, 1, 0] }}
-                 transition={{ duration: 2, delay: 1, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/3 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
+                animate={{ opacity: [0, 1, 0] }}
+                transition={{
+                  duration: 2,
+                  delay: 1,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
               />
             </div>
             <textarea
@@ -265,7 +385,8 @@ export default function CaseAnalysis() {
               value={context}
               onChange={(e) => setContext(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAnalyze();
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey))
+                  handleAnalyze();
               }}
               placeholder="E.g. An accused charged under Section 302 IPC for murder of a colleague following a workplace dispute. Accused claims self-defense under Section 100 IPC. FIR filed at Bangalore Central PS. Bail application pending..."
               rows={6}
@@ -277,7 +398,9 @@ export default function CaseAnalysis() {
           <div className="flex items-center justify-between mt-4 gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                <kbd className="px-2 py-0.5 rounded-md bg-muted border border-border text-[10px] font-mono text-foreground/70">Ctrl+Enter</kbd>
+                <kbd className="px-2 py-0.5 rounded-md bg-muted border border-border text-[10px] font-mono text-foreground/70">
+                  Ctrl+Enter
+                </kbd>
                 <span>to analyze</span>
               </p>
               {context.trim().length > 0 && (
@@ -297,17 +420,34 @@ export default function CaseAnalysis() {
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               className="relative flex items-center gap-2.5 px-7 py-2.5 rounded-xl text-primary-foreground font-semibold text-sm disabled:opacity-40 cursor-pointer overflow-hidden"
-              style={{ background: "linear-gradient(135deg,hsl(var(--primary)),hsl(var(--accent)))" }}
+              style={{
+                background:
+                  "linear-gradient(135deg,hsl(var(--primary)),hsl(var(--accent)))",
+              }}
             >
               {/* Shimmer */}
               <motion.div
                 className="absolute inset-0 pointer-events-none"
-                style={{ background: "linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.2) 50%,transparent 60%)" }}
+                style={{
+                  background:
+                    "linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.2) 50%,transparent 60%)",
+                }}
                 animate={{ x: ["-100%", "200%"] }}
-                transition={{ duration: 2.2, repeat: Infinity, ease: "linear", repeatDelay: 1 }}
+                transition={{
+                  duration: 2.2,
+                  repeat: Infinity,
+                  ease: "linear",
+                  repeatDelay: 1,
+                }}
               />
-              {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin relative z-10" /> : <Send className="w-4 h-4 relative z-10" />}
-              <span className="relative z-10">{isAnalyzing ? "Analyzing..." : "Analyze Case"}</span>
+              {isAnalyzing ? (
+                <Loader2 className="w-4 h-4 animate-spin relative z-10" />
+              ) : (
+                <Send className="w-4 h-4 relative z-10" />
+              )}
+              <span className="relative z-10">
+                {isAnalyzing ? "Analyzing..." : "Analyze Case"}
+              </span>
             </motion.button>
           </div>
           {error && (
@@ -318,7 +458,9 @@ export default function CaseAnalysis() {
             >
               <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-red-500">Analysis Failed</p>
+                <p className="text-sm font-semibold text-red-500">
+                  Analysis Failed
+                </p>
                 <p className="text-xs text-red-400/80 mt-0.5">{error}</p>
               </div>
             </motion.div>
@@ -336,8 +478,15 @@ export default function CaseAnalysis() {
               className="glass-panel rounded-2xl p-8 md:p-12 mb-8 flex flex-col items-center overflow-hidden relative"
             >
               {/* Background scanning grid */}
-              <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: "linear-gradient(hsl(var(--primary)/0.2) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary)/0.2) 1px, transparent 1px)", backgroundSize: "20px 20px" }}>
-                <motion.div 
+              <div
+                className="absolute inset-0 pointer-events-none opacity-20"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(hsl(var(--primary)/0.2) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary)/0.2) 1px, transparent 1px)",
+                  backgroundSize: "20px 20px",
+                }}
+              >
+                <motion.div
                   className="w-full h-[100px] bg-gradient-to-b from-transparent via-primary/30 to-transparent"
                   animate={{ y: ["-100px", "500px"] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
@@ -345,86 +494,118 @@ export default function CaseAnalysis() {
               </div>
 
               <div className="relative w-full max-w-lg mx-auto flex flex-col items-center z-10">
-                 {/* Cybernetic Core */}
-                 <div className="relative flex items-center justify-center mb-10 mt-2">
+                {/* Cybernetic Core */}
+                <div className="relative flex items-center justify-center mb-10 mt-2">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 12,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                    className="absolute w-32 h-32 rounded-full border border-dashed border-primary/40"
+                  />
+                  <motion.div
+                    animate={{ rotate: -360 }}
+                    transition={{
+                      duration: 18,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                    className="absolute w-40 h-40 rounded-full border-t-2 border-b-2 border-primary/20"
+                  />
+                  <motion.div
+                    animate={{ scale: [1, 1.25, 1], opacity: [0.4, 0.8, 0.4] }}
+                    transition={{
+                      duration: 2.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                    className="absolute w-24 h-24 bg-primary/20 rounded-full blur-xl"
+                  />
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center relative z-10 border border-primary/50 bg-background/90 backdrop-blur-md overflow-hidden shadow-[0_0_20px_hsl(var(--primary)/0.4)]">
                     <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-                      className="absolute w-32 h-32 rounded-full border border-dashed border-primary/40"
+                      className="absolute inset-0 bg-primary/20"
+                      animate={{ y: ["100%", "-100%"] }}
+                      transition={{
+                        duration: 1.8,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
                     />
-                    <motion.div
-                      animate={{ rotate: -360 }}
-                      transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-                      className="absolute w-40 h-40 rounded-full border-t-2 border-b-2 border-primary/20"
-                    />
-                    <motion.div
-                      animate={{ scale: [1, 1.25, 1], opacity: [0.4, 0.8, 0.4] }}
-                      transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                      className="absolute w-24 h-24 bg-primary/20 rounded-full blur-xl"
-                    />
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center relative z-10 border border-primary/50 bg-background/90 backdrop-blur-md overflow-hidden shadow-[0_0_20px_hsl(var(--primary)/0.4)]">
-                      <motion.div
-                         className="absolute inset-0 bg-primary/20"
-                         animate={{ y: ["100%", "-100%"] }}
-                         transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
-                      />
-                      <Brain className="w-8 h-8 text-primary relative z-10" />
-                    </div>
-                 </div>
-                 
-                 <p className="text-xl font-display font-bold text-foreground mb-1 tracking-wide">SIMULATION IN PROGRESS</p>
-                 <p className="text-xs text-primary/80 mb-8 font-mono uppercase tracking-widest">
-                   Connecting to Vector Engine...
-                 </p>
+                    <Brain className="w-8 h-8 text-primary relative z-10" />
+                  </div>
+                </div>
 
-                 <div className="w-full space-y-5">
-                   {[
-                     "Establishing semantic vector connection", 
-                     "Retrieving related precedents", 
-                     "Applying weighted priority scoring", 
-                     "Generating judicial reasoning"
-                   ].map((text, i) => (
-                     <div key={i} className="flex items-center gap-4">
-                       <motion.div
-                         initial={{ scale: 0, opacity: 0 }}
-                         animate={{ scale: 1, opacity: 1 }}
-                         transition={{ delay: i * 0.7 }}
-                         className="relative w-3 h-3 flex items-center justify-center flex-shrink-0"
-                       >
-                         <motion.span 
-                            className="absolute w-full h-full bg-primary/40 rounded-full"
-                            animate={{ scale: [1, 2, 1], opacity: [1, 0, 1] }}
-                            transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.7 }}
-                         />
-                         <span className="w-1.5 h-1.5 bg-primary rounded-full z-10" />
-                       </motion.div>
-                       <motion.div
-                         initial={{ opacity: 0, x: -15 }}
-                         animate={{ opacity: 1, x: 0 }}
-                         transition={{ delay: i * 0.7 + 0.2 }}
-                         className="flex-1"
-                       >
-                         <div className="flex justify-between items-center text-[11px] uppercase tracking-wider mb-1.5">
-                           <span className="font-mono text-foreground/80">{text}</span>
-                           <motion.span
-                             initial={{ opacity: 0 }}
-                             animate={{ opacity: [0, 1, 0] }}
-                             transition={{ delay: i * 0.7 + 0.4, duration: 1.5, repeat: Infinity }}
-                             className="text-primary font-mono font-bold"
-                           >
-                             [OK]
-                           </motion.span>
-                         </div>
-                         <motion.div
-                           initial={{ width: 0 }}
-                           animate={{ width: "100%" }}
-                           transition={{ delay: i * 0.7 + 0.2, duration: 1.8, ease: "easeOut" }}
-                           className="h-px bg-gradient-to-r from-primary/50 to-transparent"
-                         />
-                       </motion.div>
-                     </div>
-                   ))}
-                 </div>
+                <p className="text-xl font-display font-bold text-foreground mb-1 tracking-wide">
+                  SIMULATION IN PROGRESS
+                </p>
+                <p className="text-xs text-primary/80 mb-8 font-mono uppercase tracking-widest">
+                  Connecting to Vector Engine...
+                </p>
+
+                <div className="w-full space-y-5">
+                  {[
+                    "Establishing semantic vector connection",
+                    "Retrieving related precedents",
+                    "Applying weighted priority scoring",
+                    "Generating judicial reasoning",
+                  ].map((text, i) => (
+                    <div key={i} className="flex items-center gap-4">
+                      <motion.div
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: i * 0.7 }}
+                        className="relative w-3 h-3 flex items-center justify-center flex-shrink-0"
+                      >
+                        <motion.span
+                          className="absolute w-full h-full bg-primary/40 rounded-full"
+                          animate={{ scale: [1, 2, 1], opacity: [1, 0, 1] }}
+                          transition={{
+                            duration: 1.5,
+                            repeat: Infinity,
+                            delay: i * 0.7,
+                          }}
+                        />
+                        <span className="w-1.5 h-1.5 bg-primary rounded-full z-10" />
+                      </motion.div>
+                      <motion.div
+                        initial={{ opacity: 0, x: -15 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.7 + 0.2 }}
+                        className="flex-1"
+                      >
+                        <div className="flex justify-between items-center text-[11px] uppercase tracking-wider mb-1.5">
+                          <span className="font-mono text-foreground/80">
+                            {text}
+                          </span>
+                          <motion.span
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: [0, 1, 0] }}
+                            transition={{
+                              delay: i * 0.7 + 0.4,
+                              duration: 1.5,
+                              repeat: Infinity,
+                            }}
+                            className="text-primary font-mono font-bold"
+                          >
+                            [OK]
+                          </motion.span>
+                        </div>
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: "100%" }}
+                          transition={{
+                            delay: i * 0.7 + 0.2,
+                            duration: 1.8,
+                            ease: "easeOut",
+                          }}
+                          className="h-px bg-gradient-to-r from-primary/50 to-transparent"
+                        />
+                      </motion.div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </motion.div>
           )}
@@ -447,7 +628,9 @@ export default function CaseAnalysis() {
                   className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-3"
                 >
                   <Info className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                  <p className="text-xs text-yellow-500 font-medium">{report.generativeNote}</p>
+                  <p className="text-xs text-yellow-500 font-medium">
+                    {report.generativeNote}
+                  </p>
                 </motion.div>
               )}
 
@@ -461,21 +644,38 @@ export default function CaseAnalysis() {
                   className={`glass-panel rounded-2xl p-6 border-2 ${priorityConfig?.border}`}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${priorityConfig?.bg}`}>
-                      <PriorityIcon className={`w-5 h-5 ${priorityConfig?.text}`} />
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center ${priorityConfig?.bg}`}
+                    >
+                      <PriorityIcon
+                        className={`w-5 h-5 ${priorityConfig?.text}`}
+                      />
                     </div>
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full text-white ${priorityConfig?.badgeBg}`}>
+                    <span
+                      className={`text-xs font-bold px-2.5 py-1 rounded-full text-white ${priorityConfig?.badgeBg}`}
+                    >
                       {report.priorityLevel}
                     </span>
                   </div>
                   <div className="flex items-end gap-4">
-                    <ScoreRing value={report.priorityScore} color={priorityConfig?.color || "#888"} />
+                    <ScoreRing
+                      value={report.priorityScore}
+                      color={priorityConfig?.color || "#888"}
+                    />
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Priority Score</p>
-                      <p className={`text-2xl font-display font-bold ${priorityConfig?.text}`}>{report.priorityScore}/100</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                        Priority Score
+                      </p>
+                      <p
+                        className={`text-2xl font-display font-bold ${priorityConfig?.text}`}
+                      >
+                        {report.priorityScore}/100
+                      </p>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed">{report.priorityJustification}</p>
+                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                    {report.priorityJustification}
+                  </p>
                 </motion.div>
 
                 {/* Case Title + Type */}
@@ -487,12 +687,20 @@ export default function CaseAnalysis() {
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <Gavel className="w-4 h-4 text-primary" />
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Case Title</span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      Case Title
+                    </span>
                   </div>
-                  <p className="text-base font-display font-bold text-foreground leading-snug mb-4">{report.caseTitle}</p>
+                  <p className="text-base font-display font-bold text-foreground leading-snug mb-4">
+                    {report.caseTitle}
+                  </p>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Type:</span>
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">{report.caseType}</span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      Type:
+                    </span>
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">
+                      {report.caseType}
+                    </span>
                   </div>
                 </motion.div>
 
@@ -505,23 +713,34 @@ export default function CaseAnalysis() {
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <Target className="w-4 h-4 text-primary" />
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Confidence</span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      Confidence
+                    </span>
                   </div>
                   <div className="flex items-end gap-4 mb-4">
-                    <ScoreRing value={Math.round(report.confidenceScore * 100)} color="hsl(238,70%,55%)" />
+                    <ScoreRing
+                      value={Math.round(report.confidenceScore * 100)}
+                      color="hsl(238,70%,55%)"
+                    />
                     <div>
-                      <p className="text-2xl font-display font-bold text-primary">{report.confidenceScore}</p>
-                      <p className="text-[10px] text-muted-foreground">out of 1.0</p>
+                      <p className="text-2xl font-display font-bold text-primary">
+                        {report.confidenceScore}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        out of 1.0
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {report.grounded ? (
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-500">
-                        <CheckCircle className="w-3.5 h-3.5" /> Grounded in precedents
+                        <CheckCircle className="w-3.5 h-3.5" /> Grounded in
+                        precedents
                       </span>
                     ) : (
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-yellow-500">
-                        <Sparkles className="w-3.5 h-3.5" /> Generative reasoning
+                        <Sparkles className="w-3.5 h-3.5" /> Generative
+                        reasoning
                       </span>
                     )}
                   </div>
@@ -530,9 +749,15 @@ export default function CaseAnalysis() {
 
               {/* ── Structured Sections ── */}
               {report.expandedScenario && (
-                <SectionBlock title="Expanded Case Scenario" icon={Sparkles} delay={0.18}>
+                <SectionBlock
+                  title="Expanded Case Scenario"
+                  icon={Sparkles}
+                  delay={0.18}
+                >
                   <div className="rounded-xl bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10 p-4">
-                    <p className="text-sm text-foreground/85 leading-relaxed">{report.expandedScenario}</p>
+                    <p className="text-sm text-foreground/85 leading-relaxed">
+                      {report.expandedScenario}
+                    </p>
                   </div>
                 </SectionBlock>
               )}
@@ -543,18 +768,26 @@ export default function CaseAnalysis() {
                     {report.keyFacts.map((fact, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
-                        <span className="text-sm text-foreground/80 leading-relaxed">{fact}</span>
+                        <span className="text-sm text-foreground/80 leading-relaxed">
+                          {fact}
+                        </span>
                       </li>
                     ))}
                   </ul>
                 </SectionBlock>
 
-                <SectionBlock title="Legal Issues" icon={AlertTriangle} delay={0.25}>
+                <SectionBlock
+                  title="Legal Issues"
+                  icon={AlertTriangle}
+                  delay={0.25}
+                >
                   <ul className="space-y-2">
                     {report.legalIssues.map((issue, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-yellow-500 flex-shrink-0" />
-                        <span className="text-sm text-foreground/80 leading-relaxed">{issue}</span>
+                        <span className="text-sm text-foreground/80 leading-relaxed">
+                          {issue}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -563,7 +796,10 @@ export default function CaseAnalysis() {
                 <SectionBlock title="Relevant Laws" icon={BookOpen} delay={0.3}>
                   <div className="flex flex-wrap gap-2">
                     {report.relevantLaws.map((law, i) => (
-                      <span key={i} className="px-3 py-1.5 rounded-lg bg-primary/8 border border-primary/15 text-xs font-medium text-primary">
+                      <span
+                        key={i}
+                        className="px-3 py-1.5 rounded-lg bg-primary/8 border border-primary/15 text-xs font-medium text-primary"
+                      >
                         {law}
                       </span>
                     ))}
@@ -573,12 +809,20 @@ export default function CaseAnalysis() {
                 <SectionBlock title="Arguments" icon={Users} delay={0.35}>
                   <div className="space-y-3">
                     <div className="rounded-xl bg-blue-500/5 border border-blue-500/15 p-3">
-                      <p className="text-[10px] uppercase tracking-wider text-blue-500 font-bold mb-1">Plaintiff / Petitioner</p>
-                      <p className="text-xs text-foreground/80 leading-relaxed">{report.arguments.plaintiff}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-blue-500 font-bold mb-1">
+                        Plaintiff / Petitioner
+                      </p>
+                      <p className="text-xs text-foreground/80 leading-relaxed">
+                        {report.arguments.plaintiff}
+                      </p>
                     </div>
                     <div className="rounded-xl bg-orange-500/5 border border-orange-500/15 p-3">
-                      <p className="text-[10px] uppercase tracking-wider text-orange-500 font-bold mb-1">Defendant / Respondent</p>
-                      <p className="text-xs text-foreground/80 leading-relaxed">{report.arguments.defendant}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-orange-500 font-bold mb-1">
+                        Defendant / Respondent
+                      </p>
+                      <p className="text-xs text-foreground/80 leading-relaxed">
+                        {report.arguments.defendant}
+                      </p>
                     </div>
                   </div>
                 </SectionBlock>
@@ -586,7 +830,11 @@ export default function CaseAnalysis() {
 
               {/* ── Similar Cases ── */}
               {report.similarCaseReferences.length > 0 && (
-                <SectionBlock title="Similar Case References" icon={Scale} delay={0.4}>
+                <SectionBlock
+                  title="Similar Case References"
+                  icon={Scale}
+                  delay={0.4}
+                >
                   <div className="space-y-2.5">
                     {report.similarCaseReferences.map((ref, i) => (
                       <motion.div
@@ -600,10 +848,16 @@ export default function CaseAnalysis() {
                           {i + 1}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{ref.title}</p>
-                          <p className="text-[11px] text-muted-foreground">{ref.court} · {ref.year}</p>
+                          <p className="text-sm font-semibold text-foreground truncate">
+                            {ref.title}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {ref.court} · {ref.year}
+                          </p>
                           {ref.excerpt && (
-                            <p className="text-xs text-foreground/60 mt-1 line-clamp-2">{ref.excerpt}</p>
+                            <p className="text-xs text-foreground/60 mt-1 line-clamp-2">
+                              {ref.excerpt}
+                            </p>
                           )}
                         </div>
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">
@@ -617,14 +871,22 @@ export default function CaseAnalysis() {
 
               {/* ── Predicted Outcome + Reasoning ── */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <SectionBlock title="Predicted Outcome" icon={TrendingUp} delay={0.5}>
+                <SectionBlock
+                  title="Predicted Outcome"
+                  icon={TrendingUp}
+                  delay={0.5}
+                >
                   <div className="rounded-xl bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10 p-4">
-                    <p className="text-sm text-foreground leading-relaxed">{report.predictedOutcome}</p>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {report.predictedOutcome}
+                    </p>
                   </div>
                 </SectionBlock>
 
                 <SectionBlock title="Reasoning" icon={Brain} delay={0.55}>
-                  <p className="text-sm text-foreground/80 leading-relaxed">{report.reasoning}</p>
+                  <p className="text-sm text-foreground/80 leading-relaxed">
+                    {report.reasoning}
+                  </p>
                 </SectionBlock>
               </div>
 

@@ -3,12 +3,14 @@
 ## 1) Current Project Status
 
 The frontend application is already in place and stable for:
+
 - UI navigation and page flows
 - Service-layer abstraction (data service exists)
 - Quality gates: lint, typecheck, unit tests, build, and E2E smoke tests
 - CI workflow setup for automated checks
 
 What is still pending is full production integration:
+
 - Real backend APIs
 - Authentication and authorization
 - Database and persistent storage
@@ -19,6 +21,7 @@ What is still pending is full production integration:
 ## 2) Goal Definition
 
 Complete the project into a production-ready legal intelligence platform with:
+
 - Real-time search and case retrieval
 - PDF upload and structured legal section extraction
 - AI-based similarity matching with explainability
@@ -28,12 +31,14 @@ Complete the project into a production-ready legal intelligence platform with:
 ## 3) Full Integration Scope
 
 ### Phase A: Backend Foundation
+
 - Build API server and project structure
 - Define REST endpoints and validation schemas
 - Add centralized error handling and logging
 - Add OpenAPI/Swagger documentation
 
 ### Phase B: Authentication and User Management
+
 - User registration/login
 - Session or token management
 - Password reset flow
@@ -41,24 +46,28 @@ Complete the project into a production-ready legal intelligence platform with:
 - Role model: admin, researcher, viewer
 
 ### Phase C: Database and Data Model
+
 - Database schema design (users, cases, uploads, searches, history, embeddings metadata)
 - Migration scripts
 - Seed strategy for baseline data
 - Backup/restore strategy
 
 ### Phase D: PDF Processing
+
 - Upload storage strategy
 - Text extraction pipeline
 - Section classification (facts, issues, arguments, judgment)
 - Error handling for corrupted or scanned PDFs
 
 ### Phase E: AI Similarity and Search
+
 - Embedding generation and vector indexing
 - Similarity retrieval with thresholding
 - Ranking and filtering logic
 - Explainability output (why this case matched)
 
 ### Phase E2: AI Priority and Triage Engine
+
 - Compute a priority score so the system shows which case should be solved first
 - Combine legal urgency, business impact, timeline risk, and complexity signals
 - Use explainable scoring so users can see why a case is marked high priority
@@ -67,25 +76,29 @@ Complete the project into a production-ready legal intelligence platform with:
 Proposed priority score model:
 
 PriorityScore =
-0.30 * Urgency
-+ 0.25 * Impact
-+ 0.20 * DeadlineRisk
-+ 0.15 * SimilarityConfidence
-+ 0.10 * ComplianceRisk
+0.30 \* Urgency
+
+- 0.25 \* Impact
+- 0.20 \* DeadlineRisk
+- 0.15 \* SimilarityConfidence
+- 0.10 \* ComplianceRisk
 
 Priority bands:
+
 - P0 Critical: score >= 85 (immediate attention)
 - P1 High: score >= 70 and < 85
 - P2 Medium: score >= 50 and < 70
 - P3 Low: score < 50
 
 ### Phase F: Frontend Integration with Real APIs
+
 - Replace service placeholders with live API calls
 - Loading/error/retry UX polish
 - Auth-guarded routes and session handling
 - Real insights and history dashboards
 
 ### Phase G: Security and Compliance
+
 - Input sanitization and request validation
 - Rate limiting and abuse protection
 - Secrets management
@@ -93,12 +106,14 @@ Priority bands:
 - Data retention policy
 
 ### Phase H: Production Deployment
+
 - Environment configuration (dev/staging/prod)
 - CI/CD deployment pipeline
 - Domain, SSL, and routing
 - Monitoring, alerting, and uptime checks
 
 ### Phase I: Production Test Hardening
+
 - Expanded unit/integration/E2E suites
 - Performance and load testing
 - Security checks and dependency policy
@@ -107,14 +122,18 @@ Priority bands:
 ## 4) Required From User Side (Blocking Inputs)
 
 ## 4.1 Product and Business Decisions
+
 You need to confirm:
+
 1. Primary users and user roles
 2. Must-have features for version 1
 3. Nice-to-have features for post-launch
 4. Acceptance criteria for go-live
 
 ## 4.2 Technology Choices
+
 You need to choose:
+
 1. Backend stack: Node/Fastify, Node/Express, or Python/FastAPI
 2. Database: PostgreSQL, MongoDB, or managed option
 3. Auth provider: custom JWT, Clerk/Auth0/Supabase Auth, or OAuth-only
@@ -122,7 +141,9 @@ You need to choose:
 5. Deployment target: Azure/Vercel/AWS/other
 
 ## 4.3 Access and Credentials
+
 You need to provide:
+
 1. Cloud account access (subscription/project)
 2. API keys for AI provider
 3. Database connection credentials
@@ -130,21 +151,27 @@ You need to provide:
 5. Domain access for DNS and SSL setup
 
 ## 4.4 Data and Legal Inputs
+
 You need to provide:
+
 1. Data source for legal case corpus
 2. Permission to use and process that data
 3. Any jurisdiction-specific compliance requirements
 4. Privacy constraints for stored user files and search history
 
 ## 4.5 Operational Constraints
+
 You need to define:
+
 1. Budget range per month
 2. Expected concurrent users
 3. Performance expectations (for example, search response target)
 4. Uptime target and support expectations
 
 ## 4.6 Inputs Required for AI Priority Ranking
+
 You need to provide:
+
 1. Priority policy (what matters most: legal risk, financial risk, or deadline)
 2. Weight preferences for each scoring factor (or approve default weights)
 3. SLA deadlines by case type (for example, criminal, civil, tax, labor)
@@ -156,6 +183,7 @@ You need to provide:
 ## 5) Deliverables at Completion
 
 At final completion, you will get:
+
 - Fully integrated frontend and backend
 - Auth-enabled secure user flows
 - Database-backed persistent records
@@ -179,23 +207,23 @@ At final completion, you will get:
 
 Please complete the following before integration starts:
 
-- Backend stack chosen: ____________________
-- Database chosen: ____________________
-- Auth strategy chosen: ____________________
-- AI provider chosen: ____________________
-- Deployment platform chosen: ____________________
-- Domain available (Yes/No): ____________________
-- Cloud access shared (Yes/No): ____________________
-- API keys available (Yes/No): ____________________
-- Legal data source identified: ____________________
-- Compliance constraints documented (Yes/No): ____________________
-- Launch timeline target: ____________________
-- Budget range: ____________________
-- Priority policy chosen (risk/deadline/business): ____________________
-- Priority weights approved (Yes/No): ____________________
-- SLA deadlines provided by case type (Yes/No): ____________________
-- Escalation rules defined (Yes/No): ____________________
-- Override roles finalized (Yes/No): ____________________
+- Backend stack chosen: ********\_\_\_\_********
+- Database chosen: ********\_\_\_\_********
+- Auth strategy chosen: ********\_\_\_\_********
+- AI provider chosen: ********\_\_\_\_********
+- Deployment platform chosen: ********\_\_\_\_********
+- Domain available (Yes/No): ********\_\_\_\_********
+- Cloud access shared (Yes/No): ********\_\_\_\_********
+- API keys available (Yes/No): ********\_\_\_\_********
+- Legal data source identified: ********\_\_\_\_********
+- Compliance constraints documented (Yes/No): ********\_\_\_\_********
+- Launch timeline target: ********\_\_\_\_********
+- Budget range: ********\_\_\_\_********
+- Priority policy chosen (risk/deadline/business): ********\_\_\_\_********
+- Priority weights approved (Yes/No): ********\_\_\_\_********
+- SLA deadlines provided by case type (Yes/No): ********\_\_\_\_********
+- Escalation rules defined (Yes/No): ********\_\_\_\_********
+- Override roles finalized (Yes/No): ********\_\_\_\_********
 
 ## 8) Immediate Next Step
 

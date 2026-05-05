@@ -41,13 +41,26 @@ const QUICK_CASE_PROMPTS = [
   "Parent denied child visitation despite family court interim order",
 ];
 
-function getOrderedPromptWindow(prompts: string[], offset: number, size: number): string[] {
+function getOrderedPromptWindow(
+  prompts: string[],
+  offset: number,
+  size: number,
+): string[] {
   if (prompts.length <= size) return prompts;
-  return Array.from({ length: size }, (_, index) => prompts[(offset + index) % prompts.length]);
+  return Array.from(
+    { length: size },
+    (_, index) => prompts[(offset + index) % prompts.length],
+  );
 }
 
 type WorkflowMode = "find-cases";
-type Phase = "idle" | "choice" | "transition" | "analyzing" | "results" | "scheduling";
+type Phase =
+  | "idle"
+  | "choice"
+  | "transition"
+  | "analyzing"
+  | "results"
+  | "scheduling";
 
 type LocalCourtOption = {
   localCourtName: string;
@@ -166,7 +179,9 @@ const ResultCard = memo(function ResultCard({
               ) : null}
               {result.whyMatch || result.whyMatched ? (
                 <div>
-                  <p className="font-semibold text-foreground mb-1">Why this match</p>
+                  <p className="font-semibold text-foreground mb-1">
+                    Why this match
+                  </p>
                   <p>{result.whyMatch || result.whyMatched}</p>
                 </div>
               ) : null}
@@ -178,7 +193,6 @@ const ResultCard = memo(function ResultCard({
   );
 });
 
-
 export default function AISearchLab() {
   const { state, setAISearchData, addHearing } = useSearch();
 
@@ -187,7 +201,9 @@ export default function AISearchLab() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [workflowMode, setWorkflowMode] = useState<WorkflowMode>("find-cases");
   const [currentStep, setCurrentStep] = useState(0);
-  const [results, setResults] = useState<CaseResult[]>(state.aiSearchResults || []);
+  const [results, setResults] = useState<CaseResult[]>(
+    state.aiSearchResults || [],
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   // Judge & Scheduling states
@@ -195,17 +211,27 @@ export default function AISearchLab() {
   const [selectedCaseType, setSelectedCaseType] = useState("Criminal");
   const [schedulingDate, setSchedulingDate] = useState("");
   const [schedulingTime, setSchedulingTime] = useState("10:30");
-  const [scheduleFeedback, setScheduleFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [scheduleFeedback, setScheduleFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [isScheduling, setIsScheduling] = useState(false);
-  const [schedulingJudgeId, setSchedulingJudgeId] = useState<string | null>(null);
+  const [schedulingJudgeId, setSchedulingJudgeId] = useState<string | null>(
+    null,
+  );
 
   const [promptOffset, setPromptOffset] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const persistTimeoutRef = useRef<NodeJS.Timeout>();
   const visibleQuickPrompts = useMemo(
-    () => getOrderedPromptWindow(QUICK_CASE_PROMPTS, promptOffset, QUICK_PROMPT_WINDOW),
-    [promptOffset]
+    () =>
+      getOrderedPromptWindow(
+        QUICK_CASE_PROMPTS,
+        promptOffset,
+        QUICK_PROMPT_WINDOW,
+      ),
+    [promptOffset],
   );
 
   useEffect(() => {
@@ -233,8 +259,6 @@ export default function AISearchLab() {
     if (!query.trim()) return;
     setPhase("choice");
   }, [query]);
-
-
 
   const startAnalysis = useCallback(
     async (mode: WorkflowMode) => {
@@ -265,7 +289,7 @@ export default function AISearchLab() {
         setTimeout(advance, aiSteps[0].duration);
       }, 2000);
     },
-    [query, setAISearchData]
+    [query, setAISearchData],
   );
 
   const handleReset = useCallback(() => {
@@ -305,7 +329,8 @@ export default function AISearchLab() {
         return;
       }
 
-      const caseTitle = query.trim() || results[0]?.title || "Case from Case Lab";
+      const caseTitle =
+        query.trim() || results[0]?.title || "Case from Case Lab";
       const caseId = `case-${Math.abs(hashText(caseTitle))}`;
       const selectedTime = `${schedulingTime || "10:30"}`.trim();
 
@@ -319,7 +344,8 @@ export default function AISearchLab() {
           caseTitle,
           assignedJudgeId: judge.id,
           assignedJudgeName: judge.name,
-          localCourtName: judge.courtName || `${selectedDistrict} District Court`,
+          localCourtName:
+            judge.courtName || `${selectedDistrict} District Court`,
           courtRoom: "Court Room 1",
           state: judge.state || "TBD",
           district: judge.district || selectedDistrict,
@@ -334,14 +360,26 @@ export default function AISearchLab() {
           message: `Scheduled with ${judge.name} on ${normalizedDate} at ${selectedTime}.`,
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unable to schedule hearing.";
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Unable to schedule hearing.";
         setScheduleFeedback({ type: "error", message });
       } finally {
         setIsScheduling(false);
         setSchedulingJudgeId(null);
       }
     },
-    [addHearing, normalizeDateDMY, query, results, schedulingDate, schedulingTime, selectedDistrict, selectedCaseType]
+    [
+      addHearing,
+      normalizeDateDMY,
+      query,
+      results,
+      schedulingDate,
+      schedulingTime,
+      selectedDistrict,
+      selectedCaseType,
+    ],
   );
 
   return (
@@ -365,7 +403,8 @@ export default function AISearchLab() {
               className="text-center mb-10"
             >
               <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1 text-[11px] font-semibold tracking-[0.14em] text-primary/90 mb-5">
-                <Sparkles className="w-3.5 h-3.5" /> NARRATIVE-FIRST LEGAL SEARCH
+                <Sparkles className="w-3.5 h-3.5" /> NARRATIVE-FIRST LEGAL
+                SEARCH
               </span>
               <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/20 via-primary/10 to-accent/20 flex items-center justify-center mx-auto mb-6 border border-primary/20 shadow-lg shadow-primary/10">
                 <Sparkles className="w-9 h-9 text-primary" />
@@ -374,12 +413,21 @@ export default function AISearchLab() {
                 Case Lab
               </h1>
               <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Turn raw facts into a courtroom-ready brief. Write the situation naturally, and Case Lab maps legal intent, finds similar precedents, and flags judge availability by district and case type.
+                Turn raw facts into a courtroom-ready brief. Write the situation
+                naturally, and Case Lab maps legal intent, finds similar
+                precedents, and flags judge availability by district and case
+                type.
               </p>
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] text-muted-foreground">
-                <span className="rounded-full bg-muted/60 px-3 py-1">Context-aware matching</span>
-                <span className="rounded-full bg-muted/60 px-3 py-1">Priority-focused ranking</span>
-                <span className="rounded-full bg-muted/60 px-3 py-1">Bench availability signals</span>
+                <span className="rounded-full bg-muted/60 px-3 py-1">
+                  Context-aware matching
+                </span>
+                <span className="rounded-full bg-muted/60 px-3 py-1">
+                  Priority-focused ranking
+                </span>
+                <span className="rounded-full bg-muted/60 px-3 py-1">
+                  Bench availability signals
+                </span>
               </div>
             </motion.div>
 
@@ -415,7 +463,8 @@ export default function AISearchLab() {
                 </div>
               </div>
               <p className="text-center text-xs text-muted-foreground mt-3">
-                Write facts as a story: what happened, who is involved, and what relief you need.
+                Write facts as a story: what happened, who is involved, and what
+                relief you need.
               </p>
             </motion.div>
 
@@ -465,7 +514,9 @@ export default function AISearchLab() {
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20">
                   <GitCompare className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">Begin Analysis</h3>
+                <h3 className="font-semibold text-foreground mb-2">
+                  Begin Analysis
+                </h3>
                 <p className="text-xs text-muted-foreground">
                   AI will search for matching precedents and similar legal cases
                 </p>
@@ -582,7 +633,9 @@ export default function AISearchLab() {
                           className="ml-auto w-2 h-2 rounded-full bg-primary"
                         />
                       )}
-                      {done && <span className="ml-auto text-xs text-primary">✓</span>}
+                      {done && (
+                        <span className="ml-auto text-xs text-primary">✓</span>
+                      )}
                     </motion.div>
                   );
                 })}
@@ -608,7 +661,9 @@ export default function AISearchLab() {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">Results for</p>
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Results for
+                    </p>
                     <h2 className="text-xl font-display font-bold text-foreground">
                       "{query}"
                     </h2>
@@ -622,11 +677,12 @@ export default function AISearchLab() {
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
                   Found{" "}
-                  <span className="text-primary font-semibold">{results.length}</span>{" "}
+                  <span className="text-primary font-semibold">
+                    {results.length}
+                  </span>{" "}
                   matching precedents
                 </p>
               </motion.div>
-
 
               {/* Judge Availability & Scheduling Controls */}
               <motion.div
@@ -635,7 +691,8 @@ export default function AISearchLab() {
                 className="mb-8 glass-panel rounded-2xl p-6 border border-primary/20"
               >
                 <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-primary" /> Check Judge Availability
+                  <Users className="w-5 h-5 text-primary" /> Check Judge
+                  Availability
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -681,17 +738,41 @@ export default function AISearchLab() {
                   </div>
                 </div>
 
-                <div className="mb-6 max-w-xs">
+                {/* Time Slot Picker */}
+                <div className="mb-6">
                   <label className="text-sm font-semibold text-foreground block mb-2">
                     Hearing Time
                   </label>
-                  <input
-                    type="text"
-                    value={schedulingTime}
-                    onChange={(e) => setSchedulingTime(e.target.value)}
-                    placeholder="HH:MM"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
-                  />
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      "09:00",
+                      "09:30",
+                      "10:00",
+                      "10:30",
+                      "11:00",
+                      "11:30",
+                      "12:00",
+                      "14:00",
+                      "14:30",
+                      "15:00",
+                      "15:30",
+                      "16:00",
+                      "16:30",
+                    ].map((slot) => (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => setSchedulingTime(slot)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          schedulingTime === slot
+                            ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30"
+                            : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {scheduleFeedback ? (
@@ -711,8 +792,8 @@ export default function AISearchLab() {
                   </div>
                 ) : null}
 
-                {/* Judge Availability Widget */}
-                {selectedDistrict && selectedCaseType && schedulingDate && (
+                {/* Judge Availability Widget — always visible once district & case type are set */}
+                {selectedDistrict && selectedCaseType && (
                   <JudgeAvailabilityWidget
                     district={selectedDistrict}
                     caseType={selectedCaseType}

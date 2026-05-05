@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit2, Trash2, ChevronDown, ChevronRight, Users, Briefcase, Calendar, X } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Users,
+  Briefcase,
+  Calendar,
+  X,
+} from "lucide-react";
 import { JudgeProfile } from "@/types";
 import { dataService } from "@/services/dataService";
 
@@ -39,7 +49,15 @@ const initialJudges: JudgeProfile[] = [
   },
 ];
 
-function JudgeCard({ judge, onEdit, onDelete }: { judge: JudgeProfile; onEdit: (j: JudgeProfile) => void; onDelete: (id: string) => void }) {
+function JudgeCard({
+  judge,
+  onEdit,
+  onDelete,
+}: {
+  judge: JudgeProfile;
+  onEdit: (j: JudgeProfile) => void;
+  onDelete: (id: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const utilization = (judge.currentCaseLoad / judge.caseLoadCapacity) * 100;
 
@@ -56,17 +74,29 @@ function JudgeCard({ judge, onEdit, onDelete }: { judge: JudgeProfile; onEdit: (
         className="w-full flex items-center justify-between cursor-pointer hover:opacity-75"
       >
         <div className="flex-1 text-left">
-          <h3 className="font-display font-semibold text-foreground">{judge.name}</h3>
-          <p className="text-xs text-muted-foreground mt-1">{judge.courtLevel} · {judge.category}</p>
+          <h3 className="font-display font-semibold text-foreground">
+            {judge.name}
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            {judge.courtLevel} · {judge.category}
+          </p>
         </div>
-        <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${
-          judge.availability === "Available" ? "bg-green-500/15 text-green-700" :
-          judge.availability === "Busy" ? "bg-yellow-500/15 text-yellow-700" :
-          "bg-red-500/15 text-red-700"
-        }`}>
+        <span
+          className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${
+            judge.availability === "Available"
+              ? "bg-green-500/15 text-green-700"
+              : judge.availability === "Busy"
+                ? "bg-yellow-500/15 text-yellow-700"
+                : "bg-red-500/15 text-red-700"
+          }`}
+        >
           {judge.availability}
         </span>
-        {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+        {expanded ? (
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        )}
       </button>
 
       <AnimatePresence>
@@ -80,31 +110,48 @@ function JudgeCard({ judge, onEdit, onDelete }: { judge: JudgeProfile; onEdit: (
             <div className="mt-4 pt-4 border-t border-border space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Experience</p>
-                  <p className="text-sm text-foreground">{judge.yearsOfExperience} years</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Experience
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {judge.yearsOfExperience} years
+                  </p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Case Load</p>
-                  <p className="text-sm text-foreground">{judge.currentCaseLoad}/{judge.caseLoadCapacity}</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Case Load
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {judge.currentCaseLoad}/{judge.caseLoadCapacity}
+                  </p>
                 </div>
               </div>
 
               <div>
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Utilization</p>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Utilization
+                </p>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                     <motion.div
                       className="h-full rounded-full"
                       style={{
                         width: `${utilization}%`,
-                        background: utilization > 80 ? "hsl(0, 84%, 60%)" : utilization > 60 ? "hsl(38, 92%, 50%)" : "hsl(150, 66%, 70%)",
+                        background:
+                          utilization > 80
+                            ? "hsl(0, 84%, 60%)"
+                            : utilization > 60
+                              ? "hsl(38, 92%, 50%)"
+                              : "hsl(150, 66%, 70%)",
                       }}
                       initial={{ width: 0 }}
                       animate={{ width: `${utilization}%` }}
                       transition={{ duration: 0.8 }}
                     />
                   </div>
-                  <span className="text-xs font-semibold text-foreground min-w-[40px]">{Math.round(utilization)}%</span>
+                  <span className="text-xs font-semibold text-foreground min-w-[40px]">
+                    {Math.round(utilization)}%
+                  </span>
                 </div>
               </div>
 
@@ -130,7 +177,17 @@ function JudgeCard({ judge, onEdit, onDelete }: { judge: JudgeProfile; onEdit: (
   );
 }
 
-function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | null; mode: DialogMode; onClose: () => void; onSave: (j: JudgeProfile) => void }) {
+function JudgeDialog({
+  judge,
+  mode,
+  onClose,
+  onSave,
+}: {
+  judge: JudgeProfile | null;
+  mode: DialogMode;
+  onClose: () => void;
+  onSave: (j: JudgeProfile) => void;
+}) {
   const [formData, setFormData] = useState<JudgeProfile>(
     judge || {
       id: `judge-${Date.now()}`,
@@ -145,7 +202,7 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
       district: "",
       state: "",
       specializations: [],
-    }
+    },
   );
 
   return (
@@ -169,17 +226,24 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
               <h2 className="text-xl font-display font-bold text-foreground">
                 {mode === "add" ? "Add Judge" : "Edit Judge"}
               </h2>
-              <button onClick={onClose} className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80">
+              <button
+                onClick={onClose}
+                className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Name
+                </label>
                 <input
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="e.g., Justice N. Rao"
                   className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                 />
@@ -187,10 +251,18 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Court Level</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Court Level
+                  </label>
                   <select
                     value={formData.courtLevel}
-                    onChange={(e) => setFormData({ ...formData, courtLevel: e.target.value as JudgeProfile["courtLevel"] })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        courtLevel: e.target
+                          .value as JudgeProfile["courtLevel"],
+                      })
+                    }
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   >
                     <option>Supreme Court</option>
@@ -199,10 +271,17 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Category</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Category
+                  </label>
                   <select
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value as JudgeProfile["category"] })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        category: e.target.value as JudgeProfile["category"],
+                      })
+                    }
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   >
                     <option>Criminal</option>
@@ -214,19 +293,27 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">State</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    State
+                  </label>
                   <input
                     value={formData.state || ""}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, state: e.target.value })
+                    }
                     placeholder="e.g., Karnataka"
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">District/Area</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    District/Area
+                  </label>
                   <input
                     value={formData.district || ""}
-                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, district: e.target.value })
+                    }
                     placeholder="e.g., Bangalore"
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
@@ -234,10 +321,14 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Court Name</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Court Name
+                </label>
                 <input
                   value={formData.courtName || ""}
-                  onChange={(e) => setFormData({ ...formData, courtName: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, courtName: e.target.value })
+                  }
                   placeholder="e.g., District Court"
                   className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                 />
@@ -245,19 +336,34 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Experience (years)</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Experience (years)
+                  </label>
                   <input
                     type="number"
                     value={formData.yearsOfExperience}
-                    onChange={(e) => setFormData({ ...formData, yearsOfExperience: parseInt(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        yearsOfExperience: parseInt(e.target.value) || 0,
+                      })
+                    }
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Status
+                  </label>
                   <select
                     value={formData.availability}
-                    onChange={(e) => setFormData({ ...formData, availability: e.target.value as JudgeProfile["availability"] })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        availability: e.target
+                          .value as JudgeProfile["availability"],
+                      })
+                    }
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   >
                     <option>Available</option>
@@ -269,20 +375,34 @@ function JudgeDialog({ judge, mode, onClose, onSave }: { judge: JudgeProfile | n
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Case Capacity</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Case Capacity
+                  </label>
                   <input
                     type="number"
                     value={formData.caseLoadCapacity}
-                    onChange={(e) => setFormData({ ...formData, caseLoadCapacity: parseInt(e.target.value) || 50 })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        caseLoadCapacity: parseInt(e.target.value) || 50,
+                      })
+                    }
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current Load</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Current Load
+                  </label>
                   <input
                     type="number"
                     value={formData.currentCaseLoad}
-                    onChange={(e) => setFormData({ ...formData, currentCaseLoad: parseInt(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        currentCaseLoad: parseInt(e.target.value) || 0,
+                      })
+                    }
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-card text-foreground text-sm outline-none"
                   />
                 </div>
@@ -347,7 +467,11 @@ export default function JudgesManagement() {
       setJudges((current) => [...current, created]);
     } else {
       const updated = await dataService.editJudge(judge.id, judge);
-      setJudges((current) => current.map((item) => (item.id === judge.id ? { ...item, ...updated } : item)));
+      setJudges((current) =>
+        current.map((item) =>
+          item.id === judge.id ? { ...item, ...updated } : item,
+        ),
+      );
     }
   };
 
@@ -362,8 +486,12 @@ export default function JudgesManagement() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-display font-bold gradient-text">Judges Management</h1>
-            <p className="text-sm text-muted-foreground mt-1">Add and manage judges across courts</p>
+            <h1 className="text-3xl font-display font-bold gradient-text">
+              Judges Management
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Add and manage judges across courts
+            </p>
           </div>
           <button
             onClick={handleAdd}
@@ -375,31 +503,57 @@ export default function JudgesManagement() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-panel rounded-2xl p-5">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-panel rounded-2xl p-5"
+          >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Total Judges</p>
-                <p className="text-2xl font-display font-bold text-foreground">{judges.length}</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                  Total Judges
+                </p>
+                <p className="text-2xl font-display font-bold text-foreground">
+                  {judges.length}
+                </p>
               </div>
               <Users className="w-8 h-8 text-primary opacity-20" />
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-panel rounded-2xl p-5">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="glass-panel rounded-2xl p-5"
+          >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Available</p>
-                <p className="text-2xl font-display font-bold text-foreground">{availableJudges.length}</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                  Available
+                </p>
+                <p className="text-2xl font-display font-bold text-foreground">
+                  {availableJudges.length}
+                </p>
               </div>
               <Calendar className="w-8 h-8 text-green-500 opacity-20" />
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-panel rounded-2xl p-5">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="glass-panel rounded-2xl p-5"
+          >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">System Utilization</p>
-                <p className="text-2xl font-display font-bold text-foreground">{Math.round((totalCaseLoad / totalCapacity) * 100)}%</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                  System Utilization
+                </p>
+                <p className="text-2xl font-display font-bold text-foreground">
+                  {Math.round((totalCaseLoad / totalCapacity) * 100)}%
+                </p>
               </div>
               <Briefcase className="w-8 h-8 text-accent opacity-20" />
             </div>
@@ -410,19 +564,31 @@ export default function JudgesManagement() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <AnimatePresence>
             {judges.map((judge) => (
-              <JudgeCard key={judge.id} judge={judge} onEdit={handleEdit} onDelete={handleDelete} />
+              <JudgeCard
+                key={judge.id}
+                judge={judge}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
             ))}
           </AnimatePresence>
         </div>
 
         {judges.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No judges added yet. Click "Add Judge" to get started.</p>
+            <p className="text-muted-foreground">
+              No judges added yet. Click "Add Judge" to get started.
+            </p>
           </div>
         )}
       </div>
 
-      <JudgeDialog judge={selectedJudge} mode={dialogMode} onClose={() => setDialogMode(null)} onSave={handleSave} />
+      <JudgeDialog
+        judge={selectedJudge}
+        mode={dialogMode}
+        onClose={() => setDialogMode(null)}
+        onSave={handleSave}
+      />
     </div>
   );
 }

@@ -8,7 +8,8 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectTo = (location.state as { from?: string } | null)?.from || "/secure-cases";
+  const redirectTo =
+    (location.state as { from?: string } | null)?.from || "/secure-cases";
 
   const [email, setEmail] = useState("staff@court.ai");
   const [password, setPassword] = useState("staff123");
@@ -37,20 +38,33 @@ export default function Login() {
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-xl glass-panel rounded-3xl p-8"
         >
-          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-primary">Secure Access</p>
-          <h1 className="text-3xl font-display font-bold text-foreground mt-2">Court Case Workspace Login</h1>
+          <p className="text-xs font-semibold tracking-[0.16em] uppercase text-primary">
+            Secure Access
+          </p>
+          <h1 className="text-3xl font-display font-bold text-foreground mt-2">
+            Court Case Workspace Login
+          </h1>
           <p className="text-sm text-muted-foreground mt-2">
-            Judges can view assigned case intelligence. Court support staff can upload and manage case operations.
+            Judges can view assigned case intelligence. Court support staff can
+            upload and manage case operations.
           </p>
 
           <div className="mt-5 p-4 rounded-xl border border-border/80 bg-card/60 text-xs text-muted-foreground space-y-1">
-            <p><span className="text-foreground font-semibold">Judge demo:</span> judge@court.ai / judge123</p>
-            <p><span className="text-foreground font-semibold">Staff demo:</span> staff@court.ai / staff123</p>
+            <p>
+              <span className="text-foreground font-semibold">Judge demo:</span>{" "}
+              judge@court.ai / judge123
+            </p>
+            <p>
+              <span className="text-foreground font-semibold">Staff demo:</span>{" "}
+              staff@court.ai / staff123
+            </p>
           </div>
 
           <form className="mt-6 space-y-4" onSubmit={onSubmit}>
             <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Email
+              </span>
               <div className="mt-1.5 relative">
                 <UserCircle2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -65,7 +79,9 @@ export default function Login() {
             </label>
 
             <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Password
+              </span>
               <div className="mt-1.5 relative">
                 <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -79,7 +95,9 @@ export default function Login() {
               </div>
             </label>
 
-            {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
+            {error ? (
+              <p className="text-xs font-medium text-destructive">{error}</p>
+            ) : null}
 
             <button
               type="submit"

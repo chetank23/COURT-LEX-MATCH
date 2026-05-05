@@ -1,6 +1,19 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Grid3X3, GitBranch, Filter, X, Scale, Calendar, Users, ShieldCheck, UserRoundCheck, Search, MapPin, Sparkles } from "lucide-react";
+import {
+  Grid3X3,
+  GitBranch,
+  Filter,
+  X,
+  Scale,
+  Calendar,
+  Users,
+  ShieldCheck,
+  UserRoundCheck,
+  Search,
+  MapPin,
+  Sparkles,
+} from "lucide-react";
 import { CaseResult, FIRJudgeAssignment } from "@/types";
 import { dataService } from "@/services/dataService";
 import { useSearch } from "@/contexts/SearchContext";
@@ -9,7 +22,11 @@ type JudgeCategory = "Criminal" | "Civil" | "Other";
 
 type CaseAssignment = FIRJudgeAssignment;
 
-type CourtLevel = "Supreme Court" | "High Court" | "District Court" | "Other Court";
+type CourtLevel =
+  | "Supreme Court"
+  | "High Court"
+  | "District Court"
+  | "Other Court";
 type GroupByMode = "none" | "category" | "location" | "court-level";
 type CaseTypeBucket = "Criminal" | "Civil" | "Specialized Cases";
 const INITIAL_BATCH_SIZE = 24;
@@ -57,15 +74,21 @@ function hashText(value: string): number {
 function getCaseAssignment(c: CaseResult): CaseAssignment {
   const category = classifyJudgeCategory(c.type);
   const availableJudges = JUDGE_ROSTER[category];
-  const assignedJudge = availableJudges[hashText(`${c.id}:${c.title}`) % availableJudges.length];
+  const assignedJudge =
+    availableJudges[hashText(`${c.id}:${c.title}`) % availableJudges.length];
   const requiresPublicProsecutor = category === "Criminal";
-  const judgeRankings: CaseAssignment["judgeRankings"] = availableJudges.map((judge, index) => ({
-    judgeName: judge,
-    score: Math.max(50, 92 - index * 8),
-    utilization: 55 + index * 10,
-    availability: index === 0 ? "Available" : "Busy",
-    reason: index === 0 ? "Selected using deterministic fallback roster." : "Fallback roster candidate.",
-  }));
+  const judgeRankings: CaseAssignment["judgeRankings"] = availableJudges.map(
+    (judge, index) => ({
+      judgeName: judge,
+      score: Math.max(50, 92 - index * 8),
+      utilization: 55 + index * 10,
+      availability: index === 0 ? "Available" : "Busy",
+      reason:
+        index === 0
+          ? "Selected using deterministic fallback roster."
+          : "Fallback roster candidate.",
+    }),
+  );
 
   return {
     category,
@@ -141,7 +164,9 @@ function getCourtLocation(court: string): string {
     "jammu",
   ];
 
-  const matched = knownLocations.find((location) => normalizedCourt.includes(location));
+  const matched = knownLocations.find((location) =>
+    normalizedCourt.includes(location),
+  );
   if (matched) return toTitleCase(matched);
   if (normalizedCourt.includes("supreme")) return "National";
   return "Unspecified";
@@ -176,7 +201,15 @@ function matchesCaseSearchQuery(caseItem: CaseResult, query: string): boolean {
     .every((term) => haystack.includes(term));
 }
 
-function CaseCard({ c, aiReason, onClick }: { c: CaseResult; aiReason?: string; onClick: () => void }) {
+function CaseCard({
+  c,
+  aiReason,
+  onClick,
+}: {
+  c: CaseResult;
+  aiReason?: string;
+  onClick: () => void;
+}) {
   const courtLevel = getCourtLevel(c.court);
   const location = getCourtLocation(c.court);
 
@@ -192,17 +225,23 @@ function CaseCard({ c, aiReason, onClick }: { c: CaseResult; aiReason?: string; 
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">{c.type}</span>
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
+            {c.type}
+          </span>
           <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-destructive/10 text-destructive">
             {c.priorityBand || "P3"} · {c.priorityScore || 0}
           </span>
         </div>
-        <span className="text-2xl font-display font-bold gradient-text">{c.similarity}%</span>
+        <span className="text-2xl font-display font-bold gradient-text">
+          {c.similarity}%
+        </span>
       </div>
       <h3 className="font-display font-semibold text-foreground text-sm leading-tight mb-2 group-hover:text-primary transition-colors">
         {c.title}
       </h3>
-      <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{c.summary}</p>
+      <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+        {c.summary}
+      </p>
       <div className="rounded-lg border border-primary/10 bg-primary/5 p-2 mb-3">
         <p className="text-[11px] text-foreground/85 leading-relaxed line-clamp-3">
           <span className="font-semibold text-primary">AI Match Reason: </span>
@@ -219,16 +258,31 @@ function CaseCard({ c, aiReason, onClick }: { c: CaseResult; aiReason?: string; 
       </div>
       <div className="flex gap-1 mt-3 flex-wrap">
         {c.tags.map((t) => (
-          <span key={t} className="px-2 py-0.5 rounded text-[9px] font-medium bg-accent/10 text-accent">{t}</span>
+          <span
+            key={t}
+            className="px-2 py-0.5 rounded text-[9px] font-medium bg-accent/10 text-accent"
+          >
+            {t}
+          </span>
         ))}
-        <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground">{courtLevel}</span>
-        <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground">{location}</span>
+        <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground">
+          {courtLevel}
+        </span>
+        <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-muted text-muted-foreground">
+          {location}
+        </span>
       </div>
     </motion.div>
   );
 }
 
-function GraphView({ cases, onSelect }: { cases: CaseResult[]; onSelect: (c: CaseResult) => void }) {
+function GraphView({
+  cases,
+  onSelect,
+}: {
+  cases: CaseResult[];
+  onSelect: (c: CaseResult) => void;
+}) {
   const nodes = useMemo(() => {
     return cases.map((c, i) => {
       const angle = (i / cases.length) * Math.PI * 2;
@@ -253,33 +307,68 @@ function GraphView({ cases, onSelect }: { cases: CaseResult[]; onSelect: (c: Cas
             return (
               <line
                 key={`${n1.id}-${n2.id}`}
-                x1={n1.x} y1={n1.y} x2={n2.x} y2={n2.y}
+                x1={n1.x}
+                y1={n1.y}
+                x2={n2.x}
+                y2={n2.y}
                 stroke="hsl(238 70% 55%)"
                 strokeOpacity={sim / 200}
                 strokeWidth={1}
               />
             );
-          })
+          }),
         )}
         {/* Center node */}
-        <circle cx={300} cy={250} r={30} fill="hsl(238 70% 55%)" fillOpacity={0.15} />
+        <circle
+          cx={300}
+          cy={250}
+          r={30}
+          fill="hsl(238 70% 55%)"
+          fillOpacity={0.15}
+        />
         <circle cx={300} cy={250} r={8} fill="hsl(238 70% 55%)" />
-        <text x={300} y={290} textAnchor="middle" fontSize="10" fill="hsl(238 70% 55%)" fontWeight="600">Your Query</text>
+        <text
+          x={300}
+          y={290}
+          textAnchor="middle"
+          fontSize="10"
+          fill="hsl(238 70% 55%)"
+          fontWeight="600"
+        >
+          Your Query
+        </text>
         {/* Case nodes */}
         {nodes.map((n) => (
           <g key={n.id} onClick={() => onSelect(n)} className="cursor-pointer">
             <circle
-              cx={n.x} cy={n.y} r={n.r}
+              cx={n.x}
+              cy={n.y}
+              r={n.r}
               fill="hsl(238 70% 55%)"
               fillOpacity={n.similarity / 150}
               stroke="hsl(238 70% 55%)"
               strokeOpacity={0.3}
               strokeWidth={1.5}
             />
-            <text x={n.x} y={n.y - n.r - 6} textAnchor="middle" fontSize="9" fill="hsl(225 10% 50%)" className="pointer-events-none">
+            <text
+              x={n.x}
+              y={n.y - n.r - 6}
+              textAnchor="middle"
+              fontSize="9"
+              fill="hsl(225 10% 50%)"
+              className="pointer-events-none"
+            >
               {n.title.length > 20 ? n.title.slice(0, 20) + "…" : n.title}
             </text>
-            <text x={n.x} y={n.y + 4} textAnchor="middle" fontSize="11" fill="hsl(0 0% 100%)" fontWeight="700" className="pointer-events-none">
+            <text
+              x={n.x}
+              y={n.y + 4}
+              textAnchor="middle"
+              fontSize="11"
+              fill="hsl(0 0% 100%)"
+              fontWeight="700"
+              className="pointer-events-none"
+            >
               {n.similarity}%
             </text>
           </g>
@@ -289,7 +378,15 @@ function GraphView({ cases, onSelect }: { cases: CaseResult[]; onSelect: (c: Cas
   );
 }
 
-function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: string; onClose: () => void }) {
+function DetailPanel({
+  c,
+  aiReason,
+  onClose,
+}: {
+  c: CaseResult;
+  aiReason?: string;
+  onClose: () => void;
+}) {
   const assignment = useMemo(() => getCaseAssignment(c), [c]);
   const courtLevel = useMemo(() => getCourtLevel(c.court), [c.court]);
   const location = useMemo(() => getCourtLocation(c.court), [c.court]);
@@ -336,27 +433,40 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">{c.type}</span>
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+            {c.type}
+          </span>
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-destructive/10 text-destructive">
             Priority {c.priorityBand || "P3"} ({c.priorityScore || 0})
           </span>
         </div>
-        <button onClick={onClose} className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80">
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80"
+        >
           <X className="w-4 h-4" />
         </button>
       </div>
-      <h2 className="text-xl font-display font-bold text-foreground mb-2">{c.title}</h2>
+      <h2 className="text-xl font-display font-bold text-foreground mb-2">
+        {c.title}
+      </h2>
       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
         <span>{c.court}</span>
         <span>·</span>
         <span>{c.year}</span>
       </div>
       <div className="mb-6 flex items-center gap-2 flex-wrap">
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">{courtLevel}</span>
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">{location}</span>
+        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">
+          {courtLevel}
+        </span>
+        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">
+          {location}
+        </span>
       </div>
       <div className="mb-6">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Similarity Score</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          Similarity Score
+        </p>
         <div className="flex items-center gap-3">
           <div className="flex-1 h-3 rounded-full bg-muted overflow-hidden">
             <motion.div
@@ -364,53 +474,82 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
               animate={{ width: `${c.similarity}%` }}
               transition={{ duration: 1 }}
               className="h-full rounded-full"
-              style={{ background: "linear-gradient(90deg, hsl(238 70% 55%), hsl(270 60% 60%))" }}
+              style={{
+                background:
+                  "linear-gradient(90deg, hsl(238 70% 55%), hsl(270 60% 60%))",
+              }}
             />
           </div>
-          <span className="text-lg font-display font-bold gradient-text">{c.similarity}%</span>
+          <span className="text-lg font-display font-bold gradient-text">
+            {c.similarity}%
+          </span>
         </div>
       </div>
       <div className="mb-6">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">AI Summary</p>
-        <p className="text-sm text-foreground/80 leading-relaxed">{c.summary}</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          AI Summary
+        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          {c.summary}
+        </p>
       </div>
       <div className="mb-6">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Humanized Case Brief</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          Humanized Case Brief
+        </p>
         <div className="p-4 rounded-xl gradient-surface border border-primary/10">
           <p className="text-sm text-foreground/80 leading-relaxed">
-            {isHumanizedLoading ? "Generating human-friendly brief..." : humanizedNarrative}
+            {isHumanizedLoading
+              ? "Generating human-friendly brief..."
+              : humanizedNarrative}
           </p>
         </div>
       </div>
       <div className="mb-6">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">AI Exact Match Reason</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          AI Exact Match Reason
+        </p>
         <div className="p-4 rounded-xl gradient-surface border border-primary/10">
-          <p className="text-sm text-foreground/80 leading-relaxed">{aiReason || c.whyMatch}</p>
+          <p className="text-sm text-foreground/80 leading-relaxed">
+            {aiReason || c.whyMatch}
+          </p>
         </div>
       </div>
       <div>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tags</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          Tags
+        </p>
         <div className="flex gap-2 flex-wrap">
           {c.tags.map((t) => (
-            <span key={t} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent/10 text-accent">{t}</span>
+            <span
+              key={t}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent/10 text-accent"
+            >
+              {t}
+            </span>
           ))}
         </div>
       </div>
 
       <div className="mt-6">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Judge Assignment</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          Judge Assignment
+        </p>
         <div className="p-4 rounded-xl gradient-surface border border-primary/10 space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-semibold">
               {assignment.category} Bench
             </span>
             <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5" /> {assignment.availableJudges.length} judges available
+              <Users className="w-3.5 h-3.5" />{" "}
+              {assignment.availableJudges.length} judges available
             </span>
           </div>
 
           <div>
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Assigned Judge</p>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              Assigned Judge
+            </p>
             <p className="text-sm text-foreground flex items-center gap-2">
               <UserRoundCheck className="w-4 h-4 text-primary" />
               {rankedAssignment.assignedJudge}
@@ -418,10 +557,15 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
           </div>
 
           <div>
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Available Panel</p>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              Available Panel
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {rankedAssignment.availableJudges.map((judge) => (
-                <span key={judge} className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-foreground/80">
+                <span
+                  key={judge}
+                  className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-foreground/80"
+                >
                   {judge}
                 </span>
               ))}
@@ -429,27 +573,44 @@ function DetailPanel({ c, aiReason, onClose }: { c: CaseResult; aiReason?: strin
           </div>
 
           <div>
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Routing Reason</p>
-            <p className="text-xs text-foreground/80 leading-relaxed">{rankedAssignment.assignmentReason}</p>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              Routing Reason
+            </p>
+            <p className="text-xs text-foreground/80 leading-relaxed">
+              {rankedAssignment.assignmentReason}
+            </p>
           </div>
 
           <div className="flex items-center justify-between gap-2 rounded-lg border border-border p-2.5">
-            <span className="text-xs text-foreground/90">{rankedAssignment.partyLabel} needs public prosecutor</span>
+            <span className="text-xs text-foreground/90">
+              {rankedAssignment.partyLabel} needs public prosecutor
+            </span>
             <span
               className={`text-xs font-semibold px-2 py-1 rounded-md flex items-center gap-1 ${
-                rankedAssignment.requiresPublicProsecutor ? "bg-green-500/15 text-green-700" : "bg-muted text-muted-foreground"
+                rankedAssignment.requiresPublicProsecutor
+                  ? "bg-green-500/15 text-green-700"
+                  : "bg-muted text-muted-foreground"
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              {rankedAssignment.requiresPublicProsecutor ? "Required" : "Not Required"}
+              {rankedAssignment.requiresPublicProsecutor
+                ? "Required"
+                : "Not Required"}
             </span>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             {rankedAssignment.judgeRankings.slice(0, 3).map((judge) => (
-              <div key={judge.judgeName} className="rounded-lg border border-border bg-muted/30 p-2">
-                <p className="text-[11px] font-semibold text-foreground">{judge.judgeName}</p>
-                <p className="text-[10px] text-muted-foreground">Score {judge.score}</p>
+              <div
+                key={judge.judgeName}
+                className="rounded-lg border border-border bg-muted/30 p-2"
+              >
+                <p className="text-[11px] font-semibold text-foreground">
+                  {judge.judgeName}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  Score {judge.score}
+                </p>
               </div>
             ))}
           </div>
@@ -484,7 +645,7 @@ export default function CaseExplorer() {
   // Determine if we should show matched cases or explore cases
   const showMatchedCases = searchState.hasUserData;
   const pageTitle = showMatchedCases ? "Case Explorer" : "Case Explorer";
-  const pageSubtitle = showMatchedCases 
+  const pageSubtitle = showMatchedCases
     ? "Browse by category, location, and court level with AI match explanations"
     : "Explore available cases in the database by category, location, and court level";
 
@@ -492,15 +653,26 @@ export default function CaseExplorer() {
     const directCourts = Array.from(new Set(cases.map((c) => c.court)))
       .filter((court) => court.toLowerCase() !== "supreme court of india")
       .sort();
-    return ["All Courts", "Supreme Court", "High Court", "District Court", ...directCourts];
+    return [
+      "All Courts",
+      "Supreme Court",
+      "High Court",
+      "District Court",
+      ...directCourts,
+    ];
   }, [cases]);
   const types = useMemo(
     () => ["All Types", "Criminal", "Civil", "Specialized Cases"],
-    []
+    [],
   );
   const locations = useMemo(
-    () => ["All Locations", ...Array.from(new Set(cases.map((c) => getCourtLocation(c.court)))).sort()],
-    [cases]
+    () => [
+      "All Locations",
+      ...Array.from(
+        new Set(cases.map((c) => getCourtLocation(c.court))),
+      ).sort(),
+    ],
+    [cases],
   );
 
   useEffect(() => {
@@ -538,7 +710,9 @@ export default function CaseExplorer() {
 
       if (courtFilter !== "All Courts") {
         if (
-          (courtFilter === "Supreme Court" || courtFilter === "High Court" || courtFilter === "District Court") &&
+          (courtFilter === "Supreme Court" ||
+            courtFilter === "High Court" ||
+            courtFilter === "District Court") &&
           getCourtLevel(c.court) !== courtFilter
         ) {
           return false;
@@ -553,15 +727,23 @@ export default function CaseExplorer() {
           return false;
         }
       }
-      if (typeFilter !== "All Types" && getCaseTypeBucket(c.type) !== typeFilter) return false;
-      if (locationFilter !== "All Locations" && getCourtLocation(c.court) !== locationFilter) return false;
+      if (
+        typeFilter !== "All Types" &&
+        getCaseTypeBucket(c.type) !== typeFilter
+      )
+        return false;
+      if (
+        locationFilter !== "All Locations" &&
+        getCourtLocation(c.court) !== locationFilter
+      )
+        return false;
       return true;
     });
   }, [cases, courtFilter, typeFilter, locationFilter, searchQuery]);
 
   const visibleCases = useMemo(
     () => filtered.slice(0, visibleCount),
-    [filtered, visibleCount]
+    [filtered, visibleCount],
   );
 
   const hasMoreCases = visibleCount < filtered.length;
@@ -589,7 +771,14 @@ export default function CaseExplorer() {
 
   useEffect(() => {
     setVisibleCount(INITIAL_BATCH_SIZE);
-  }, [searchQuery, courtFilter, typeFilter, locationFilter, groupBy, showMatchedCases]);
+  }, [
+    searchQuery,
+    courtFilter,
+    typeFilter,
+    locationFilter,
+    groupBy,
+    showMatchedCases,
+  ]);
 
   useEffect(() => {
     if (view !== "grid") return;
@@ -602,11 +791,13 @@ export default function CaseExplorer() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setVisibleCount((previous) => Math.min(previous + LOAD_MORE_BATCH_SIZE, filtered.length));
+            setVisibleCount((previous) =>
+              Math.min(previous + LOAD_MORE_BATCH_SIZE, filtered.length),
+            );
           }
         });
       },
-      { rootMargin: "300px" }
+      { rootMargin: "300px" },
     );
 
     observer.observe(target);
@@ -619,8 +810,12 @@ export default function CaseExplorer() {
       if (visibleCases.length === 0) return;
       if (!showMatchedCases) return; // Skip reasoning for explore mode
       setIsReasoning(true);
-      const queryForReasoning = searchQuery.trim() || searchState.aiSearchQuery || "legal case match";
-      const reasons = await dataService.explainMatches(queryForReasoning, visibleCases);
+      const queryForReasoning =
+        searchQuery.trim() || searchState.aiSearchQuery || "legal case match";
+      const reasons = await dataService.explainMatches(
+        queryForReasoning,
+        visibleCases,
+      );
       if (!active) return;
       setMatchReasons((previous) => ({ ...previous, ...reasons }));
       setIsReasoning(false);
@@ -639,11 +834,16 @@ export default function CaseExplorer() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-display font-bold gradient-text">{pageTitle}</h1>
+            <h1 className="text-3xl font-display font-bold gradient-text">
+              {pageTitle}
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">{pageSubtitle}</p>
             {showMatchedCases && (
               <p className="text-xs text-accent mt-2">
-                ✨ {searchState.aiSearchQuery ? `Showing matches for: "${searchState.aiSearchQuery}"` : "Showing PDF analysis results"}
+                ✨{" "}
+                {searchState.aiSearchQuery
+                  ? `Showing matches for: "${searchState.aiSearchQuery}"`
+                  : "Showing PDF analysis results"}
               </p>
             )}
           </div>
@@ -653,14 +853,20 @@ export default function CaseExplorer() {
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={showMatchedCases ? "Search matched cases..." : "Search cases..."}
+                placeholder={
+                  showMatchedCases
+                    ? "Search matched cases..."
+                    : "Search cases..."
+                }
                 className="bg-transparent outline-none w-full text-sm text-foreground placeholder:text-muted-foreground"
               />
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                showFilters ? "bg-primary text-primary-foreground" : "glass-panel text-foreground"
+                showFilters
+                  ? "bg-primary text-primary-foreground"
+                  : "glass-panel text-foreground"
               }`}
             >
               <Filter className="w-4 h-4" /> Filters
@@ -693,14 +899,18 @@ export default function CaseExplorer() {
             >
               <div className="glass-panel rounded-2xl p-5 flex flex-wrap gap-6">
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Court</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    Court
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {courts.map((c) => (
                       <button
                         key={c}
                         onClick={() => setCourtFilter(c)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                          courtFilter === c ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                          courtFilter === c
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {c}
@@ -709,14 +919,18 @@ export default function CaseExplorer() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Case Type</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    Case Type
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {types.map((t) => (
                       <button
                         key={t}
                         onClick={() => setTypeFilter(t)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                          typeFilter === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                          typeFilter === t
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {t}
@@ -734,7 +948,9 @@ export default function CaseExplorer() {
                         key={location}
                         onClick={() => setLocationFilter(location)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                          locationFilter === location ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                          locationFilter === location
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {location}
@@ -743,7 +959,9 @@ export default function CaseExplorer() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">View By</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    View By
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {[
                       { label: "Default", value: "none" },
@@ -755,7 +973,9 @@ export default function CaseExplorer() {
                         key={mode.value}
                         onClick={() => setGroupBy(mode.value as GroupByMode)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                          groupBy === mode.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                          groupBy === mode.value
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {mode.label}
@@ -770,16 +990,16 @@ export default function CaseExplorer() {
 
         {isReasoning && showMatchedCases && (
           <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
-            <Sparkles className="w-3.5 h-3.5" /> AI is generating exact match reasons for visible cases...
+            <Sparkles className="w-3.5 h-3.5" /> AI is generating exact match
+            reasons for visible cases...
           </div>
         )}
 
         {!isLoading && filtered.length > 0 && (
           <div className="mb-4 text-xs text-muted-foreground">
-            {showMatchedCases 
+            {showMatchedCases
               ? `Showing ${visibleCases.length} of ${filtered.length} matched cases`
-              : `Showing ${visibleCases.length} of ${filtered.length} available cases`
-            }
+              : `Showing ${visibleCases.length} of ${filtered.length} available cases`}
           </div>
         )}
 
@@ -787,7 +1007,9 @@ export default function CaseExplorer() {
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">
-              {showMatchedCases ? "Loading matched cases..." : "Loading cases..."}
+              {showMatchedCases
+                ? "Loading matched cases..."
+                : "Loading cases..."}
             </p>
           </div>
         ) : showMatchedCases && cases.length === 0 ? (
@@ -797,24 +1019,40 @@ export default function CaseExplorer() {
               <Search className="w-8 h-8 text-muted-foreground" />
             </div>
             <p className="text-muted-foreground mb-2">No matched cases found</p>
-            <p className="text-xs text-muted-foreground">Try searching again or go back to Case Lab</p>
+            <p className="text-xs text-muted-foreground">
+              Try searching again or go back to Case Lab
+            </p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground">No cases found matching your filters.</p>
+            <p className="text-muted-foreground">
+              No cases found matching your filters.
+            </p>
           </div>
         ) : view === "grid" ? (
           <div className="space-y-7">
             {grouped.map((group) => (
               <section key={group.key} className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-display font-semibold text-foreground">{group.title}</h2>
-                  <span className="text-xs text-muted-foreground">{group.items.length} cases</span>
+                  <h2 className="text-lg font-display font-semibold text-foreground">
+                    {group.title}
+                  </h2>
+                  <span className="text-xs text-muted-foreground">
+                    {group.items.length} cases
+                  </span>
                 </div>
-                <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <motion.div
+                  layout
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                >
                   <AnimatePresence>
                     {group.items.map((c) => (
-                      <CaseCard key={c.id} c={c} aiReason={matchReasons[c.id]} onClick={() => handleSelectCase(c)} />
+                      <CaseCard
+                        key={c.id}
+                        c={c}
+                        aiReason={matchReasons[c.id]}
+                        onClick={() => handleSelectCase(c)}
+                      />
                     ))}
                   </AnimatePresence>
                 </motion.div>
@@ -823,9 +1061,20 @@ export default function CaseExplorer() {
 
             {hasMoreCases && (
               <div className="flex flex-col items-center gap-3 pt-2">
-                <div ref={loadMoreRef} className="h-2 w-full" aria-hidden="true" />
+                <div
+                  ref={loadMoreRef}
+                  className="h-2 w-full"
+                  aria-hidden="true"
+                />
                 <button
-                  onClick={() => setVisibleCount((previous) => Math.min(previous + LOAD_MORE_BATCH_SIZE, filtered.length))}
+                  onClick={() =>
+                    setVisibleCount((previous) =>
+                      Math.min(
+                        previous + LOAD_MORE_BATCH_SIZE,
+                        filtered.length,
+                      ),
+                    )
+                  }
                   className="px-4 py-2 rounded-lg text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
                 >
                   Load more cases
@@ -834,18 +1083,29 @@ export default function CaseExplorer() {
             )}
           </div>
         ) : (
-          <GraphView cases={filtered.slice(0, MAX_GRAPH_NODES)} onSelect={handleSelectCase} />
+          <GraphView
+            cases={filtered.slice(0, MAX_GRAPH_NODES)}
+            onSelect={handleSelectCase}
+          />
         )}
 
         {filtered.length === 0 && (
           <div className="text-center py-20">
-            <p className="text-muted-foreground">No cases match the current filters</p>
+            <p className="text-muted-foreground">
+              No cases match the current filters
+            </p>
           </div>
         )}
       </div>
 
       <AnimatePresence>
-        {selected && <DetailPanel c={selected} aiReason={matchReasons[selected.id]} onClose={() => setSelected(null)} />}
+        {selected && (
+          <DetailPanel
+            c={selected}
+            aiReason={matchReasons[selected.id]}
+            onClose={() => setSelected(null)}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

@@ -5,8 +5,14 @@ const PRIMARY_SOURCE_URL =
   "https://raw.githubusercontent.com/NoelShallum/Indian_SC_Judgment_database/main/final_judge_database.csv";
 const INDIANKANOON_BROWSE_URL = "https://indiankanoon.org/browse/supremecourt/";
 const CASES_TARGET = Number.parseInt(process.env.CASES_TARGET || "12000", 10);
-const MAX_PAGES_PER_MONTH = Number.parseInt(process.env.INDIANKANOON_MAX_PAGES_PER_MONTH || "80", 10);
-const FETCH_TIMEOUT_MS = Number.parseInt(process.env.LEXMATCH_FETCH_TIMEOUT_MS || "15000", 10);
+const MAX_PAGES_PER_MONTH = Number.parseInt(
+  process.env.INDIANKANOON_MAX_PAGES_PER_MONTH || "80",
+  10,
+);
+const FETCH_TIMEOUT_MS = Number.parseInt(
+  process.env.LEXMATCH_FETCH_TIMEOUT_MS || "15000",
+  10,
+);
 const USER_AGENT = "lexmatch-ai-data-fetch/1.0";
 
 function parseCsv(text) {
@@ -63,7 +69,7 @@ function normalizeHeader(header) {
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
+      .replace(/^_+|_+$/g, ""),
   );
 }
 
@@ -100,19 +106,37 @@ function cleanText(input) {
 function inferCaseType(text) {
   const source = `${text || ""}`.toLowerCase();
 
-  if (/criminal|crl\.?|murder|ipc|bail|ndps|fir|arrest|sentenc|convict|acquit/.test(source)) {
+  if (
+    /criminal|crl\.?|murder|ipc|bail|ndps|fir|arrest|sentenc|convict|acquit/.test(
+      source,
+    )
+  ) {
     return "Criminal";
   }
-  if (/tax|income\s*tax|gst|vat|excise|customs|assessment|revenue/.test(source)) {
+  if (
+    /tax|income\s*tax|gst|vat|excise|customs|assessment|revenue/.test(source)
+  ) {
     return "Tax";
   }
-  if (/labour|labor|employment|service\s+matter|industrial|workmen|wage/.test(source)) {
+  if (
+    /labour|labor|employment|service\s+matter|industrial|workmen|wage/.test(
+      source,
+    )
+  ) {
     return "Service/Labour";
   }
-  if (/constitution|article\s+\d+|fundamental rights|writ|habeas|mandamus/.test(source)) {
+  if (
+    /constitution|article\s+\d+|fundamental rights|writ|habeas|mandamus/.test(
+      source,
+    )
+  ) {
     return "Constitutional";
   }
-  if (/property|contract|tenancy|rent|land|civil|succession|partition/.test(source)) {
+  if (
+    /property|contract|tenancy|rent|land|civil|succession|partition/.test(
+      source,
+    )
+  ) {
     return "Civil";
   }
 
@@ -133,7 +157,10 @@ function toNormalizedCase(item, index) {
   }
 
   const fullTextParts = [judges, issues, decision, citedCases]
-    .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   return {
     case_id: `IN-SC-${String(index + 1).padStart(6, "0")}`,
@@ -152,8 +179,10 @@ function toNormalizedCase(item, index) {
 
 function extractDocAnchors(html) {
   const out = [];
-  const fromDocFragment = /<a[^>]*href=["']\/docfragment\/([0-9]+)\/?[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi;
-  const fromDocHref = /<a[^>]*href=["'](\/doc\/[0-9]+\/?[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const fromDocFragment =
+    /<a[^>]*href=["']\/docfragment\/([0-9]+)\/?[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const fromDocHref =
+    /<a[^>]*href=["'](\/doc\/[0-9]+\/?[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
   let match;
 
   while ((match = fromDocFragment.exec(html)) !== null) {
@@ -192,7 +221,8 @@ function extractBrowseUrls(html) {
 }
 
 function extractSearchUrls(html) {
-  const re = /href=["'](\/search\/\?formInput=[^"'#]*(doctypes:supremecourt|doctypes%3A%20supremecourt|doctypes%3Asupremecourt)[^"'#]*)["']/gi;
+  const re =
+    /href=["'](\/search\/\?formInput=[^"'#]*(doctypes:supremecourt|doctypes%3A%20supremecourt|doctypes%3Asupremecourt)[^"'#]*)["']/gi;
   const seen = new Set();
   const links = [];
   let match;
@@ -215,9 +245,13 @@ function buildPagedUrl(url, pageNum) {
 
 function makeKanoonCase(doc, index) {
   const rawTitle = cleanText(doc.label);
-  const dateMatch = rawTitle.match(/\s+on\s+([0-9]{1,2}\s+[A-Za-z]+,\s*[0-9]{4})\s*$/i);
+  const dateMatch = rawTitle.match(
+    /\s+on\s+([0-9]{1,2}\s+[A-Za-z]+,\s*[0-9]{4})\s*$/i,
+  );
   const decisionDate = dateMatch ? parseDecisionDate(dateMatch[1]) : "";
-  const title = dateMatch ? rawTitle.slice(0, dateMatch.index).trim() : rawTitle;
+  const title = dateMatch
+    ? rawTitle.slice(0, dateMatch.index).trim()
+    : rawTitle;
   return {
     case_id: `IN-KN-${String(index + 1).padStart(6, "0")}`,
     title,
@@ -270,7 +304,6 @@ function reindexCases(items) {
   }));
 }
 
-
 async function fetchKanoonCases(targetCount) {
   console.log("Fetching supplemental cases from Indian Kanoon browse pages...");
 
@@ -280,12 +313,20 @@ async function fetchKanoonCases(targetCount) {
   const docSeen = new Set();
   const maxListingPages = 500;
 
-  while (queue.length > 0 && listingVisited.size < maxListingPages && docs.length < targetCount) {
+  while (
+    queue.length > 0 &&
+    listingVisited.size < maxListingPages &&
+    docs.length < targetCount
+  ) {
     const listingUrl = queue.shift();
     if (!listingUrl || listingVisited.has(listingUrl)) continue;
     listingVisited.add(listingUrl);
 
-    for (let page = 0; page < MAX_PAGES_PER_MONTH && docs.length < targetCount; page += 1) {
+    for (
+      let page = 0;
+      page < MAX_PAGES_PER_MONTH && docs.length < targetCount;
+      page += 1
+    ) {
       const pageUrl = page === 0 ? listingUrl : buildPagedUrl(listingUrl, page);
       let html;
       try {
@@ -296,14 +337,20 @@ async function fetchKanoonCases(targetCount) {
 
       const browseLinks = extractBrowseUrls(html);
       for (const browseUrl of browseLinks) {
-        if (!listingVisited.has(browseUrl) && queue.length < maxListingPages * 2) {
+        if (
+          !listingVisited.has(browseUrl) &&
+          queue.length < maxListingPages * 2
+        ) {
           queue.push(browseUrl);
         }
       }
 
       const searchLinks = extractSearchUrls(html);
       for (const searchUrl of searchLinks) {
-        if (!listingVisited.has(searchUrl) && queue.length < maxListingPages * 2) {
+        if (
+          !listingVisited.has(searchUrl) &&
+          queue.length < maxListingPages * 2
+        ) {
           queue.push(searchUrl);
         }
       }
@@ -374,7 +421,10 @@ async function main() {
 
   console.log("Downloading base public legal dataset...");
   const baseController = new AbortController();
-  const baseTimeout = setTimeout(() => baseController.abort(), FETCH_TIMEOUT_MS);
+  const baseTimeout = setTimeout(
+    () => baseController.abort(),
+    FETCH_TIMEOUT_MS,
+  );
   const response = await fetch(PRIMARY_SOURCE_URL, {
     headers: {
       "User-Agent": USER_AGENT,
@@ -389,7 +439,9 @@ async function main() {
   const csvText = await response.text();
   await writeFile(path.join(rawDir, "indian_sc_source.csv"), csvText, "utf8");
 
-  const rows = parseCsv(csvText).filter((r) => r.some((cell) => `${cell}`.trim().length > 0));
+  const rows = parseCsv(csvText).filter((r) =>
+    r.some((cell) => `${cell}`.trim().length > 0),
+  );
   if (rows.length < 2) {
     throw new Error("Source CSV did not contain enough rows.");
   }
@@ -411,7 +463,9 @@ async function main() {
 
   if (mergedCases.length < CASES_TARGET) {
     const needed = CASES_TARGET - mergedCases.length;
-    const supplementalCases = await fetchKanoonCases(needed + Math.ceil(needed * 0.2));
+    const supplementalCases = await fetchKanoonCases(
+      needed + Math.ceil(needed * 0.2),
+    );
     mergedCases = mergedCases.concat(supplementalCases);
   }
 
@@ -430,9 +484,13 @@ async function main() {
   await writeFile(csvPath, `${toCsv(cases)}\n`, "utf8");
   await writeFile(publicJsonPath, `${JSON.stringify(cases)}\n`, "utf8");
 
-  console.log(`Fetched and normalized ${cases.length} cases (target: ${CASES_TARGET}).`);
+  console.log(
+    `Fetched and normalized ${cases.length} cases (target: ${CASES_TARGET}).`,
+  );
   console.log(`Primary source cases: ${primaryCases.length}`);
-  console.log(`Supplemental cases: ${Math.max(0, cases.length - primaryCases.length)}`);
+  console.log(
+    `Supplemental cases: ${Math.max(0, cases.length - primaryCases.length)}`,
+  );
   console.log(`JSON: ${jsonPath}`);
   console.log(`CSV:  ${csvPath}`);
   console.log(`Public JSON: ${publicJsonPath}`);

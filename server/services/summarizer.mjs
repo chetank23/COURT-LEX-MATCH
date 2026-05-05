@@ -27,9 +27,15 @@ function scoreSentence(sentence) {
   const source = sentence.toLowerCase();
   let score = 0;
 
-  if (/dispute|conflict|appeal|petition|ownership|inheritance|criminal|civil/.test(source)) score += 3;
+  if (
+    /dispute|conflict|appeal|petition|ownership|inheritance|criminal|civil/.test(
+      source,
+    )
+  )
+    score += 3;
   if (/court|judge|bench|ruled|held|decided|order/.test(source)) score += 3;
-  if (/rights|liability|property|contract|evidence|remedy/.test(source)) score += 2;
+  if (/rights|liability|property|contract|evidence|remedy/.test(source))
+    score += 2;
 
   return score;
 }

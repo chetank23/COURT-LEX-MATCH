@@ -113,7 +113,14 @@ export interface JudgeProfile {
   area?: string;
   district?: string;
   state?: string;
-  specializations?: ("Criminal" | "Civil" | "Constitutional" | "Commercial" | "Labor" | "Revenue")[];
+  specializations?: (
+    | "Criminal"
+    | "Civil"
+    | "Constitutional"
+    | "Commercial"
+    | "Labor"
+    | "Revenue"
+  )[];
   courtName?: string;
   scheduledHearingDates?: string[];
 }

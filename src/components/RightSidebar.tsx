@@ -37,7 +37,9 @@ export default function RightSidebar() {
                 />
               )}
               <span className="relative z-10 flex flex-col items-center gap-2">
-                <item.icon className={`w-4 h-4 transition-colors ${active ? "text-primary" : ""}`} />
+                <item.icon
+                  className={`w-4 h-4 transition-colors ${active ? "text-primary" : ""}`}
+                />
                 <span>{item.label}</span>
               </span>
             </button>
@@ -55,4 +57,3 @@ export default function RightSidebar() {
     </div>
   );
 }
-

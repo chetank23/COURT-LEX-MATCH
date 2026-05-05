@@ -34,6 +34,7 @@ psql -d lexmatch_ai -c "\dt"
 ```
 
 You should see:
+
 - `cases`
 - `tags`
 - `case_tags`

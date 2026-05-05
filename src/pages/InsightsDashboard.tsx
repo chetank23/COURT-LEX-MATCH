@@ -69,7 +69,7 @@ interface RawHistoryEvent {
 
 /** Group history events of type "search" by calendar month (last 6 months) */
 function buildMonthlySearches(
-  events: RawHistoryEvent[]
+  events: RawHistoryEvent[],
 ): InsightsData["monthlySearches"] {
   const searchEvents = events.filter((e) => e.type === "search");
   // Produce last 6 calendar months (oldest→newest)
@@ -95,7 +95,7 @@ function buildMonthlySearches(
 /** Count query terms across all search events (title = query string) */
 function buildTrendingTopics(
   events: RawHistoryEvent[],
-  staticFallback: InsightsData["trendingTopics"]
+  staticFallback: InsightsData["trendingTopics"],
 ): InsightsData["trendingTopics"] {
   const searchEvents = events.filter((e) => e.type === "search" && e.title);
   if (searchEvents.length === 0) return staticFallback;
@@ -142,13 +142,14 @@ function buildTrendingTopics(
 /** Build similarity distribution from search history result counts */
 function buildSimilarityDistribution(
   events: RawHistoryEvent[],
-  staticFallback: InsightsData["similarityDistribution"]
+  staticFallback: InsightsData["similarityDistribution"],
 ): InsightsData["similarityDistribution"] {
   // History events carry `results` (count), not actual scores.
   // Distribute result counts across buckets proportionally using
   // the result count as a proxy for match quality tier.
   const searchEvents = events.filter(
-    (e) => e.type === "search" && typeof e.results === "number" && e.results > 0
+    (e) =>
+      e.type === "search" && typeof e.results === "number" && e.results > 0,
   );
   if (searchEvents.length === 0) return staticFallback;
 
@@ -177,7 +178,7 @@ function buildSimilarityDistribution(
 /** Build case clusters (by type) from live cases array */
 function buildCaseClusters(
   cases: RawCase[],
-  staticFallback: InsightsData["caseClusters"]
+  staticFallback: InsightsData["caseClusters"],
 ): InsightsData["caseClusters"] {
   if (cases.length === 0) return staticFallback;
   const typeCounts = new Map<string, number>();
@@ -292,14 +293,14 @@ export default function InsightsDashboard() {
         historyEvents.length > 0
           ? buildSimilarityDistribution(
               historyEvents,
-              staticData.similarityDistribution
+              staticData.similarityDistribution,
             )
           : staticData.similarityDistribution;
 
       // ── FIX 5 — Trending Topics from history query terms ────────────────
       const trendingTopics = buildTrendingTopics(
         historyEvents,
-        staticData.trendingTopics
+        staticData.trendingTopics,
       );
 
       setInsightsData({
@@ -325,26 +326,29 @@ export default function InsightsDashboard() {
       liveIndexedCount ??
       insightsData.similarityDistribution.reduce(
         (sum, item) => sum + item.count,
-        0
+        0,
       ),
-    [liveIndexedCount, insightsData.similarityDistribution]
+    [liveIndexedCount, insightsData.similarityDistribution],
   );
 
   /** Search Volume: prefer live search event count; fall back to monthly sum */
   const totalSearches = useMemo(
     () =>
       liveSearchVolume ??
-      insightsData.monthlySearches.reduce((sum, item) => sum + item.searches, 0),
-    [liveSearchVolume, insightsData.monthlySearches]
+      insightsData.monthlySearches.reduce(
+        (sum, item) => sum + item.searches,
+        0,
+      ),
+    [liveSearchVolume, insightsData.monthlySearches],
   );
 
   const strongestTopic = useMemo(
     () => insightsData.trendingTopics[0],
-    [insightsData.trendingTopics]
+    [insightsData.trendingTopics],
   );
   const largestCluster = useMemo(
     () => insightsData.caseClusters[0],
-    [insightsData.caseClusters]
+    [insightsData.caseClusters],
   );
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -545,10 +549,7 @@ export default function InsightsDashboard() {
                           paddingAngle={3}
                         >
                           {insightsData.caseClusters.map((_, i) => (
-                            <Cell
-                              key={i}
-                              fill={COLORS[i % COLORS.length]}
-                            />
+                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
                           ))}
                         </Pie>
                         <Tooltip
@@ -681,12 +682,12 @@ export default function InsightsDashboard() {
                             {t.topic}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {t.searches} {t.searches === 1 ? "search" : "searches"}
+                            {t.searches}{" "}
+                            {t.searches === 1 ? "search" : "searches"}
                           </p>
                         </div>
                         <div className="flex items-center gap-1 text-xs font-semibold text-primary flex-shrink-0">
-                          <TrendingUp className="w-3 h-3" />
-                          +{t.growth}%
+                          <TrendingUp className="w-3 h-3" />+{t.growth}%
                         </div>
                       </motion.div>
                     ))}

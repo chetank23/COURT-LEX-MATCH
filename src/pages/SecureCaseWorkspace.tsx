@@ -1,17 +1,34 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { UploadCloud, BriefcaseBusiness, Gavel, LogOut, ClipboardCheck } from "lucide-react";
+import {
+  UploadCloud,
+  BriefcaseBusiness,
+  Gavel,
+  LogOut,
+  ClipboardCheck,
+} from "lucide-react";
 import { useAuth, type ManagedCase } from "@/contexts/AuthContext";
 import { useSearch } from "@/contexts/SearchContext";
 import { dataService } from "@/services/dataService";
 
 type ManagedStatus = ManagedCase["status"];
 
-const STATUS_LIST: ManagedStatus[] = ["New", "Under Review", "Assigned", "Hearing Scheduled"];
-const JUDGES = ["Justice N. Rao", "Justice R. Iyer", "Justice P. Mehta", "Justice K. Banerjee"];
+const STATUS_LIST: ManagedStatus[] = [
+  "New",
+  "Under Review",
+  "Assigned",
+  "Hearing Scheduled",
+];
+const JUDGES = [
+  "Justice N. Rao",
+  "Justice R. Iyer",
+  "Justice P. Mehta",
+  "Justice K. Banerjee",
+];
 
 export default function SecureCaseWorkspace() {
-  const { user, logout, managedCases, upsertManagedCase, updateManagedCase } = useAuth();
+  const { user, logout, managedCases, upsertManagedCase, updateManagedCase } =
+    useAuth();
   const { state } = useSearch();
   const [selectedFileName, setSelectedFileName] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
@@ -19,9 +36,13 @@ export default function SecureCaseWorkspace() {
   const [draftNotes, setDraftNotes] = useState("");
   const [isAutoAssigning, setIsAutoAssigning] = useState(false);
 
-  const candidateCases = useMemo(() => state.matchedCases.slice(0, 8), [state.matchedCases]);
+  const candidateCases = useMemo(
+    () => state.matchedCases.slice(0, 8),
+    [state.matchedCases],
+  );
 
-  const roleTitle = user?.role === "judge" ? "Judge View" : "Support Staff Console";
+  const roleTitle =
+    user?.role === "judge" ? "Judge View" : "Support Staff Console";
 
   return (
     <div className="min-h-screen relative">
@@ -30,10 +51,18 @@ export default function SecureCaseWorkspace() {
         <div className="glass-panel rounded-2xl p-6 md:p-8 mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Authenticated Page</p>
-              <h1 className="text-3xl font-display font-bold text-foreground mt-2">{roleTitle}</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                Authenticated Page
+              </p>
+              <h1 className="text-3xl font-display font-bold text-foreground mt-2">
+                {roleTitle}
+              </h1>
               <p className="text-sm text-muted-foreground mt-2">
-                Logged in as <span className="font-semibold text-foreground">{user?.name}</span> ({user?.role})
+                Logged in as{" "}
+                <span className="font-semibold text-foreground">
+                  {user?.name}
+                </span>{" "}
+                ({user?.role})
               </p>
             </div>
             <button
@@ -48,56 +77,96 @@ export default function SecureCaseWorkspace() {
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
           <div className="xl:col-span-3 glass-panel rounded-2xl p-5">
             <h2 className="text-xl font-display font-bold text-foreground flex items-center gap-2">
-              <BriefcaseBusiness className="w-5 h-5 text-primary" /> Managed Case Queue
+              <BriefcaseBusiness className="w-5 h-5 text-primary" /> Managed
+              Case Queue
             </h2>
-            <p className="text-sm text-muted-foreground mt-1">Role-based case workflow with assignment and status updates.</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Role-based case workflow with assignment and status updates.
+            </p>
 
             <div className="mt-4 space-y-3">
               {managedCases.map((caseItem) => (
-                <motion.div key={caseItem.id} layout className="rounded-xl border border-border/80 bg-card/60 p-4">
+                <motion.div
+                  key={caseItem.id}
+                  layout
+                  className="rounded-xl border border-border/80 bg-card/60 p-4"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="font-semibold text-foreground">{caseItem.title}</h3>
+                      <h3 className="font-semibold text-foreground">
+                        {caseItem.title}
+                      </h3>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Uploaded by {caseItem.uploadedBy} | Last update {new Date(caseItem.updatedAt).toLocaleString()}
+                        Uploaded by {caseItem.uploadedBy} | Last update{" "}
+                        {new Date(caseItem.updatedAt).toLocaleString()}
                       </p>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full text-[11px] bg-primary/10 text-primary font-semibold">{caseItem.status}</span>
+                    <span className="px-2.5 py-1 rounded-full text-[11px] bg-primary/10 text-primary font-semibold">
+                      {caseItem.status}
+                    </span>
                   </div>
 
                   <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
                     <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Assigned Judge</p>
-                      <p className="text-foreground mt-1">{caseItem.assignedJudge}</p>
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                        Assigned Judge
+                      </p>
+                      <p className="text-foreground mt-1">
+                        {caseItem.assignedJudge}
+                      </p>
                     </div>
                     <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Notes</p>
-                      <p className="text-foreground mt-1 line-clamp-2">{caseItem.notes || "No notes"}</p>
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                        Notes
+                      </p>
+                      <p className="text-foreground mt-1 line-clamp-2">
+                        {caseItem.notes || "No notes"}
+                      </p>
                     </div>
                   </div>
 
                   <div className="mt-3 grid md:grid-cols-4 gap-2 text-xs">
                     <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2">
-                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">Priority</p>
-                      <p className="text-foreground mt-1 font-semibold">{caseItem.priorityBand || "P3"} · {caseItem.priorityScore ?? 0}</p>
+                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">
+                        Priority
+                      </p>
+                      <p className="text-foreground mt-1 font-semibold">
+                        {caseItem.priorityBand || "P3"} ·{" "}
+                        {caseItem.priorityScore ?? 0}
+                      </p>
                     </div>
                     <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2">
-                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">Bail Risk</p>
-                      <p className="text-foreground mt-1 font-semibold">{caseItem.bailRiskScore ?? 0}</p>
+                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">
+                        Bail Risk
+                      </p>
+                      <p className="text-foreground mt-1 font-semibold">
+                        {caseItem.bailRiskScore ?? 0}
+                      </p>
                     </div>
                     <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2">
-                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">Escape Risk</p>
-                      <p className="text-foreground mt-1 font-semibold">{caseItem.escapeRiskScore ?? 0}</p>
+                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">
+                        Escape Risk
+                      </p>
+                      <p className="text-foreground mt-1 font-semibold">
+                        {caseItem.escapeRiskScore ?? 0}
+                      </p>
                     </div>
                     <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2">
-                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">Defender</p>
-                      <p className="text-foreground mt-1 font-semibold">{caseItem.publicDefenderStatus || "Pending Allocation"}</p>
+                      <p className="text-muted-foreground uppercase tracking-wider font-semibold">
+                        Defender
+                      </p>
+                      <p className="text-foreground mt-1 font-semibold">
+                        {caseItem.publicDefenderStatus || "Pending Allocation"}
+                      </p>
                     </div>
                   </div>
 
                   {caseItem.assignmentReason ? (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {caseItem.autoAssigned ? "Auto-assigned" : "Manual override"}: {caseItem.assignmentReason}
+                      {caseItem.autoAssigned
+                        ? "Auto-assigned"
+                        : "Manual override"}
+                      : {caseItem.assignmentReason}
                     </p>
                   ) : null}
 
@@ -105,26 +174,39 @@ export default function SecureCaseWorkspace() {
                     <div className="mt-3 flex flex-wrap gap-2">
                       <select
                         value={caseItem.status}
-                        onChange={(event) => updateManagedCase(caseItem.id, { status: event.target.value as ManagedStatus })}
+                        onChange={(event) =>
+                          updateManagedCase(caseItem.id, {
+                            status: event.target.value as ManagedStatus,
+                          })
+                        }
                         className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
                       >
                         {STATUS_LIST.map((status) => (
-                          <option key={status} value={status}>{status}</option>
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
                         ))}
                       </select>
                       <select
                         value={caseItem.assignedJudge}
-                        onChange={(event) => updateManagedCase(caseItem.id, { assignedJudge: event.target.value })}
+                        onChange={(event) =>
+                          updateManagedCase(caseItem.id, {
+                            assignedJudge: event.target.value,
+                          })
+                        }
                         className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
                       >
                         {JUDGES.map((judge) => (
-                          <option key={judge} value={judge}>{judge}</option>
+                          <option key={judge} value={judge}>
+                            {judge}
+                          </option>
                         ))}
                       </select>
                     </div>
                   ) : (
                     <div className="mt-3 rounded-lg border border-emerald-400/30 bg-emerald-500/10 text-emerald-700 px-3 py-2 text-xs font-semibold inline-flex items-center gap-2">
-                      <ClipboardCheck className="w-4 h-4" /> Judge access is read-only for integrity.
+                      <ClipboardCheck className="w-4 h-4" /> Judge access is
+                      read-only for integrity.
                     </div>
                   )}
                 </motion.div>
@@ -135,20 +217,29 @@ export default function SecureCaseWorkspace() {
           <div className="xl:col-span-2 space-y-6">
             <div className="glass-panel rounded-2xl p-5">
               <h2 className="text-lg font-display font-bold text-foreground flex items-center gap-2">
-                <Gavel className="w-5 h-5 text-primary" /> Suggested From AI Matches
+                <Gavel className="w-5 h-5 text-primary" /> Suggested From AI
+                Matches
               </h2>
-              <p className="text-xs text-muted-foreground mt-1">Uses current matched cases from AI Search/PDF workflow.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Uses current matched cases from AI Search/PDF workflow.
+              </p>
 
               <div className="mt-3 space-y-2 max-h-72 overflow-auto pr-1">
                 {candidateCases.length ? (
                   candidateCases.map((item) => (
                     <div key={item.id} className="rounded-lg bg-muted/35 p-3">
-                      <p className="text-sm font-semibold text-foreground line-clamp-2">{item.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{item.court} | {item.year}</p>
+                      <p className="text-sm font-semibold text-foreground line-clamp-2">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {item.court} | {item.year}
+                      </p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">No AI matched cases yet. Run Case Lab or PDF Analyzer first.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No AI matched cases yet. Run Case Lab or PDF Analyzer first.
+                  </p>
                 )}
               </div>
             </div>
@@ -156,9 +247,12 @@ export default function SecureCaseWorkspace() {
             {user?.role === "staff" ? (
               <div className="glass-panel rounded-2xl p-5">
                 <h2 className="text-lg font-display font-bold text-foreground flex items-center gap-2">
-                  <UploadCloud className="w-5 h-5 text-primary" /> Staff Upload And Case Intake
+                  <UploadCloud className="w-5 h-5 text-primary" /> Staff Upload
+                  And Case Intake
                 </h2>
-                <p className="text-xs text-muted-foreground mt-1">Upload evidence or intake docs and add to managed queue.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload evidence or intake docs and add to managed queue.
+                </p>
 
                 <div className="mt-4 space-y-3">
                   <input
@@ -181,7 +275,9 @@ export default function SecureCaseWorkspace() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                   >
                     {JUDGES.map((judge) => (
-                      <option key={judge} value={judge}>{judge}</option>
+                      <option key={judge} value={judge}>
+                        {judge}
+                      </option>
                     ))}
                   </select>
                   <textarea
@@ -198,17 +294,19 @@ export default function SecureCaseWorkspace() {
                         title: draftTitle.trim(),
                         summary: draftNotes.trim(),
                       });
-                      const recommendation = await dataService.recommendJudgeForCase({
-                        title: draftTitle.trim(),
-                        summary: draftNotes.trim(),
-                        priorityScore: assessment.priorityScore,
-                      });
+                      const recommendation =
+                        await dataService.recommendJudgeForCase({
+                          title: draftTitle.trim(),
+                          summary: draftNotes.trim(),
+                          priorityScore: assessment.priorityScore,
+                        });
 
                       upsertManagedCase({
                         id: `case-${Date.now()}`,
                         title: draftTitle.trim(),
                         status: "New",
-                        assignedJudge: recommendation.assignedJudge || draftJudge,
+                        assignedJudge:
+                          recommendation.assignedJudge || draftJudge,
                         uploadedBy: user?.name || "Court Support Officer",
                         uploadName: selectedFileName,
                         notes: draftNotes.trim(),
@@ -219,7 +317,10 @@ export default function SecureCaseWorkspace() {
                         bailRiskScore: assessment.bailRiskScore,
                         escapeRiskScore: assessment.escapeRiskScore,
                         riskScore: assessment.riskScore,
-                        publicDefenderStatus: recommendation.requiresPublicProsecutor ? "Pending Allocation" : "Not Required",
+                        publicDefenderStatus:
+                          recommendation.requiresPublicProsecutor
+                            ? "Pending Allocation"
+                            : "Not Required",
                       });
                       setDraftTitle("");
                       setDraftNotes("");
@@ -229,10 +330,16 @@ export default function SecureCaseWorkspace() {
                     disabled={isAutoAssigning}
                     className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {isAutoAssigning ? "Assessing And Assigning..." : "Add Case To Managed Queue"}
+                    {isAutoAssigning
+                      ? "Assessing And Assigning..."
+                      : "Add Case To Managed Queue"}
                   </button>
                 </div>
-                {selectedFileName ? <p className="text-xs text-muted-foreground mt-2">Selected upload: {selectedFileName}</p> : null}
+                {selectedFileName ? (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Selected upload: {selectedFileName}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>
