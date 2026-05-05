@@ -56,12 +56,10 @@ export default function DbStatusBadge() {
       {health.ok ? (
         <>
           <Wifi className="w-3 h-3" />
-          <span className="hidden md:inline">{modeLabel(health.mode)}</span>
         </>
       ) : (
         <>
           <WifiOff className="w-3 h-3" />
-          <span className="hidden md:inline">In-Memory</span>
         </>
       )}
     </div>

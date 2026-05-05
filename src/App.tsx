@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SearchProvider } from "@/contexts/SearchContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import FloatingNav from "@/components/FloatingNav";
+import RightSidebar from "@/components/RightSidebar";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AISearchLab from "./pages/AISearchLab";
 import CaseExplorer from "./pages/CaseExplorer";
@@ -32,6 +33,7 @@ const App = () => (
         <SearchProvider>
           <BrowserRouter>
             <FloatingNav />
+            <RightSidebar />
             <Routes>
               <Route path="/" element={<AISearchLab />} />
               <Route path="/explorer" element={<CaseExplorer />} />
