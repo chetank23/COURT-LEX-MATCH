@@ -189,12 +189,15 @@ export const dataService = {
     this._caseCache = rawCases.map((raw) => {
       const issues = extractSegment(raw.full_text, "Issues:");
       const decision = extractSegment(raw.full_text, "Decision:");
-      const judgment = extractJudgmentText(
+      const citedCasesRaw = extractSegment(raw.full_text, "Cited Cases:");
+      const citedNames = extractCitedCaseNames(citedCasesRaw);
+      const judgesRaw = extractSegment(raw.full_text, "Judges:");
+      const rawJudgment = extractJudgmentText(
         raw.full_text,
         decision,
         raw.summary,
       );
-      const finalVerdict = extractFinalVerdict(judgment);
+      const finalVerdict = extractFinalVerdict(rawJudgment);
       const year =
         Number.parseInt(raw.decision_date?.slice(0, 4) || "0", 10) || 2000;
       const priority = computePriority({
@@ -211,22 +214,40 @@ export const dataService = {
         decision,
       });
 
+      const cleanTitle = humanizeTitle(raw.title);
+      const issueList = parseIssueList(issues);
+
       return {
         id: raw.case_id,
-        title: raw.title,
+        title: cleanTitle,
         court: raw.court,
         year,
         similarity,
         priorityScore: priority,
         priorityBand: toPriorityBand(priority),
-        summary: raw.summary || raw.full_text.slice(0, 220),
-        judgment,
+        summary: humanizeSummary({
+          title: cleanTitle,
+          court: raw.court,
+          year,
+          issues: issueList,
+          verdict: finalVerdict,
+          judges: judgesRaw,
+          caseType: raw.case_type,
+        }),
+        judgment: humanizeJudgment({
+          title: cleanTitle,
+          verdict: finalVerdict,
+          issues: issueList,
+          citedCases: citedNames,
+        }),
         finalVerdict,
         final_verdict: finalVerdict,
-        whyMatch: deriveWhyMatch({
+        whyMatch: humanizeWhyMatch({
+          title: cleanTitle,
           citation: raw.citation,
-          issues,
-          decision,
+          issues: issueList,
+          caseType: raw.case_type,
+          citedCases: citedNames,
         }),
         type: raw.case_type || "General",
         tags: buildTags({
@@ -322,7 +343,7 @@ export const dataService = {
           x.item.finalVerdict ||
           x.item.final_verdict ||
           "Judgement unavailable",
-        whyMatch: toQuerySpecificReason(query, x.item),
+        whyMatch: humanizeQueryMatch(query, x.item),
         matchedTerms: x.item.tags || [],
       }));
 
@@ -1039,11 +1060,226 @@ function extractSegment(text: string, label: string): string {
   return (endIndex >= 0 ? after.slice(0, endIndex) : after).trim();
 }
 
+/** Extract case names from raw cited-cases dict string like "{'case v. case': 1.0, ...}" */
+function extractCitedCaseNames(raw: string): string[] {
+  if (!raw) return [];
+  const names: string[] = [];
+  const regex = /['"]([^'"]{4,})['"]\s*:/g;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(raw)) !== null) {
+    const name = m[1].trim();
+    // Skip numeric-only or very short fragments
+    if (name && !/^[\d.]+$/.test(name) && name.length > 5) {
+      names.push(humanizeTitle(name));
+    }
+  }
+  return names.slice(0, 5);
+}
+
+/** Parse "Article 14 in The Constitution Of India 1949 ; Section 153 ..." into clean list */
+function parseIssueList(rawIssues: string): string[] {
+  if (!rawIssues) return [];
+  return rawIssues
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 3)
+    .map((s) => {
+      // Clean up "Article 14 in The Constitution Of India 1949" → "Article 14, Constitution of India (1949)"
+      const articleMatch = s.match(
+        /^((?:Article|Section|Rule|Order|Schedule)\s+\d+[A-Za-z]?)\s+in\s+(?:The\s+)?(.+?)\s*,?\s*(\d{4})?$/i,
+      );
+      if (articleMatch) {
+        const [, provision, act, year] = articleMatch;
+        const cleanAct = act.replace(/\s+/g, " ").trim();
+        return year
+          ? `${provision}, ${cleanAct} (${year})`
+          : `${provision}, ${cleanAct}`;
+      }
+      return s.replace(/\s+/g, " ");
+    });
+}
+
+/** Convert a raw title string into proper title case */
+function humanizeTitle(raw: string): string {
+  const cleaned = raw
+    .replace(/\s+/g, " ")
+    .replace(/\.\.\.$/, "")
+    .trim();
+  if (!cleaned) return "Untitled Case";
+  // Proper title case for each word, preserve legal abbreviations
+  return cleaned
+    .split(/\s+/)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      // Preserve common legal abbreviations
+      if (["vs", "v.", "v", "&"].includes(lower)) return lower === "vs" ? "vs" : lower;
+      if (["of", "the", "in", "and", "or", "for", "to", "by", "on", "at", "an", "ors", "ors.", "anr", "anr."].includes(lower))
+        return lower;
+      if (/^[A-Z]{2,}$/.test(word)) return word; // Preserve acronyms like IPC, AIR
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ")
+    // Capitalize first word always
+    .replace(/^./, (c) => c.toUpperCase());
+}
+
+/** Build a clean, human-readable summary from structured case data */
+function humanizeSummary(input: {
+  title: string;
+  court: string;
+  year: number;
+  issues: string[];
+  verdict: string;
+  judges: string;
+  caseType: string;
+}): string {
+  const parts: string[] = [];
+
+  // Opening sentence
+  parts.push(
+    `This ${input.caseType || "legal"} matter was heard by the ${input.court} in ${input.year}.`,
+  );
+
+  // Judge info
+  if (input.judges && input.judges.length > 2) {
+    const judgeNames = input.judges
+      .split(",")
+      .map((j) => j.trim())
+      .filter(Boolean);
+    if (judgeNames.length === 1) {
+      parts.push(`The case was presided over by ${judgeNames[0]}.`);
+    } else if (judgeNames.length > 1) {
+      parts.push(
+        `The bench comprised ${judgeNames.slice(0, -1).join(", ")} and ${judgeNames[judgeNames.length - 1]}.`,
+      );
+    }
+  }
+
+  // Issues
+  if (input.issues.length > 0) {
+    const displayIssues = input.issues.slice(0, 3);
+    parts.push(
+      `The key legal provisions under consideration were ${displayIssues.join("; ")}.`,
+    );
+  }
+
+  // Verdict
+  if (input.verdict && input.verdict !== "Unknown") {
+    parts.push(`The court's final verdict was: ${input.verdict}.`);
+  }
+
+  return parts.join(" ");
+}
+
+/** Build clean judgment text from structured data */
+function humanizeJudgment(input: {
+  title: string;
+  verdict: string;
+  issues: string[];
+  citedCases: string[];
+}): string {
+  const parts: string[] = [];
+
+  if (input.verdict && input.verdict !== "Unknown") {
+    parts.push(
+      `The court pronounced a verdict of "${input.verdict}" in this matter.`,
+    );
+  } else {
+    parts.push("The court examined the facts and arguments presented by all parties.");
+  }
+
+  if (input.issues.length > 0) {
+    parts.push(
+      `The judgment addressed ${input.issues.length > 1 ? "multiple legal provisions" : "the legal provision"} including ${input.issues.slice(0, 2).join(" and ")}.`,
+    );
+  }
+
+  if (input.citedCases.length > 0) {
+    const cited = input.citedCases.slice(0, 3);
+    parts.push(
+      `The court relied on ${cited.length} precedent${cited.length > 1 ? "s" : ""} including ${cited.join(", ")}.`,
+    );
+  }
+
+  return parts.join(" ");
+}
+
+/** Build a clean, human-readable "Why This Match" explanation */
+function humanizeWhyMatch(input: {
+  title: string;
+  citation: string;
+  issues: string[];
+  caseType: string;
+  citedCases: string[];
+}): string {
+  const reasons: string[] = [];
+
+  if (input.issues.length > 0) {
+    reasons.push(
+      `shared legal provisions (${input.issues.slice(0, 2).join(", ")})`,
+    );
+  }
+  if (input.caseType) {
+    reasons.push(`comparable ${input.caseType.toLowerCase()} case context`);
+  }
+  if (input.citedCases.length > 0) {
+    reasons.push(`overlapping precedent citations`);
+  }
+  if (input.citation) {
+    reasons.push(`aligned judgement outcomes`);
+  }
+
+  if (reasons.length === 0) {
+    return "This case matches due to similar legal themes, statutory context, and aligned judgment outcomes.";
+  }
+
+  return `This case matches due to ${reasons.join(", ")}.`;
+}
+
+/** Build a humanized reason for query-specific match results */
+function humanizeQueryMatch(query: string, item: CaseResult): string {
+  const lowerQuery = query.toLowerCase();
+  const matchedTags = item.tags.filter((tag) =>
+    lowerQuery.includes(tag.toLowerCase()),
+  );
+
+  const reasons: string[] = [];
+
+  if (matchedTags.length > 0) {
+    reasons.push(`relevant topic areas (${matchedTags.join(", ")})`);
+  }
+  if (item.type) {
+    reasons.push(`${item.type.toLowerCase()} case classification`);
+  }
+
+  // Extract meaningful query keywords matched in title/summary
+  const queryWords = lowerQuery.split(/\s+/).filter((w) => w.length > 3);
+  const titleLower = item.title.toLowerCase();
+  const titleHits = queryWords.filter((w) => titleLower.includes(w));
+  if (titleHits.length > 0) {
+    reasons.push(
+      `shared legal terms (${titleHits.slice(0, 3).join(", ")})`,
+    );
+  }
+
+  if (item.finalVerdict && item.finalVerdict !== "Unknown") {
+    reasons.push(`a "${item.finalVerdict}" verdict outcome`);
+  }
+
+  if (reasons.length === 0) {
+    return `This case matches your query based on strong similarity in legal themes and statutory context.`;
+  }
+
+  return `This case matches your query based on ${reasons.join(", ")}.`;
+}
+
 function extractJudgmentText(
   fullText: string,
   decisionSegment: string,
   summary: string,
 ): string {
+  // This is now only used for verdict extraction; actual display text
+  // is generated by humanizeJudgment()
   const fromDecision = normalizeText(decisionSegment);
   if (fromDecision && fromDecision.length > 2) {
     return fromDecision.slice(0, 320);
@@ -1238,30 +1474,14 @@ function buildTags(raw: {
   return Array.from(tags).slice(0, 4);
 }
 
-function deriveWhyMatch(raw: {
+// Legacy deriveWhyMatch is replaced by humanizeWhyMatch above.
+// Kept as a no-op fallback in case any codepath still references it.
+function deriveWhyMatch(_raw: {
   citation: string;
   issues: string;
   decision: string;
 }): string {
-  const details = [];
-  if (raw.issues) details.push("issue overlap");
-  if (raw.decision) details.push("similar outcome pattern");
-  if (raw.citation) details.push("citation support");
-  if (details.length === 0)
-    return "Matched on legal narrative similarity from title and summary context.";
-  return `Matched on ${details.join(", ")} in the source judgment metadata.`;
-}
-
-function toQuerySpecificReason(query: string, item: CaseResult): string {
-  const loweredQuery = query.toLowerCase();
-  const matchedTags = item.tags.filter((tag) =>
-    loweredQuery.includes(tag.toLowerCase()),
-  );
-  const tagPhrase =
-    matchedTags.length > 0
-      ? `matching topic tags (${matchedTags.join(", ")})`
-      : "overlapping legal themes";
-  return `Matched on ${tagPhrase}, case type (${item.type}), and strong similarity signals from title and summary context.`;
+  return "Matched on legal narrative similarity from title and summary context.";
 }
 
 function getMatchLevel(score: number): CaseResult["matchLevel"] {
@@ -1271,16 +1491,7 @@ function getMatchLevel(score: number): CaseResult["matchLevel"] {
 }
 
 function buildLocalAiReason(query: string, item: CaseResult): string {
-  const loweredQuery = query.toLowerCase();
-  const titleWords = item.title
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 3);
-  const hits = titleWords.filter((w) => loweredQuery.includes(w)).length;
-  const matchStrength =
-    hits >= 3 ? "exceptional" : hits >= 1 ? "strong" : "baseline";
-
-  return `This case was identified as a ${matchStrength} match based on semantic overlap with your query. The core legal issues in ${item.title} align with the context provided, specifically within the ${item.type} domain.`;
+  return humanizeQueryMatch(query, item);
 }
 
 function buildLocalHumanizedNarrative(item: CaseResult): string {
