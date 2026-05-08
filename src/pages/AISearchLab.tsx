@@ -13,6 +13,8 @@ import {
   AlertCircle,
   CheckCircle,
   Gavel,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { CaseResult, JudgeProfile } from "@/types";
 import { dataService } from "@/services/dataService";
@@ -120,6 +122,15 @@ const SimilarityBar = memo(function SimilarityBar({
   );
 });
 
+/** Derive jurisdiction tag from the result tags array */
+function getJurisdiction(result: CaseResult): string {
+  const jurisdictionTags = (result.tags || []).filter(
+    (t) =>
+      !["Cited", "General", "Criminal", "Civil", "Tax", "Appeal", "Constitutional", "Commercial", "Labor", "Revenue"].includes(t),
+  );
+  return jurisdictionTags[0] || "India";
+}
+
 const ResultCard = memo(function ResultCard({
   result,
   index,
@@ -128,63 +139,188 @@ const ResultCard = memo(function ResultCard({
   index: number;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const verdict = result.finalVerdict || result.final_verdict || "";
+  const jurisdiction = getJurisdiction(result);
+  const caseType = result.type || "General";
+
+  // Truncate long titles for display
+  const displayTitle =
+    result.title.length > 55
+      ? result.title.slice(0, 55) + "…"
+      : result.title;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.15, duration: 0.5 }}
-      className="glass-panel rounded-2xl p-5 hover:glow-primary transition-all cursor-pointer group"
-      onClick={() => setExpanded(!expanded)}
+      className="glass-panel rounded-2xl p-6 hover:glow-primary transition-all group"
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors">
-            {result.title}
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            {result.court} · {result.year}
-          </p>
-        </div>
-        <div className="flex gap-1.5 flex-wrap justify-end">
-          {result.tags.map((tag) => (
-            <span
-              key={tag}
-              className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+      {/* ── Header: Title + Verdict Badge ── */}
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <h3
+          className="font-display font-semibold text-primary text-base leading-snug cursor-pointer group-hover:underline decoration-primary/40 underline-offset-2"
+          title={result.title}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {displayTitle}
+        </h3>
+        {verdict && (
+          <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border bg-muted/60 text-[11px] font-semibold text-foreground whitespace-nowrap">
+            <Gavel className="w-3 h-3" />
+            {verdict}
+          </span>
+        )}
       </div>
+
+      {/* ── Court · Year ── */}
+      <p className="text-sm text-muted-foreground mb-2">
+        {result.court} · {result.year}
+      </p>
+
+      {/* ── Tags row ── */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-3">
+        {result.tags.map((tag) => (
+          <span
+            key={tag}
+            className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+
+      {/* ── Similarity Bar ── */}
       <SimilarityBar score={result.similarity} delay={index * 150 + 300} />
+
+      {/* ── Brief Summary ── */}
       <div className="mt-3">
         <p className="text-sm text-muted-foreground leading-relaxed">
           <TypingText text={result.summary} speed={8} />
         </p>
       </div>
+
+      {/* ── Expand / Collapse Toggle ── */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded(!expanded);
+        }}
+        className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
+      >
+        {expanded ? (
+          <>
+            <ChevronUp className="w-3.5 h-3.5" />
+            Collapse details
+          </>
+        ) : (
+          <>
+            <ChevronDown className="w-3.5 h-3.5" />
+            Expand details
+          </>
+        )}
+      </button>
+
+      {/* ── Expanded Details ── */}
       <AnimatePresence>
         {expanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="mt-4 pt-4 border-t border-border"
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
           >
-            <div className="space-y-3 text-sm text-muted-foreground">
-              {result.judgment || result.finalVerdict ? (
-                <div>
-                  <p className="font-semibold text-foreground mb-1">Judgment</p>
-                  <p>{result.judgment || result.finalVerdict}</p>
-                </div>
-              ) : null}
-              {result.whyMatch || result.whyMatched ? (
-                <div>
-                  <p className="font-semibold text-foreground mb-1">
-                    Why this match
+            <div className="mt-4 pt-4 border-t border-border space-y-5">
+              {/* ── Metadata Grid ── */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden border border-border bg-border">
+                {[
+                  { label: "COURT", value: result.court },
+                  { label: "YEAR", value: String(result.year) },
+                  { label: "CASE TYPE", value: caseType },
+                  { label: "JURISDICTION", value: jurisdiction },
+                ].map((cell) => (
+                  <div
+                    key={cell.label}
+                    className="bg-background px-4 py-3 text-center"
+                  >
+                    <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase mb-1">
+                      {cell.label}
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {cell.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Final Verdict ── */}
+              {verdict && (
+                <div className="rounded-xl bg-muted/40 border border-border px-5 py-3">
+                  <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase mb-1">
+                    FINAL VERDICT
                   </p>
-                  <p>{result.whyMatch || result.whyMatched}</p>
+                  <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                    <Gavel className="w-4 h-4 text-primary" />
+                    {verdict}
+                  </p>
                 </div>
-              ) : null}
+              )}
+
+              {/* ── Case Summary ── */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  📄 CASE SUMMARY
+                </p>
+                <div className="rounded-xl bg-muted/30 border border-border px-5 py-3">
+                  <p className="text-sm text-foreground/80 leading-relaxed">
+                    {result.summary}
+                  </p>
+                </div>
+              </div>
+
+              {/* ── Judgment Text ── */}
+              {(result.judgment || result.finalVerdict) && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    ⚖️ JUDGMENT TEXT
+                  </p>
+                  <div className="rounded-xl bg-muted/30 border border-border px-5 py-3">
+                    <p className="text-sm text-foreground/80 leading-relaxed">
+                      {result.judgment || result.finalVerdict}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Why This Match ── */}
+              {(result.whyMatch || result.whyMatched) && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    🏷️ WHY THIS MATCH
+                  </p>
+                  <div className="rounded-xl bg-muted/30 border border-border px-5 py-3">
+                    <p className="text-sm text-foreground/80 leading-relaxed">
+                      {result.whyMatch || result.whyMatched}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Similarity Badge ── */}
+              <div className="pt-1">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${
+                    result.similarity >= 80
+                      ? "bg-green-500/10 border-green-500/30 text-green-600"
+                      : result.similarity >= 60
+                        ? "bg-amber-500/10 border-amber-500/30 text-amber-600"
+                        : "bg-red-500/10 border-red-500/30 text-red-500"
+                  }`}
+                >
+                  {result.similarity}% Similarity
+                </span>
+              </div>
             </div>
           </motion.div>
         )}

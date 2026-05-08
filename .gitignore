@@ -12,6 +12,18 @@ dist
 dist-ssr
 *.local
 
+# Python virtual env
+Lib/
+Scripts/
+pyvenv.cfg
+Include/
+
+# Test output
+test-results/
+
+# Binary lockfiles
+bun.lockb
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
