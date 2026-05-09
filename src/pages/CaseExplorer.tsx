@@ -621,7 +621,7 @@ function DetailPanel({
 }
 
 export default function CaseExplorer() {
-  const { state: searchState } = useSearch();
+  const { state: searchState, setAISearchData } = useSearch();
   const [view, setView] = useState<"grid" | "graph">("grid");
   const [groupBy, setGroupBy] = useState<GroupByMode>("none");
   const [courtFilter, setCourtFilter] = useState("All Courts");
@@ -853,10 +853,25 @@ export default function CaseExplorer() {
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter" && searchQuery.trim()) {
+                    setIsLoading(true);
+                    try {
+                      const query = searchQuery.trim();
+                      const results = await dataService.searchCases(query);
+                      setAISearchData(query, results);
+                      setSearchQuery("");
+                    } catch (error) {
+                      console.error("Search failed", error);
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }
+                }}
                 placeholder={
                   showMatchedCases
-                    ? "Search matched cases..."
-                    : "Search cases..."
+                    ? "Search matched cases... (Press Enter)"
+                    : "Search cases... (Press Enter)"
                 }
                 className="bg-transparent outline-none w-full text-sm text-foreground placeholder:text-muted-foreground"
               />

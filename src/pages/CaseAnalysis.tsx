@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Upload,
   FilePlus,
+  ChevronDown,
   X as XIcon,
 } from "lucide-react";
 import { dataService } from "@/services/dataService";
@@ -181,6 +182,92 @@ function SectionBlock({
         </h3>
       </div>
       {children}
+    </motion.div>
+  );
+}
+
+function ExpandableCaseCard({
+  refData,
+  index,
+}: {
+  refData: {
+    title: string;
+    court: string;
+    year: number;
+    similarity: number;
+    excerpt: string;
+  };
+  index: number;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.45 + index * 0.06 }}
+      onClick={() => setIsExpanded(!isExpanded)}
+      className="cursor-pointer p-3 rounded-xl bg-muted/30 border border-border hover:bg-muted/50 transition-colors overflow-hidden group"
+    >
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 w-6 h-6 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 group-hover:bg-primary/25 transition-colors">
+          {index + 1}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-semibold text-foreground ${isExpanded ? "" : "truncate"}`}>
+            {refData.title}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {refData.court} · {refData.year}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+            {refData.similarity}%
+          </span>
+          <ChevronDown
+            className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-300 ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+          />
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {isExpanded ? (
+          <motion.div
+            key="expanded"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            {refData.excerpt && (
+              <div className="mt-3 pt-3 border-t border-border/50 text-[13px] text-foreground/80 leading-relaxed pl-9 whitespace-pre-wrap">
+                {refData.excerpt}
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="collapsed"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            {refData.excerpt && (
+              <div className="pl-9 mt-1.5">
+                <p className="text-xs text-foreground/60 line-clamp-2 leading-relaxed">
+                  {refData.excerpt}
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -938,33 +1025,7 @@ export default function CaseAnalysis() {
                 >
                   <div className="space-y-2.5">
                     {report.similarCaseReferences.map((ref, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.45 + i * 0.06 }}
-                        className="flex items-start gap-3 p-3 rounded-xl bg-muted/30 border border-border hover:bg-muted/50 transition-colors"
-                      >
-                        <span className="mt-0.5 w-6 h-6 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                          {i + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">
-                            {ref.title}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {ref.court} · {ref.year}
-                          </p>
-                          {ref.excerpt && (
-                            <p className="text-xs text-foreground/60 mt-1 line-clamp-2">
-                              {ref.excerpt}
-                            </p>
-                          )}
-                        </div>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">
-                          {ref.similarity}%
-                        </span>
-                      </motion.div>
+                      <ExpandableCaseCard key={i} refData={ref} index={i} />
                     ))}
                   </div>
                 </SectionBlock>
