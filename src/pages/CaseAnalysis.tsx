@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Brain,
@@ -11,7 +11,6 @@ import {
   Flame,
   Gavel,
   BookOpen,
-  ChevronDown,
   Send,
   Sparkles,
   Loader2,
@@ -21,6 +20,9 @@ import {
   Users,
   Target,
   TrendingUp,
+  Upload,
+  FilePlus,
+  X as XIcon,
 } from "lucide-react";
 import { dataService } from "@/services/dataService";
 import type { CaseAnalysisReport } from "@/types";
@@ -189,29 +191,65 @@ export default function CaseAnalysis() {
   const [report, setReport] = useState<CaseAnalysisReport | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<"text" | "pdf">("text");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAnalyze = async () => {
     const trimmed = context.trim();
     if (!trimmed) return;
-
     setIsAnalyzing(true);
     setError(null);
     setReport(null);
-
     try {
       const result = await dataService.analyzeCaseContext(trimmed);
       setReport(result);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Analysis failed. Please try again.",
-      );
+      setError(err instanceof Error ? err.message : "Analysis failed. Please try again.");
     } finally {
       setIsAnalyzing(false);
     }
   };
+
+  const handlePdfUpload = useCallback(async (file: File) => {
+    if (!file || file.type !== "application/pdf") {
+      setError("Please upload a valid PDF file.");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setError("PDF file must be under 20 MB.");
+      return;
+    }
+    setPdfFile(file);
+    setIsExtractingPdf(true);
+    setError(null);
+    setReport(null);
+    try {
+      const sections = await dataService.analyzePDF(file);
+      // Concatenate all section content into a coherent context string
+      const extractedText = sections
+        .map((s) => [s.title ? `[${s.title}]` : "", s.content || s.summary || ""].filter(Boolean).join("\n"))
+        .join("\n\n")
+        .trim();
+      if (!extractedText || extractedText.length < 30) {
+        throw new Error("Could not extract readable text from this PDF. Try a text-based PDF.");
+      }
+      setContext(extractedText);
+      // Auto-trigger analysis with the extracted text
+      setIsExtractingPdf(false);
+      setIsAnalyzing(true);
+      const result = await dataService.analyzeCaseContext(extractedText);
+      setReport(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "PDF extraction failed. Please try again.");
+    } finally {
+      setIsExtractingPdf(false);
+      setIsAnalyzing(false);
+    }
+  }, []);
 
   const priorityConfig = report ? PRIORITY_CONFIG[report.priorityLevel] : null;
   const PriorityIcon = priorityConfig?.icon || Shield;
@@ -328,148 +366,147 @@ export default function CaseAnalysis() {
           className="glass-panel rounded-2xl p-4 md:p-5 mb-6 relative overflow-hidden"
         >
           {/* Decorative top strip */}
-          <div
-            className="absolute top-0 left-0 right-0 h-[2px]"
-            style={{
-              background:
-                "linear-gradient(90deg,transparent,hsl(var(--accent)/0.5),transparent)",
-            }}
-          />
+          <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg,transparent,hsl(var(--accent)/0.5),transparent)" }} />
 
-          {/* Label row */}
-          <div className="flex items-center gap-2 mb-3">
+          {/* Mode toggle + label row */}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
               <FileText className="w-3 h-3 text-primary" />
             </div>
-            <label
-              htmlFor="case-context-input"
-              className="text-sm font-semibold text-foreground"
-            >
-              Describe the case or paste case context
-            </label>
-            <span className="ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/8 text-primary border border-primary/15">
-              AI Ready
+            <span className="text-sm font-semibold text-foreground">
+              {inputMode === "text" ? "Describe the case or paste case context" : "Upload a legal case PDF"}
             </span>
+
+            {/* Text / PDF toggle */}
+            <div className="ml-auto flex items-center gap-1 p-1 rounded-lg bg-muted/60 border border-border">
+              <button
+                onClick={() => { setInputMode("text"); setPdfFile(null); setError(null); }}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${inputMode === "text" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <FileText className="w-3 h-3" /> Text
+              </button>
+              <button
+                onClick={() => { setInputMode("pdf"); setError(null); }}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${inputMode === "pdf" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Upload className="w-3 h-3" /> PDF
+              </button>
+            </div>
           </div>
 
-          {/* Textarea with cyber frame */}
-          <div className="relative group">
-            <div className="absolute -inset-1 rounded-xl opacity-0 group-focus-within:opacity-100 transition-all duration-300 pointer-events-none z-0">
-              <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-primary rounded-tl-xl transition-transform duration-300 group-focus-within:-translate-x-1 group-focus-within:-translate-y-1" />
-              <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-primary rounded-tr-xl transition-transform duration-300 group-focus-within:translate-x-1 group-focus-within:-translate-y-1" />
-              <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-primary rounded-bl-xl transition-transform duration-300 group-focus-within:-translate-x-1 group-focus-within:translate-y-1" />
-              <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-primary rounded-br-xl transition-transform duration-300 group-focus-within:translate-x-1 group-focus-within:translate-y-1" />
-              <motion.div
-                className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
-                animate={{ opacity: [0, 1, 0] }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
-              <motion.div
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/3 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
-                animate={{ opacity: [0, 1, 0] }}
-                transition={{
-                  duration: 2,
-                  delay: 1,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
-            </div>
-            <textarea
-              ref={textareaRef}
-              id="case-context-input"
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey))
-                  handleAnalyze();
-              }}
-              placeholder="E.g. An accused charged under Section 302 IPC for murder of a colleague following a workplace dispute. Accused claims self-defense under Section 100 IPC. FIR filed at Bangalore Central PS. Bail application pending..."
-              rows={6}
-              className="relative z-10 w-full bg-background/60 rounded-xl border border-border group-focus-within:border-primary/20 px-5 py-4 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none resize-y min-h-[140px] leading-relaxed transition-colors duration-300"
-            />
-          </div>
+          <AnimatePresence mode="wait">
+            {inputMode === "text" ? (
+              <motion.div key="text-mode" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative group">
+                <div className="absolute -inset-1 rounded-xl opacity-0 group-focus-within:opacity-100 transition-all duration-300 pointer-events-none z-0">
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-primary rounded-tl-xl" />
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-primary rounded-tr-xl" />
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-primary rounded-bl-xl" />
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-primary rounded-br-xl" />
+                </div>
+                <textarea
+                  ref={textareaRef}
+                  id="case-context-input"
+                  value={context}
+                  onChange={(e) => setContext(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAnalyze(); }}
+                  placeholder="E.g. An accused charged under Section 302 IPC for murder of a colleague following a workplace dispute. Accused claims self-defense under Section 100 IPC. FIR filed at Bangalore Central PS. Bail application pending..."
+                  rows={6}
+                  className="relative z-10 w-full bg-background/60 rounded-xl border border-border group-focus-within:border-primary/20 px-5 py-4 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none resize-y min-h-[140px] leading-relaxed transition-colors duration-300"
+                />
+              </motion.div>
+            ) : (
+              <motion.div key="pdf-mode" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                {/* Hidden file input */}
+                <input ref={fileInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePdfUpload(f); e.target.value = ""; }} />
+
+                {pdfFile ? (
+                  /* PDF loaded chip */
+                  <div className="flex items-center gap-3 p-4 rounded-xl border border-primary/30 bg-primary/5">
+                    <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
+                      <FilePlus className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{pdfFile.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{(pdfFile.size / 1024).toFixed(0)} KB · PDF extracted</p>
+                    </div>
+                    <button onClick={() => { setPdfFile(null); setContext(""); setReport(null); setError(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="w-7 h-7 rounded-lg bg-muted/60 flex items-center justify-center hover:bg-red-500/10 hover:text-red-500 transition-colors cursor-pointer">
+                      <XIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  /* Drop zone */
+                  <motion.div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) handlePdfUpload(f); }}
+                    onClick={() => fileInputRef.current?.click()}
+                    animate={{ borderColor: isDragOver ? "hsl(var(--primary))" : "hsl(var(--border))", backgroundColor: isDragOver ? "hsl(var(--primary)/0.08)" : "hsl(var(--background)/0.4)" }}
+                    className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer min-h-[160px] transition-colors"
+                  >
+                    <motion.div
+                      animate={isDragOver ? { scale: 1.15 } : { scale: 1 }}
+                      className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center"
+                    >
+                      <Upload className="w-7 h-7 text-primary" />
+                    </motion.div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-foreground">{isDragOver ? "Drop PDF here" : "Drag & drop a PDF"}</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">or <span className="text-primary underline underline-offset-2">click to browse</span> · Max 20 MB</p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/60 px-4 text-center">Text will be extracted and analyzed through the RAG engine automatically</p>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Footer row */}
           <div className="flex items-center justify-between mt-4 gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                <kbd className="px-2 py-0.5 rounded-md bg-muted border border-border text-[10px] font-mono text-foreground/70">
-                  Ctrl+Enter
-                </kbd>
-                <span>to analyze</span>
-              </p>
+              {inputMode === "text" && (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                  <kbd className="px-2 py-0.5 rounded-md bg-muted border border-border text-[10px] font-mono text-foreground/70">Ctrl+Enter</kbd>
+                  <span>to analyze</span>
+                </p>
+              )}
               {context.trim().length > 0 && (
-                <motion.span
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="text-[10px] text-muted-foreground"
-                >
-                  {context.trim().length} chars
+                <motion.span initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-[10px] text-muted-foreground">
+                  {context.trim().length} chars extracted
                 </motion.span>
               )}
             </div>
-            <motion.button
-              id="analyze-case-btn"
-              onClick={handleAnalyze}
-              disabled={!context.trim() || isAnalyzing}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              className="relative flex items-center gap-2.5 px-7 py-2.5 rounded-xl text-primary-foreground font-semibold text-sm disabled:opacity-40 cursor-pointer overflow-hidden"
-              style={{
-                background:
-                  "linear-gradient(135deg,hsl(var(--primary)),hsl(var(--accent)))",
-              }}
-            >
-              {/* Shimmer */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background:
-                    "linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.2) 50%,transparent 60%)",
-                }}
-                animate={{ x: ["-100%", "200%"] }}
-                transition={{
-                  duration: 2.2,
-                  repeat: Infinity,
-                  ease: "linear",
-                  repeatDelay: 1,
-                }}
-              />
-              {isAnalyzing ? (
-                <Loader2 className="w-4 h-4 animate-spin relative z-10" />
-              ) : (
-                <Send className="w-4 h-4 relative z-10" />
-              )}
-              <span className="relative z-10">
-                {isAnalyzing ? "Analyzing..." : "Analyze Case"}
-              </span>
-            </motion.button>
+
+            {inputMode === "text" && (
+              <motion.button
+                id="analyze-case-btn"
+                onClick={handleAnalyze}
+                disabled={!context.trim() || isAnalyzing}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="relative flex items-center gap-2.5 px-7 py-2.5 rounded-xl text-primary-foreground font-semibold text-sm disabled:opacity-40 cursor-pointer overflow-hidden"
+                style={{ background: "linear-gradient(135deg,hsl(var(--primary)),hsl(var(--accent)))" }}
+              >
+                <motion.div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.2) 50%,transparent 60%)" }} animate={{ x: ["-100%", "200%"] }} transition={{ duration: 2.2, repeat: Infinity, ease: "linear", repeatDelay: 1 }} />
+                {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin relative z-10" /> : <Send className="w-4 h-4 relative z-10" />}
+                <span className="relative z-10">{isAnalyzing ? "Analyzing..." : "Analyze Case"}</span>
+              </motion.button>
+            )}
           </div>
+
           {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3"
-            >
+            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
               <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-red-500">
-                  Analysis Failed
-                </p>
+                <p className="text-sm font-semibold text-red-500">Error</p>
                 <p className="text-xs text-red-400/80 mt-0.5">{error}</p>
               </div>
             </motion.div>
           )}
         </motion.div>
 
-        {/* ── Loading State ── */}
+        {/* ── Loading State (PDF extraction or RAG analysis) ── */}
         <AnimatePresence>
-          {isAnalyzing && (
+          {(isAnalyzing || isExtractingPdf) && (
             <motion.div
               key="loading"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -538,19 +575,24 @@ export default function CaseAnalysis() {
                 </div>
 
                 <p className="text-xl font-display font-bold text-foreground mb-1 tracking-wide">
-                  SIMULATION IN PROGRESS
+                  {isExtractingPdf ? "EXTRACTING PDF" : "SIMULATION IN PROGRESS"}
                 </p>
                 <p className="text-xs text-primary/80 mb-8 font-mono uppercase tracking-widest">
-                  Connecting to Vector Engine...
+                  {isExtractingPdf ? "Parsing legal document..." : "Connecting to Vector Engine..."}
                 </p>
 
                 <div className="w-full space-y-5">
-                  {[
+                  {(isExtractingPdf ? [
+                    "Reading PDF structure",
+                    "Extracting legal text",
+                    "Preparing context for RAG",
+                    "Initiating analysis engine",
+                  ] : [
                     "Establishing semantic vector connection",
                     "Retrieving related precedents",
                     "Applying weighted priority scoring",
                     "Generating judicial reasoning",
-                  ].map((text, i) => (
+                  ]).map((text, i) => (
                     <div key={i} className="flex items-center gap-4">
                       <motion.div
                         initial={{ scale: 0, opacity: 0 }}
@@ -754,11 +796,70 @@ export default function CaseAnalysis() {
                   icon={Sparkles}
                   delay={0.18}
                 >
-                  <div className="rounded-xl bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10 p-4">
-                    <p className="text-sm text-foreground/85 leading-relaxed">
-                      {report.expandedScenario}
-                    </p>
-                  </div>
+                  {(() => {
+                    const text = report.expandedScenario;
+                    if (!text.includes("[Facts]") && !text.includes("[Issues]")) {
+                      return (
+                        <div className="rounded-xl bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10 p-4">
+                          <p className="text-sm text-foreground/85 leading-relaxed">
+                            {text}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    const factsMatch = text.match(
+                      /\[Facts\]([\s\S]*?)(?=\[Issues\]|\[Relief Sought\]|$)/i
+                    );
+                    const issuesMatch = text.match(
+                      /\[Issues\]([\s\S]*?)(?=\[Relief Sought\]|$)/i
+                    );
+                    const reliefMatch = text.match(/\[Relief Sought\]([\s\S]*?)$/i);
+
+                    return (
+                      <div className="space-y-3">
+                        {factsMatch && factsMatch[1].trim() && (
+                          <div className="rounded-xl border border-border p-4 bg-background/50">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                              <span className="text-[10px] font-bold tracking-wider text-blue-500 uppercase">
+                                Facts
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground/80 leading-relaxed">
+                              {factsMatch[1].trim()}
+                            </p>
+                          </div>
+                        )}
+                        {issuesMatch && issuesMatch[1].trim() && (
+                          <div className="rounded-xl border border-border p-4 bg-background/50">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                              <span className="text-[10px] font-bold tracking-wider text-orange-500 uppercase">
+                                Issues
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground/80 leading-relaxed">
+                              {issuesMatch[1].trim()}
+                            </p>
+                          </div>
+                        )}
+                        {reliefMatch && reliefMatch[1].trim() && (
+                          <div className="rounded-xl border border-border p-4 bg-background/50">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                              <span className="text-[10px] font-bold tracking-wider text-purple-500 uppercase">
+                                Relief Sought
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground/80 leading-relaxed">
+                              {reliefMatch[1].trim()}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </SectionBlock>
               )}
 
@@ -901,6 +1002,9 @@ export default function CaseAnalysis() {
                   onClick={() => {
                     setReport(null);
                     setContext("");
+                    setPdfFile(null);
+                    setError(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
                     textareaRef.current?.focus();
                   }}
                   className="px-6 py-2.5 rounded-xl bg-muted text-sm font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"

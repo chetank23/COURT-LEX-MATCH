@@ -294,18 +294,28 @@ export const dataService = {
           item.finalVerdict ||
           item.final_verdict ||
           "Judgement unavailable";
+        // Sanitize all display text coming from the API
+        const cleanSummary = sanitizeDisplayText(item.summary || "");
+        const cleanJudgment = sanitizeDisplayText(item.judgment || mappedJudgement);
+        // Use server-generated judgmentNarrative if present, else fall back to
+        // a client-side humanized judgment string.
+        const cleanJudgmentNarrative = item.judgmentNarrative
+          ? sanitizeDisplayText(item.judgmentNarrative)
+          : cleanJudgment || mappedJudgement;
         return {
           ...item,
           matchLevel:
             item.matchLevel || getMatchLevel((item.similarity || 0) / 100),
+          summary: cleanSummary || "This case involves a legal dispute reviewed by the court.",
           judgement: mappedJudgement,
-          judgment: item.judgment || mappedJudgement,
+          judgment: cleanJudgment || mappedJudgement,
+          judgmentNarrative: cleanJudgmentNarrative,
           finalVerdict: item.finalVerdict || mappedJudgement,
           final_verdict: item.final_verdict || mappedJudgement,
           whyMatch:
             item.whyMatched ||
             item.whyMatch ||
-            toQuerySpecificReason(query, item),
+            humanizeQueryMatch(query, item),
           whyMatched: item.whyMatched || item.whyMatch,
           matchedTerms: item.matchedTerms || item.tags || [],
           tags: item.tags || [],
@@ -1310,6 +1320,43 @@ function extractJudgmentText(
 
 function normalizeText(text: string): string {
   return `${text || ""}`.split("\u0000").join(" ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Safety-net sanitizer: strips raw metadata artifacts from any text
+ * that will be displayed in the UI. Catches anything the server
+ * or local pipeline missed.
+ */
+function sanitizeDisplayText(text: string): string {
+  if (!text) return "";
+  let cleaned = text
+    // Remove Cited Cases dict blocks:  { 'case v case': 1.0, ... }
+    .replace(/Cited\s+Cases\s*:\s*\{[^}]*\}?/gi, "")
+    .replace(/\bCited\s+Cases\s*:/gi, "")
+    // Remove Decision: 0 / Decision: 1
+    .replace(/\bDecision\s*:\s*[01](?:\.0)?\b/gi, "")
+    // Remove Judges: ... lines
+    .replace(/\bJudges?\s*:\s*[^.;\n]*/gi, "")
+    // Remove Issues: label (keep content)
+    .replace(/\bIssues?\s*:\s*/gi, "")
+    // Remove filter: labels
+    .replace(/\bfilter\s*:\s*[^;.]*/gi, "")
+    // Remove raw score values  ': 1.0'  ': 0.8'
+    .replace(/'\s*:\s*\d+\.?\d*/g, "")
+    // Remove dict/array brackets and orphan quotes
+    .replace(/[{}[\]]/g, "")
+    .replace(/'\s*,\s*'/g, ", ")
+    // Remove c-d] style fragments
+    .replace(/\bc-\w?\]/gi, "")
+    // Collapse whitespace
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  // If after cleaning we have less than 20 chars, it was all metadata
+  if (cleaned.length < 20) {
+    return "";
+  }
+  return cleaned;
 }
 
 const VERDICT_RULES = [

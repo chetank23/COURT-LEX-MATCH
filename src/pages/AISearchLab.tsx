@@ -280,14 +280,14 @@ const ResultCard = memo(function ResultCard({
               </div>
 
               {/* ── Judgment Text ── */}
-              {(result.judgment || result.finalVerdict) && (
+              {(result.judgmentNarrative || result.judgment || result.finalVerdict) && (
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     ⚖️ JUDGMENT TEXT
                   </p>
                   <div className="rounded-xl bg-muted/30 border border-border px-5 py-3">
                     <p className="text-sm text-foreground/80 leading-relaxed">
-                      {result.judgment || result.finalVerdict}
+                      {result.judgmentNarrative || result.judgment || result.finalVerdict}
                     </p>
                   </div>
                 </div>

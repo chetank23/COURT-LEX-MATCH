@@ -15,6 +15,9 @@ export interface CaseResult {
   summary: string;
   judgment?: string;
   judgement?: string;
+  /** Dedicated court-holding narrative for the Judgment Text section.
+   *  Describes what the court decided, the verdict, and issues adjudicated. */
+  judgmentNarrative?: string;
   finalVerdict?: string;
   final_verdict?: string;
   whyMatch: string;

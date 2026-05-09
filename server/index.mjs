@@ -151,6 +151,74 @@ function buildHumanizedNarrative(caseItem) {
   return `${intro} ${facts} ${outcome}`.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Build a dedicated Judgment Narrative for the "Judgment Text" UI section.
+ * This is distinct from the case summary: it focuses on what the court held,
+ * the verdict, issues decided, and key precedents — not the background facts.
+ */
+function buildJudgmentNarrative(caseItem) {
+  const title = `${caseItem.title || "This case"}`.trim();
+  const court = `${caseItem.court || "the court"}`.trim();
+  const year = caseItem.year || "";
+  const verdict = `${caseItem.finalVerdict || caseItem.final_verdict || ""}`.trim();
+  const issues = `${caseItem.issues || ""}`.trim();
+  const rawJudgment = `${caseItem._rawJudgment || ""}`.trim();
+
+  const parts = [];
+
+  // Sentence 1 — the court's pronouncement
+  if (verdict && verdict !== "Judgement unavailable") {
+    parts.push(`The ${court} pronounced its judgment in ${year || "this matter"}, ruling: "${verdict}"`);
+  } else {
+    parts.push(`The ${court} delivered its judgment in this matter${year ? " (" + year + ")" : ""}.`);
+  }
+
+  // Sentence 2 — what issues / law were decided
+  if (issues) {
+    const issueList = issues
+      .split(";")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 4)
+      .slice(0, 3);
+    if (issueList.length > 0) {
+      parts.push(
+        `The court adjudicated the following legal provision${
+          issueList.length > 1 ? "s" : ""
+        }: ${issueList.join("; ")}.`
+      );
+    }
+  }
+
+  // Sentence 3 — core holding from raw judgment text (first meaningful sentence)
+  if (rawJudgment && rawJudgment.length > 30) {
+    const cleaned = rawJudgment
+      .replace(/Cited\s+Cases\s*:\s*\{[^}]*\}?/gi, "")
+      .replace(/\bDecision\s*:\s*[01](?:\.0)?\b/gi, "")
+      .replace(/\bJudges?\s*:\s*[^\n;]*/gi, "")
+      .replace(/[{}[\]]/g, "")
+      .replace(/'\s*,\s*'/g, ", ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    // Take a meaningful excerpt (first ≤200 chars, ending at sentence boundary)
+    const excerpt = cleaned.slice(0, 220);
+    const sentenceEnd = Math.max(
+      excerpt.lastIndexOf("."),
+      excerpt.lastIndexOf("!"),
+      excerpt.lastIndexOf("?")
+    );
+    const snippet = sentenceEnd > 20 ? excerpt.slice(0, sentenceEnd + 1) : excerpt;
+    if (snippet.length > 20 && !/^[\d\s.,;'"{}\[\]]+$/.test(snippet)) {
+      parts.push(snippet);
+    }
+  }
+
+  if (parts.length === 0) {
+    return `The court delivered its ruling in ${title}.`;
+  }
+
+  return parts.join(" ").replace(/\s+/g, " ").trim();
+}
+
 async function loadCases() {
   if (caseCache) return caseCache;
 
@@ -184,6 +252,16 @@ async function loadCases() {
       decision_date: raw.decision_date,
     });
 
+    const caseItemForNarrative = {
+      title: raw.title,
+      court: raw.court,
+      year,
+      finalVerdict,
+      final_verdict: finalVerdict,
+      issues,
+      _rawJudgment: judgment,
+    };
+
     return {
       id: raw.case_id,
       title: raw.title,
@@ -194,7 +272,9 @@ async function loadCases() {
       priorityScore,
       priorityBand: toPriorityBand(priorityScore),
       summary: cleanedSummary,
-      judgment,
+      judgment: generateSummary(judgment),
+      judgmentNarrative: buildJudgmentNarrative(caseItemForNarrative),
+      _rawJudgment: judgment,
       finalVerdict,
       final_verdict: finalVerdict,
       whyMatch: deriveWhyMatch({ issues, decision, citation: raw.citation }),
@@ -544,6 +624,7 @@ export async function createServer() {
               whyMatch: item.whyMatch,
               matchedTerms: item.tags.slice(0, 4),
               judgment: item.judgment,
+              judgmentNarrative: item.judgmentNarrative || buildJudgmentNarrative(item),
               finalVerdict: clearFinalJudgment,
               final_verdict: clearFinalJudgment,
               type: item.type,
@@ -617,13 +698,17 @@ export async function createServer() {
             similarity: Math.min(99, Math.max(40, Math.round(rankScore))),
             matchLevel: getMatchLevel(rankScore / 100),
             summary: generateSummary(
-              `${item.summary || ""} ${item.judgment || ""}`,
+              `${item.summary || ""} ${item._rawJudgment || ""}`,
             ),
             judgement: clearFinalJudgment,
             whyMatched,
             whyMatch: whyMatched,
             matchedTerms,
             judgment: item.judgment,
+            judgmentNarrative: item.judgmentNarrative || buildJudgmentNarrative({
+              ...item,
+              finalVerdict: clearFinalJudgment,
+            }),
             finalVerdict: clearFinalJudgment,
             final_verdict: clearFinalJudgment,
             type: item.type,
