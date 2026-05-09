@@ -1,0 +1,560 @@
+{
+  "judges": [
+    {
+      "id": "judge-7",
+      "name": "Justice A. Menon",
+      "courtLevel": "District Court",
+      "category": "Other",
+      "yearsOfExperience": 12,
+      "caseLoadCapacity": 65,
+      "currentCaseLoad": 48,
+      "availability": "Available",
+      "district": "Kochi",
+      "state": "Kerala",
+      "area": "South",
+      "courtName": "Kerala High Court",
+      "specializations": [
+        "Constitutional",
+        "Labor"
+      ]
+    },
+    {
+      "id": "judge-1778010509523",
+      "name": "Justice Chetan",
+      "courtLevel": "District Court",
+      "category": "Criminal",
+      "yearsOfExperience": 8,
+      "caseLoadCapacity": 50,
+      "currentCaseLoad": 0,
+      "availability": "Available",
+      "district": "Bangalore",
+      "state": "Karnataka",
+      "courtName": "District Court",
+      "specializations": []
+    },
+    {
+      "id": "judge-8",
+      "name": "Justice D. Kapoor",
+      "courtLevel": "District Court",
+      "category": "Other",
+      "yearsOfExperience": 8,
+      "caseLoadCapacity": 70,
+      "currentCaseLoad": 35,
+      "availability": "Available",
+      "district": "Ahmedabad",
+      "state": "Gujarat",
+      "area": "West",
+      "courtName": "Gujarat High Court",
+      "specializations": [
+        "Commercial",
+        "Revenue"
+      ]
+    },
+    {
+      "id": "judge-4",
+      "name": "Justice K. Banerjee",
+      "courtLevel": "High Court",
+      "category": "Civil",
+      "yearsOfExperience": 22,
+      "caseLoadCapacity": 50,
+      "currentCaseLoad": 31,
+      "availability": "Available",
+      "district": "Kolkata",
+      "state": "West Bengal",
+      "area": "East",
+      "courtName": "Calcutta High Court",
+      "specializations": [
+        "Civil",
+        "Labor"
+      ]
+    },
+    {
+      "id": "judge-1",
+      "name": "Justice N. Rao",
+      "courtLevel": "Supreme Court",
+      "category": "Criminal",
+      "yearsOfExperience": 20,
+      "caseLoadCapacity": 50,
+      "currentCaseLoad": 38,
+      "availability": "Busy",
+      "district": "New Delhi",
+      "state": "Delhi",
+      "area": "Central",
+      "courtName": "Supreme Court of India",
+      "specializations": [
+        "Criminal",
+        "Constitutional"
+      ]
+    },
+    {
+      "id": "judge-2",
+      "name": "Justice P. Mehta",
+      "courtLevel": "High Court",
+      "category": "Criminal",
+      "yearsOfExperience": 15,
+      "caseLoadCapacity": 60,
+      "currentCaseLoad": 42,
+      "availability": "Available",
+      "district": "New Delhi",
+      "state": "Delhi",
+      "area": "Central",
+      "courtName": "Delhi High Court",
+      "specializations": [
+        "Criminal"
+      ]
+    },
+    {
+      "id": "judge-3",
+      "name": "Justice R. Iyer",
+      "courtLevel": "High Court",
+      "category": "Civil",
+      "yearsOfExperience": 18,
+      "caseLoadCapacity": 55,
+      "currentCaseLoad": 28,
+      "availability": "Available",
+      "district": "Mumbai",
+      "state": "Maharashtra",
+      "area": "West",
+      "courtName": "Bombay High Court",
+      "specializations": [
+        "Civil",
+        "Commercial"
+      ]
+    },
+    {
+      "id": "judge-5",
+      "name": "Justice S. Khan",
+      "courtLevel": "District Court",
+      "category": "Criminal",
+      "yearsOfExperience": 10,
+      "caseLoadCapacity": 70,
+      "currentCaseLoad": 55,
+      "availability": "Busy",
+      "district": "Hyderabad",
+      "state": "Telangana",
+      "area": "South",
+      "courtName": "City Civil Court",
+      "specializations": [
+        "Criminal"
+      ]
+    },
+    {
+      "id": "judge-9",
+      "name": "Justice T. Joseph",
+      "courtLevel": "District Court",
+      "category": "Other",
+      "yearsOfExperience": 14,
+      "caseLoadCapacity": 60,
+      "currentCaseLoad": 40,
+      "availability": "On Leave",
+      "district": "Bengaluru",
+      "state": "Karnataka",
+      "area": "South",
+      "courtName": "Karnataka High Court",
+      "specializations": [
+        "Constitutional"
+      ]
+    },
+    {
+      "id": "judge-6",
+      "name": "Justice V. Sen",
+      "courtLevel": "High Court",
+      "category": "Civil",
+      "yearsOfExperience": 16,
+      "caseLoadCapacity": 55,
+      "currentCaseLoad": 20,
+      "availability": "Available",
+      "district": "Chennai",
+      "state": "Tamil Nadu",
+      "area": "South",
+      "courtName": "Madras High Court",
+      "specializations": [
+        "Civil",
+        "Revenue"
+      ]
+    }
+  ],
+  "hearings": [
+    {
+      "id": "hearing-1777883061880-lg3k1",
+      "caseId": "case-managed-2",
+      "caseTitle": "Anita Sharma vs Metro Developers",
+      "assignedJudgeId": "judge-justice-n.-rao",
+      "assignedJudgeName": "Justice N. Rao",
+      "hearingDate": "04T08:24:21.874Z-05-2026",
+      "hearingTime": "10:30",
+      "courtRoom": "Court Room 1",
+      "state": "Karnataka",
+      "district": "Bangalore",
+      "localCourtName": "Bangalore District Court",
+      "status": "Scheduled",
+      "notes": "Case assigned to Justice N. Rao. Priority: P2. Risk Level: Low"
+    },
+    {
+      "id": "hearing-1777883063479-cwr8v",
+      "caseId": "case-managed-2",
+      "caseTitle": "Anita Sharma vs Metro Developers",
+      "assignedJudgeId": "judge-justice-r.-iyer",
+      "assignedJudgeName": "Justice R. Iyer",
+      "hearingDate": "04T08:24:23.479Z-05-2026",
+      "hearingTime": "10:30",
+      "courtRoom": "Court Room 1",
+      "state": "Karnataka",
+      "district": "Bangalore",
+      "localCourtName": "Bangalore District Court",
+      "status": "Scheduled",
+      "notes": "Case assigned to Justice R. Iyer. Priority: P2. Risk Level: Low"
+    },
+    {
+      "id": "hearing-1778010570246-99tm0",
+      "caseId": "case-891562970",
+      "caseTitle": "Hospital shared patient scans with insurer without consent",
+      "assignedJudgeId": "judge-1778010509523",
+      "assignedJudgeName": "Justice Chetan",
+      "hearingDate": "20-05-2026",
+      "hearingTime": "10:30",
+      "courtRoom": "Court Room 1",
+      "state": "Karnataka",
+      "district": "Bangalore",
+      "localCourtName": "District Court",
+      "status": "Scheduled",
+      "notes": "Scheduled from Case Lab. Case type: Criminal."
+    },
+    {
+      "id": "hearing-1778010597356-tipi2",
+      "caseId": "case-316073499",
+      "caseTitle": "Tenant evicted without written notice despite rent receipts",
+      "assignedJudgeId": "judge-1778010509523",
+      "assignedJudgeName": "Justice Chetan",
+      "hearingDate": "20-05-2026",
+      "hearingTime": "10:30",
+      "courtRoom": "Court Room 1",
+      "state": "Karnataka",
+      "district": "Bangalore",
+      "localCourtName": "District Court",
+      "status": "Scheduled",
+      "notes": "Scheduled from Case Lab. Case type: Criminal."
+    },
+    {
+      "id": "hearing-seed-1",
+      "caseId": "case-101",
+      "caseTitle": "State vs. Ram Kumar (IPC 302)",
+      "assignedJudgeId": "judge-1",
+      "assignedJudgeName": "Justice N. Rao",
+      "hearingDate": "2026-05-04",
+      "hearingTime": "10:00",
+      "courtRoom": "Court Room 1",
+      "state": "Delhi",
+      "district": "New Delhi",
+      "localCourtName": "Delhi High Court",
+      "status": "Scheduled",
+      "notes": "First hearing on merits"
+    },
+    {
+      "id": "hearing-seed-2",
+      "caseId": "case-202",
+      "caseTitle": "Sharma & Co. vs. State of Maharashtra",
+      "assignedJudgeId": "judge-3",
+      "assignedJudgeName": "Justice R. Iyer",
+      "hearingDate": "2026-05-07",
+      "hearingTime": "14:00",
+      "courtRoom": "Court Room 3",
+      "state": "Maharashtra",
+      "district": "Mumbai",
+      "localCourtName": "Bombay High Court",
+      "status": "Scheduled",
+      "notes": "Arguments on admissibility"
+    },
+    {
+      "id": "hearing-seed-3",
+      "caseId": "case-managed-1",
+      "caseTitle": "State vs Kumar (Public Safety Review)",
+      "assignedJudgeId": "judge-1",
+      "assignedJudgeName": "Justice N. Rao",
+      "hearingDate": "2026-05-09",
+      "hearingTime": "11:00",
+      "courtRoom": "Court Room 2",
+      "state": "Delhi",
+      "district": "New Delhi",
+      "localCourtName": "Delhi High Court",
+      "status": "Scheduled",
+      "notes": "Priority case - urgent listing"
+    }
+  ],
+  "managedCases": [
+    {
+      "id": "case-managed-2",
+      "title": "Anita Sharma vs Metro Developers",
+      "status": "Assigned",
+      "assignedJudge": "Justice R. Iyer",
+      "uploadedBy": "Court Support Officer",
+      "notes": "Awaiting affidavit verification.",
+      "autoAssigned": true,
+      "assignmentReason": "✓ Successfully assigned to Justice N. Rao",
+      "priorityScore": 62,
+      "priorityBand": "P2",
+      "bailRiskScore": 24,
+      "escapeRiskScore": 18,
+      "riskScore": 21,
+      "publicDefenderStatus": "Not Required",
+      "updatedAt": 1777863263000
+    },
+    {
+      "id": "case-managed-1",
+      "title": "State vs Kumar (Public Safety Review)",
+      "status": "Assigned",
+      "assignedJudge": "Justice N. Rao",
+      "uploadedBy": "Court Support Officer",
+      "notes": "Urgent listing requested by prosecution.",
+      "autoAssigned": true,
+      "assignmentReason": "Selected for criminal bench fit.",
+      "priorityScore": 88,
+      "priorityBand": "P0",
+      "bailRiskScore": 79,
+      "escapeRiskScore": 72,
+      "riskScore": 76,
+      "publicDefenderStatus": "Pending Allocation",
+      "updatedAt": 1777688919000
+    }
+  ],
+  "activityHistory": [
+    {
+      "id": "hist-1778304018833-93618",
+      "type": "search",
+      "title": "Tenant evicted without written notice despite rent receipts",
+      "date": "2026-05-09T05:20:18.833Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778292949269-370155",
+      "type": "search",
+      "title": "Startup cofounder exited and kept company source code access",
+      "date": "2026-05-09T02:15:49.269Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778292949003-146901",
+      "type": "search",
+      "title": "Startup cofounder exited and kept company source code access",
+      "date": "2026-05-09T02:15:49.003Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778292761682-778069",
+      "type": "upload",
+      "title": "case_1_property_dispute.pdf",
+      "date": "2026-05-09T02:12:41.682Z",
+      "results": 3
+    },
+    {
+      "id": "hist-1778269868204-575346",
+      "type": "search",
+      "title": "Bank froze my account without notice during a loan dispute",
+      "date": "2026-05-08T19:51:08.204Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778269314810-385887",
+      "type": "search",
+      "title": "Hospital shared patient scans witBank froze my account without notice during a loan disputeh insurer without consent",
+      "date": "2026-05-08T19:41:54.810Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778268632240-836620",
+      "type": "search",
+      "title": "Tenant evicted without written notice despite rent receipts",
+      "date": "2026-05-08T19:30:32.240Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778268265518-902009",
+      "type": "search",
+      "title": "Bank froze my account without notice during a loan dispute",
+      "date": "2026-05-08T19:24:25.518Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778268015273-374073",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-08T19:20:15.273Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778012434405-229343",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-05T20:20:34.405Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778011282390-751160",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-05T20:01:22.391Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778011011217-509058",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-05T19:56:51.217Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778010633530-426801",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-05T19:50:33.530Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778010589572-74477",
+      "type": "search",
+      "title": "Tenant evicted without written notice despite rent receipts",
+      "date": "2026-05-05T19:49:49.572Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778010561128-928006",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-05T19:49:21.128Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778010502803-923617",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-05T19:48:22.803Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778010423702-363926",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-05T19:47:03.703Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1778010260977-532297",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-05T19:44:20.977Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777882521996-920527",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-04T08:15:21.996Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777882488482-929459",
+      "type": "view",
+      "title": "Madras Bangalore Transport Co. ... vs Inder Singh And Ors.",
+      "date": "2026-05-04T08:14:48.482Z",
+      "results": null
+    },
+    {
+      "id": "hist-1777882453543-787099",
+      "type": "view",
+      "title": "Madras Bangalore Transport Co. ... vs Inder Singh And Ors.",
+      "date": "2026-05-04T08:14:13.543Z",
+      "results": null
+    },
+    {
+      "id": "hist-1777882256703-580058",
+      "type": "search",
+      "title": "Tenant evicted without written notice despite rent receipts",
+      "date": "2026-05-04T08:10:56.703Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777882181562-339704",
+      "type": "view",
+      "title": "Vinod Kumar Chowdhry vs Narain Devi Taneja",
+      "date": "2026-05-04T08:09:41.562Z",
+      "results": null
+    },
+    {
+      "id": "hist-1777882172945-512061",
+      "type": "search",
+      "title": "Tenant evicted without written notice despite rent receipts",
+      "date": "2026-05-04T08:09:32.945Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777882149677-91008",
+      "type": "search",
+      "title": "Hospital shared patient scans with insurer without consent",
+      "date": "2026-05-04T08:09:09.677Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777880639573-624862",
+      "type": "search",
+      "title": "criminal case",
+      "date": "2026-05-04T07:43:59.573Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777880612071-918374",
+      "type": "view",
+      "title": "Madras Bangalore Transport Co. ... vs Inder Singh And Ors.",
+      "date": "2026-05-04T07:43:32.071Z",
+      "results": null
+    },
+    {
+      "id": "hist-1777880593584-219407",
+      "type": "search",
+      "title": "Tenant evicted without written notice despite rent receipts",
+      "date": "2026-05-04T07:43:13.584Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777880534153-343255",
+      "type": "search",
+      "title": "Tenant evicted without written notice despite rent receipts",
+      "date": "2026-05-04T07:42:14.153Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777880507616-653327",
+      "type": "search",
+      "title": "Contractor abandoned municipal bridge project mid-phase",
+      "date": "2026-05-04T07:41:47.616Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777745976504-501804",
+      "type": "search",
+      "title": "Insurance claim rejected as pre-existing illness without clear proof",
+      "date": "2026-05-02T18:19:36.504Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777745869243-65385",
+      "type": "search",
+      "title": "Contractor abandoned municipal bridge project mid-phase",
+      "date": "2026-05-02T18:17:49.243Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777745605171-880607",
+      "type": "search",
+      "title": "Contractor abandoned municipal bridge project mid-phase",
+      "date": "2026-05-02T18:13:25.171Z",
+      "results": 5
+    },
+    {
+      "id": "hist-1777710775288-189448",
+      "type": "search",
+      "title": "Insurance claim rejected as pre-existing illness without clear proof",
+      "date": "2026-05-02T08:32:55.288Z",
+      "results": 5
+    }
+  ]
+}

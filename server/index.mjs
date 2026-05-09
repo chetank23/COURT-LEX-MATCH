@@ -2614,13 +2614,73 @@ async function buildPdfSections(fileName, cases, options = {}) {
     ? extractionSummary
     : `${extractionSummary} Content does not appear to be a legal case document, so no case matches were returned.`;
 
+  let factsContent = `Extracted narrative from ${fileName}: ${factSnippet}`;
+  let factsSummary = classificationSummary;
+  let issuesContent = `Likely legal issues derived from document language: ${issueHighlights.join(", ")}.`;
+  let issuesSummary = "Identified issue candidates from extracted text and legal keyword patterns.";
+  let reliefContent = `Potential relief indicators found: ${reliefHighlights.join(", ")}. Validate prayer clause details against complete pleadings and annexures.`;
+  let reliefSummary = "Inferred relief direction from explicit remedy-oriented terms in the PDF.";
+
+  if (legalSignal.isCaseLike && extraction.text.length > 50) {
+    const chunk = {
+      section: "Extracted Text",
+      score: 1,
+      text: extraction.text.slice(0, 8000),
+      caseId: fileName
+    };
+    
+    try {
+      const [aiFacts, aiIssues, aiRelief] = await Promise.all([
+        generateDeepSeekGroundedAnswer({
+          query: "Provide a complete, detailed factual narrative based solely on this document. Do not summarize too briefly; capture the essential background, parties involved, and events leading to the dispute.",
+          localAnswer: factsContent,
+          sources: [],
+          retrievedChunks: [chunk],
+          mode: "rag",
+          caseTitle: fileName,
+        }),
+        generateDeepSeekGroundedAnswer({
+          query: "List the core legal issues, allegations, or questions of law raised in this document.",
+          localAnswer: issuesContent,
+          sources: [],
+          retrievedChunks: [chunk],
+          mode: "rag",
+          caseTitle: fileName,
+        }),
+        generateDeepSeekGroundedAnswer({
+          query: "What specific relief, remedy, prayer, or orders are being sought by the parties in this document?",
+          localAnswer: reliefContent,
+          sources: [],
+          retrievedChunks: [chunk],
+          mode: "rag",
+          caseTitle: fileName,
+        })
+      ]);
+      
+      if (aiFacts) {
+        factsContent = aiFacts;
+        factsSummary = "AI successfully extracted and synthesized a comprehensive factual narrative from the uploaded document.";
+      }
+      if (aiIssues) {
+        issuesContent = aiIssues;
+        issuesSummary = "AI extracted the primary legal issues and core allegations directly from the document text.";
+      }
+      if (aiRelief) {
+        reliefContent = aiRelief;
+        reliefSummary = "AI identified the specific relief and remedies prayed for in the document.";
+      }
+    } catch (e) {
+      console.warn("Failed to enhance PDF sections with AI:", e);
+    }
+  }
+
   return [
     {
       id: "sec-facts",
       title: "Facts",
       icon: "FileText",
-      content: `Extracted narrative from ${fileName}: ${factSnippet}`,
-      summary: classificationSummary,
+      content: factsContent,
+      summary: factsSummary,
       highlights: [fileName, suspectedType, extractionBadge],
       tags: [suspectedType, "Facts", "Parsed PDF"],
       matches: ranked,
@@ -2629,9 +2689,8 @@ async function buildPdfSections(fileName, cases, options = {}) {
       id: "sec-issues",
       title: "Issues",
       icon: "AlertTriangle",
-      content: `Likely legal issues derived from document language: ${issueHighlights.join(", ")}.`,
-      summary:
-        "Identified issue candidates from extracted text and legal keyword patterns.",
+      content: issuesContent,
+      summary: issuesSummary,
       highlights: issueHighlights,
       tags: ["Issues", suspectedType],
       matches: ranked,
@@ -2640,9 +2699,8 @@ async function buildPdfSections(fileName, cases, options = {}) {
       id: "sec-relief",
       title: "Relief Sought",
       icon: "Scale",
-      content: `Potential relief indicators found: ${reliefHighlights.join(", ")}. Validate prayer clause details against complete pleadings and annexures.`,
-      summary:
-        "Inferred relief direction from explicit remedy-oriented terms in the PDF.",
+      content: reliefContent,
+      summary: reliefSummary,
       highlights: reliefHighlights,
       tags: ["Relief", suspectedType],
       matches: ranked,
