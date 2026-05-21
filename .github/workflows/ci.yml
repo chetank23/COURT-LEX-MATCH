@@ -9,7 +9,12 @@ on:
 jobs:
   quality-gates:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+
+    env:
+      VITE_API_BASE: http://127.0.0.1:4000
+      NODE_ENV: test
+      PORT: 4000
 
     steps:
       - name: Checkout
@@ -36,8 +41,24 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Migrate database
+        run: npm run db:migrate
+
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
+
+      - name: Start API server (background)
+        run: node server/index.mjs &
+        shell: bash
+
+      - name: Wait for API server to be ready
+        run: |
+          for i in $(seq 1 15); do
+            curl -sf http://127.0.0.1:4000/api/health && echo "API ready" && break
+            echo "Waiting for API... attempt $i"
+            sleep 2
+          done
+        shell: bash
 
       - name: E2E smoke tests
         run: npm run test:e2e

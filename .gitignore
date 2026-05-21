@@ -20,9 +20,14 @@ Include/
 
 # Test output
 test-results/
+playwright-report/
 
-# Binary lockfiles
+# Binary lockfiles (keep npm lock, drop bun)
 bun.lockb
+bun.lock
+
+# TypeScript build cache
+*.tsbuildinfo
 
 # Editor directories and files
 .vscode/*
@@ -49,3 +54,6 @@ pg_server.log.err
 .env.*
 !.env.example
 server/.env
+
+# Generated RAG index (large file — rebuild with: npm run rag:index)
+public/data/rag_index.json

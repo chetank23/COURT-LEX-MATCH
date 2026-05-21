@@ -207,17 +207,8 @@ export default function JudgeAssignmentCenter() {
           district: selectedDistrict,
           hearingDate: normalizeDateDMY(new Date().toISOString()),
           hearingTime: "10:30",
-          notes: `Case assigned to ${judgeToAssign}. Priority: ${selectedCase.priorityBand}. Risk Level: ${getSeverityLevel(selectedCase)}`,
-          // Add missing ManagedCase fields if required by param type
-          status: "New",
-          uploadedBy: user?.name || "Staff",
-          priorityScore: 50,
-          priorityBand: "P2",
-          bailRiskScore: 0,
-          escapeRiskScore: 0,
-          riskScore: 0,
-          publicDefenderStatus: "Not Required",
-        } as any);
+          notes: `Case assigned to ${judgeToAssign}. Priority: ${selectedCase.priorityBand}. Risk Level: ${getSeverityLevel(selectedCase)}. Uploaded by: ${user?.name || "Staff"}`,
+        });
 
         addHearing(hearing);
 
