@@ -13,7 +13,7 @@ dist-ssr
 *.local
 
 # Python virtual env
-Lib/
+/Lib/
 Scripts/
 pyvenv.cfg
 Include/
